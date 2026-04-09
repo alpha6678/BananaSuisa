@@ -1,9 +1,35 @@
+using System.Windows.Input;
+using BananaSuisa.App.Views;
 using BananaSuisa.Core.Diagnostics;
 
 namespace BananaSuisa.App.ViewModels;
 
-public sealed class MainWindowViewModel
+public sealed class MainWindowViewModel : ObservableObject
 {
+    private object? _currentView;
+    private bool _isLoading;
+    private string _loadingMessage = "Carregando...";
+
+    public object? CurrentView
+    {
+        get => _currentView;
+        set => SetProperty(ref _currentView, value);
+    }
+
+    public bool IsLoading
+    {
+        get => _isLoading;
+        set => SetProperty(ref _isLoading, value);
+    }
+
+    public string LoadingMessage
+    {
+        get => _loadingMessage;
+        set => SetProperty(ref _loadingMessage, value);
+    }
+
+    public ICommand NavigateCommand { get; }
+
     private MainWindowViewModel(
         string title,
         string subtitle,
@@ -50,6 +76,21 @@ public sealed class MainWindowViewModel
         WorkspaceItems = workspaceItems;
         GeneratedAt = generatedAt;
         Checks = checks;
+
+        NavigateCommand = new RelayCommand(Navigate);
+        CurrentView = new DashboardView { DataContext = this };
+    }
+
+    private void Navigate(object? parameter)
+    {
+        if (parameter is string viewName)
+        {
+            if (viewName == "Dashboard")
+            {
+                CurrentView = new DashboardView { DataContext = this };
+            }
+            // Outras views podem ser implementadas aqui
+        }
     }
 
     public string Title { get; }
