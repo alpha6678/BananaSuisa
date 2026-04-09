@@ -13,6 +13,8 @@ public sealed class MainWindowViewModel
         string memoryRoot,
         string dataRoot,
         string configPath,
+        string configurationSourcePath,
+        string configurationSummary,
         string wingetPath,
         string workspaceSummary,
         IReadOnlyList<DiagnosticCheckViewModel> workspaceItems,
@@ -27,6 +29,8 @@ public sealed class MainWindowViewModel
         MemoryRoot = memoryRoot;
         DataRoot = dataRoot;
         ConfigPath = configPath;
+        ConfigurationSourcePath = configurationSourcePath;
+        ConfigurationSummary = configurationSummary;
         WingetPath = wingetPath;
         WorkspaceSummary = workspaceSummary;
         WorkspaceItems = workspaceItems;
@@ -49,6 +53,10 @@ public sealed class MainWindowViewModel
     public string DataRoot { get; }
 
     public string ConfigPath { get; }
+
+    public string ConfigurationSourcePath { get; }
+
+    public string ConfigurationSummary { get; }
 
     public string WingetPath { get; }
 
@@ -75,6 +83,8 @@ public sealed class MainWindowViewModel
         string memoryRoot = snapshot.WorkspacePaths?.MemoryRoot ?? "Nao localizado";
         string dataRoot = snapshot.WorkspaceBootstrapResult?.Paths.DataRoot ?? "Nao localizado";
         string configPath = snapshot.WorkspaceBootstrapResult?.Paths.ConfigPath ?? "Nao localizado";
+        string configurationSourcePath = snapshot.ConfigurationLoadResult?.SourcePath ?? "Nao carregado";
+        string configurationSummary = snapshot.ConfigurationLoadResult?.Summary ?? "Configuracao nao carregada.";
         string workspaceSummary = snapshot.WorkspaceBootstrapResult is null
             ? "Workspace nao inicializado."
             : $"Pastas criadas: {snapshot.WorkspaceBootstrapResult.CreatedDirectoryCount} | Arquivos sincronizados: {snapshot.WorkspaceBootstrapResult.SynchronizedFileCount}";
@@ -88,6 +98,8 @@ public sealed class MainWindowViewModel
             memoryRoot: memoryRoot,
             dataRoot: dataRoot,
             configPath: configPath,
+            configurationSourcePath: configurationSourcePath,
+            configurationSummary: configurationSummary,
             wingetPath: snapshot.WingetPath ?? "Nao encontrado",
             workspaceSummary: workspaceSummary,
             workspaceItems: workspaceItems,

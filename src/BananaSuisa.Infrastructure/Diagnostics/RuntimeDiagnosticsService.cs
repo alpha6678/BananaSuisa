@@ -1,3 +1,4 @@
+using BananaSuisa.Core.Configuration;
 using BananaSuisa.Core.Diagnostics;
 using BananaSuisa.Core.Versioning;
 using BananaSuisa.Core.Workspace;
@@ -7,15 +8,18 @@ namespace BananaSuisa.Infrastructure.Diagnostics;
 
 public sealed class RuntimeDiagnosticsService : IRuntimeDiagnosticsService
 {
+    private readonly IConfigurationLoader _configurationLoader;
     private readonly IProjectRootLocator _projectRootLocator;
     private readonly IWorkspaceBootstrapService _workspaceBootstrapService;
     private readonly IWingetLocator _wingetLocator;
 
     public RuntimeDiagnosticsService(
+        IConfigurationLoader configurationLoader,
         IProjectRootLocator projectRootLocator,
         IWorkspaceBootstrapService workspaceBootstrapService,
         IWingetLocator wingetLocator)
     {
+        _configurationLoader = configurationLoader;
         _projectRootLocator = projectRootLocator;
         _workspaceBootstrapService = workspaceBootstrapService;
         _wingetLocator = wingetLocator;
@@ -29,6 +33,9 @@ public sealed class RuntimeDiagnosticsService : IRuntimeDiagnosticsService
         var workspaceBootstrapResult = workspacePaths is null
             ? null
             : _workspaceBootstrapService.EnsureInitialized(workspacePaths);
+        ConfigurationLoadResult? configurationLoadResult = workspaceBootstrapResult is null
+            ? null
+            : _configurationLoader.Load(workspaceBootstrapResult.Paths);
         string? wingetPath = _wingetLocator.TryLocate();
 
         List<DiagnosticCheck> checks =
@@ -45,6 +52,8 @@ public sealed class RuntimeDiagnosticsService : IRuntimeDiagnosticsService
                 workspaceBootstrapResult?.Paths.DataRoot ?? "Sem raiz de projeto para validar a pasta Dados."),
             new("Configuracao base disponivel", workspaceBootstrapResult is not null && File.Exists(workspaceBootstrapResult.Paths.ConfigPath),
                 workspaceBootstrapResult?.Paths.ConfigPath ?? "Sem raiz de projeto para validar a configuracao."),
+            new("Configuracao carregada", configurationLoadResult?.Succeeded == true,
+                configurationLoadResult?.Summary ?? "A configuracao ainda nao foi carregada."),
             new("Winget disponivel", wingetPath is not null, wingetPath ?? "winget.exe nao foi encontrado em LOCALAPPDATA ou PATH.")
         ];
 
@@ -53,6 +62,7 @@ public sealed class RuntimeDiagnosticsService : IRuntimeDiagnosticsService
             baseDirectory,
             workspacePaths,
             workspaceBootstrapResult,
+            configurationLoadResult,
             wingetPath,
             checks,
             DateTime.UtcNow);

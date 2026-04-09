@@ -93,6 +93,10 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="12" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="16" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
@@ -116,7 +120,13 @@
                     <TextBlock Grid.Row="6" Text="Config path" Foreground="#93C5FD" />
                     <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ConfigPath}" TextWrapping="Wrap" />
 
-                    <ItemsControl Grid.Row="8" Grid.ColumnSpan="2" ItemsSource="{Binding WorkspaceItems}">
+                    <TextBlock Grid.Row="8" Text="Config source" Foreground="#93C5FD" />
+                    <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ConfigurationSourcePath}" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="10" Text="Config summary" Foreground="#93C5FD" />
+                    <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding ConfigurationSummary}" TextWrapping="Wrap" />
+
+                    <ItemsControl Grid.Row="12" Grid.ColumnSpan="2" ItemsSource="{Binding WorkspaceItems}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Margin="0,0,0,10"
