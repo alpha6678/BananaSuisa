@@ -86,7 +86,19 @@ function Invoke-SolutionBuild {
 
 function Invoke-AppRun {
     Assert-PathExists -Path $script:AppProjectPath -Description 'Projeto da aplicacao'
-    Invoke-DotNetCommand -Arguments (@('run', '--project', $script:AppProjectPath) + $script:RestArguments)
+    
+    # 1. Compila para garantir que o .exe esta atualizado
+    Invoke-DotNetCommand -Arguments (@('build', $script:AppProjectPath) + $script:RestArguments)
+    
+    # 2. Tenta iniciar o executavel forçando o prompt de administrador (UAC)
+    $exePath = Join-Path $script:ProjectRoot 'src\BananaSuisa.App\bin\Debug\net10.0-windows\BananaSuisa.App.exe'
+    
+    if (Test-Path -LiteralPath $exePath) {
+        Write-Host "`nSolicitando privilegios de Administrador (Verifique o prompt do UAC)..." -ForegroundColor Cyan
+        Start-Process -FilePath $exePath -Verb RunAs
+    } else {
+        throw "Executavel nao encontrado apos o build: $exePath"
+    }
 }
 
 function Invoke-SolutionTests {
