@@ -7,6 +7,7 @@ namespace BananaSuisa.App.ViewModels;
 public sealed class MainWindowViewModel : ObservableObject
 {
     private object? _currentView;
+    private string _navigationSelectedKey = "Dashboard";
     private bool _isLoading;
     private string _loadingMessage = "Carregando...";
 
@@ -14,6 +15,12 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         get => _currentView;
         set => SetProperty(ref _currentView, value);
+    }
+
+    public string NavigationSelectedKey
+    {
+        get => _navigationSelectedKey;
+        set => SetProperty(ref _navigationSelectedKey, value);
     }
 
     public bool IsLoading
@@ -50,6 +57,7 @@ public sealed class MainWindowViewModel : ObservableObject
         IReadOnlyList<SearchPreviewItemViewModel> catalogSearchPreviewItems,
         string wingetPath,
         string workspaceSummary,
+        IReadOnlyList<BootstrapPathRowViewModel> bootstrapPathRows,
         IReadOnlyList<DiagnosticCheckViewModel> workspaceItems,
         string generatedAt,
         IReadOnlyList<DiagnosticCheckViewModel> checks)
@@ -73,6 +81,7 @@ public sealed class MainWindowViewModel : ObservableObject
         CatalogSearchPreviewItems = catalogSearchPreviewItems;
         WingetPath = wingetPath;
         WorkspaceSummary = workspaceSummary;
+        BootstrapPathRows = bootstrapPathRows;
         WorkspaceItems = workspaceItems;
         GeneratedAt = generatedAt;
         Checks = checks;
@@ -83,14 +92,19 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void Navigate(object? parameter)
     {
-        if (parameter is string viewName)
+        if (parameter is not string viewName)
+            return;
+
+        NavigationSelectedKey = viewName;
+
+        CurrentView = viewName switch
         {
-            if (viewName == "Dashboard")
-            {
-                CurrentView = new DashboardView { DataContext = this };
-            }
-            // Outras views podem ser implementadas aqui
-        }
+            "Dashboard" => new DashboardView { DataContext = this },
+            "Catalog" => new CatalogView { DataContext = this },
+            "Logs" => new LogsView { DataContext = this },
+            "Settings" => new SettingsView { DataContext = this },
+            _ => CurrentView
+        };
     }
 
     public string Title { get; }
@@ -130,6 +144,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public string WingetPath { get; }
 
     public string WorkspaceSummary { get; }
+
+    public IReadOnlyList<BootstrapPathRowViewModel> BootstrapPathRows { get; }
 
     public IReadOnlyList<DiagnosticCheckViewModel> WorkspaceItems { get; }
 
@@ -180,6 +196,16 @@ public sealed class MainWindowViewModel : ObservableObject
             ? "Workspace nao inicializado."
             : $"Pastas criadas: {snapshot.WorkspaceBootstrapResult.CreatedDirectoryCount} | Arquivos sincronizados: {snapshot.WorkspaceBootstrapResult.SynchronizedFileCount}";
 
+        string wingetPath = snapshot.WingetPath ?? "Nao encontrado";
+        IReadOnlyList<BootstrapPathRowViewModel> bootstrapPathRows =
+        [
+            new BootstrapPathRowViewModel("Base directory", snapshot.BaseDirectory),
+            new BootstrapPathRowViewModel("Project root", projectRoot),
+            new BootstrapPathRowViewModel("Resources root", resourcesRoot),
+            new BootstrapPathRowViewModel("Memory root", memoryRoot),
+            new BootstrapPathRowViewModel("Winget", wingetPath)
+        ];
+
         return new MainWindowViewModel(
             title: $"BananaSuisa .NET Bootstrap v{snapshot.AppVersion}",
             subtitle: "Primeiro esqueleto WPF com diagnostico de runtime, workspace e busca inicial sobre configuracao e catalogo.",
@@ -198,8 +224,9 @@ public sealed class MainWindowViewModel : ObservableObject
             catalogSearchSummary: catalogSearchSummary,
             catalogSearchPreviewQuery: catalogSearchPreviewQuery,
             catalogSearchPreviewItems: catalogSearchPreviewItems,
-            wingetPath: snapshot.WingetPath ?? "Nao encontrado",
+            wingetPath: wingetPath,
             workspaceSummary: workspaceSummary,
+            bootstrapPathRows: bootstrapPathRows,
             workspaceItems: workspaceItems,
             generatedAt: snapshot.GeneratedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss"),
             checks: checks);

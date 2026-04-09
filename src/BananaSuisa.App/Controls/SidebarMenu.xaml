@@ -15,10 +15,54 @@
         </StackPanel>
         
         <StackPanel Grid.Row="1">
-            <Button Style="{StaticResource SidebarButtonStyle}" Content="Início" Command="{Binding NavigateCommand}" CommandParameter="Dashboard" />
-            <Button Style="{StaticResource SidebarButtonStyle}" Content="Catálogo" Command="{Binding NavigateCommand}" CommandParameter="Catalog" />
-            <Button Style="{StaticResource SidebarButtonStyle}" Content="Logs" Command="{Binding NavigateCommand}" CommandParameter="Logs" />
-            <Button Style="{StaticResource SidebarButtonStyle}" Content="Configurações" Command="{Binding NavigateCommand}" CommandParameter="Settings" />
+            <Button Content="Início" Command="{Binding NavigateCommand}" CommandParameter="Dashboard">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NavigationSelectedKey}" Value="Dashboard">
+                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button Content="Catálogo" Command="{Binding NavigateCommand}" CommandParameter="Catalog">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NavigationSelectedKey}" Value="Catalog">
+                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button Content="Logs" Command="{Binding NavigateCommand}" CommandParameter="Logs">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NavigationSelectedKey}" Value="Logs">
+                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button Content="Configurações" Command="{Binding NavigateCommand}" CommandParameter="Settings">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NavigationSelectedKey}" Value="Settings">
+                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
         </StackPanel>
     </Grid>
 </UserControl>

@@ -22,7 +22,7 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         
-        <!-- Sidebar Esquerda -->
+        <!-- Sidebar Esquerda (DataContext explícito: herança costuma funcionar, mas garante o comando de navegação) -->
         <controls:SidebarMenu Grid.Column="0" />
         
         <!-- Área Direita -->
