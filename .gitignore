@@ -1,0 +1,16 @@
+# Build outputs
+**/bin/
+**/obj/
+TestResults/
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# Runtime state
+BananaSuisa_recursos/BananaSuisa_memoria/
+
+# Generated and temporary files
+*.log
+*.tmp

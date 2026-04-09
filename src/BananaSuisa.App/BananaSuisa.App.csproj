@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\BananaSuisa.Infrastructure\BananaSuisa.Infrastructure.csproj" />
+    <ProjectReference Include="..\BananaSuisa.Services\BananaSuisa.Services.csproj" />
+    <ProjectReference Include="..\BananaSuisa.Core\BananaSuisa.Core.csproj" />
+    <ProjectReference Include="..\BananaSuisa.Shared\BananaSuisa.Shared.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+</Project>
