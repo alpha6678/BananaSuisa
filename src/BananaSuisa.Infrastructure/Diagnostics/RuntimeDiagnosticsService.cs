@@ -1,3 +1,4 @@
+using BananaSuisa.Core.Catalog;
 using BananaSuisa.Core.Configuration;
 using BananaSuisa.Core.Diagnostics;
 using BananaSuisa.Core.Versioning;
@@ -8,17 +9,20 @@ namespace BananaSuisa.Infrastructure.Diagnostics;
 
 public sealed class RuntimeDiagnosticsService : IRuntimeDiagnosticsService
 {
+    private readonly ICatalogLoader _catalogLoader;
     private readonly IConfigurationLoader _configurationLoader;
     private readonly IProjectRootLocator _projectRootLocator;
     private readonly IWorkspaceBootstrapService _workspaceBootstrapService;
     private readonly IWingetLocator _wingetLocator;
 
     public RuntimeDiagnosticsService(
+        ICatalogLoader catalogLoader,
         IConfigurationLoader configurationLoader,
         IProjectRootLocator projectRootLocator,
         IWorkspaceBootstrapService workspaceBootstrapService,
         IWingetLocator wingetLocator)
     {
+        _catalogLoader = catalogLoader;
         _configurationLoader = configurationLoader;
         _projectRootLocator = projectRootLocator;
         _workspaceBootstrapService = workspaceBootstrapService;
@@ -36,6 +40,9 @@ public sealed class RuntimeDiagnosticsService : IRuntimeDiagnosticsService
         ConfigurationLoadResult? configurationLoadResult = workspaceBootstrapResult is null
             ? null
             : _configurationLoader.Load(workspaceBootstrapResult.Paths);
+        CatalogLoadResult? catalogLoadResult = workspaceBootstrapResult is null
+            ? null
+            : _catalogLoader.Load(workspaceBootstrapResult.Paths);
         string? wingetPath = _wingetLocator.TryLocate();
 
         List<DiagnosticCheck> checks =
@@ -54,6 +61,8 @@ public sealed class RuntimeDiagnosticsService : IRuntimeDiagnosticsService
                 workspaceBootstrapResult?.Paths.ConfigPath ?? "Sem raiz de projeto para validar a configuracao."),
             new("Configuracao carregada", configurationLoadResult?.Succeeded == true,
                 configurationLoadResult?.Summary ?? "A configuracao ainda nao foi carregada."),
+            new("Catalogos carregados", catalogLoadResult?.Succeeded == true,
+                catalogLoadResult?.Summary ?? "Os catalogos ainda nao foram carregados."),
             new("Winget disponivel", wingetPath is not null, wingetPath ?? "winget.exe nao foi encontrado em LOCALAPPDATA ou PATH.")
         ];
 
@@ -63,6 +72,7 @@ public sealed class RuntimeDiagnosticsService : IRuntimeDiagnosticsService
             workspacePaths,
             workspaceBootstrapResult,
             configurationLoadResult,
+            catalogLoadResult,
             wingetPath,
             checks,
             DateTime.UtcNow);

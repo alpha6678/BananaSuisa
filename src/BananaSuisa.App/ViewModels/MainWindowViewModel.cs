@@ -15,6 +15,7 @@ public sealed class MainWindowViewModel
         string configPath,
         string configurationSourcePath,
         string configurationSummary,
+        string catalogSummary,
         string wingetPath,
         string workspaceSummary,
         IReadOnlyList<DiagnosticCheckViewModel> workspaceItems,
@@ -31,6 +32,7 @@ public sealed class MainWindowViewModel
         ConfigPath = configPath;
         ConfigurationSourcePath = configurationSourcePath;
         ConfigurationSummary = configurationSummary;
+        CatalogSummary = catalogSummary;
         WingetPath = wingetPath;
         WorkspaceSummary = workspaceSummary;
         WorkspaceItems = workspaceItems;
@@ -57,6 +59,8 @@ public sealed class MainWindowViewModel
     public string ConfigurationSourcePath { get; }
 
     public string ConfigurationSummary { get; }
+
+    public string CatalogSummary { get; }
 
     public string WingetPath { get; }
 
@@ -85,6 +89,7 @@ public sealed class MainWindowViewModel
         string configPath = snapshot.WorkspaceBootstrapResult?.Paths.ConfigPath ?? "Nao localizado";
         string configurationSourcePath = snapshot.ConfigurationLoadResult?.SourcePath ?? "Nao carregado";
         string configurationSummary = snapshot.ConfigurationLoadResult?.Summary ?? "Configuracao nao carregada.";
+        string catalogSummary = snapshot.CatalogLoadResult?.Summary ?? "Catalogos nao carregados.";
         string workspaceSummary = snapshot.WorkspaceBootstrapResult is null
             ? "Workspace nao inicializado."
             : $"Pastas criadas: {snapshot.WorkspaceBootstrapResult.CreatedDirectoryCount} | Arquivos sincronizados: {snapshot.WorkspaceBootstrapResult.SynchronizedFileCount}";
@@ -100,6 +105,7 @@ public sealed class MainWindowViewModel
             configPath: configPath,
             configurationSourcePath: configurationSourcePath,
             configurationSummary: configurationSummary,
+            catalogSummary: catalogSummary,
             wingetPath: snapshot.WingetPath ?? "Nao encontrado",
             workspaceSummary: workspaceSummary,
             workspaceItems: workspaceItems,

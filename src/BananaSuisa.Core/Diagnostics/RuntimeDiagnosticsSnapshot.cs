@@ -1,3 +1,4 @@
+using BananaSuisa.Core.Catalog;
 using BananaSuisa.Core.Configuration;
 using BananaSuisa.Core.Workspace;
 
@@ -9,6 +10,7 @@ public sealed record RuntimeDiagnosticsSnapshot(
     WorkspacePaths? WorkspacePaths,
     WorkspaceBootstrapResult? WorkspaceBootstrapResult,
     ConfigurationLoadResult? ConfigurationLoadResult,
+    CatalogLoadResult? CatalogLoadResult,
     string? WingetPath,
     IReadOnlyList<DiagnosticCheck> Checks,
     DateTime GeneratedAtUtc);

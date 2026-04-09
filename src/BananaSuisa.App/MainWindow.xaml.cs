@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using BananaSuisa.App.ViewModels;
+using BananaSuisa.Infrastructure.Catalog;
 using BananaSuisa.Infrastructure.Configuration;
 using BananaSuisa.Infrastructure.Diagnostics;
 using BananaSuisa.Infrastructure.WinGet;
@@ -17,11 +18,12 @@ public partial class MainWindow : Window
 
     private static MainWindowViewModel BuildViewModel()
     {
+        var catalogLoader = new CatalogLoader();
         var configurationLoader = new ConfigurationLoader();
         var projectRootLocator = new ProjectRootLocator();
         var workspaceBootstrapService = new WorkspaceBootstrapService();
         var wingetLocator = new WingetLocator();
-        var diagnosticsService = new RuntimeDiagnosticsService(configurationLoader, projectRootLocator, workspaceBootstrapService, wingetLocator);
+        var diagnosticsService = new RuntimeDiagnosticsService(catalogLoader, configurationLoader, projectRootLocator, workspaceBootstrapService, wingetLocator);
         var snapshot = diagnosticsService.Collect(AppContext.BaseDirectory);
 
         return MainWindowViewModel.FromSnapshot(snapshot);
