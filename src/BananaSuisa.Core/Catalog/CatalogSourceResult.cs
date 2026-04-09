@@ -5,4 +5,5 @@ public sealed record CatalogSourceResult(
     bool Succeeded,
     string SourcePath,
     int ItemCount,
-    string Detail);
+    string Detail,
+    IReadOnlyList<CatalogItem> Items);

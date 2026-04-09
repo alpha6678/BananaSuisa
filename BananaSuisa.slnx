@@ -6,4 +6,7 @@
     <Project Path="src/BananaSuisa.Services/BananaSuisa.Services.csproj" />
     <Project Path="src/BananaSuisa.Shared/BananaSuisa.Shared.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BananaSuisa.Services.Tests/BananaSuisa.Services.Tests.csproj" />
+  </Folder>
 </Solution>
