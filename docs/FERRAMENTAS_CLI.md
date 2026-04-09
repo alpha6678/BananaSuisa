@@ -14,21 +14,26 @@ Guia das interfaces de terminal do repositório e das CLIs externas úteis ao de
 
 | Comando | Sinónimos | Ação |
 |---------|-----------|------|
-| `build` | `gerar` | Executa [`Gerar_BananaSuisa.ps1`](../ferramentas/Gerar_BananaSuisa.ps1); gera `BananaSuisa.ps1` localmente na raiz da pasta da aplicação. |
-| `versao` | — | Imprime o valor de `$script:BananaSuisaVersao` definido em [`nucleo/versao.ps1`](../BananaSuisa_desenvolvimento/nucleo/versao.ps1). |
+| `compilar` | `build`, `build-dotnet`, `dotnet-build` | Executa `dotnet build .\BananaSuisa.slnx`. |
+| `run` | `rodar`, `ui` | Executa `dotnet run --project .\src\BananaSuisa.App\BananaSuisa.App.csproj`. |
+| `test` | `testar` | Executa `dotnet test .\BananaSuisa.slnx`. |
+| `check` | `validar` | Executa `compilar` + `test` em sequencia. |
 | `help` | `?`, `-h`, `--help` | Mostra a ajuda no terminal. |
 
 ### Exemplos
 
 ```bat
 cd caminho\para\BananaSuisa
-bs.cmd build
-bs.cmd versao
+bs.cmd compilar
+bs.cmd run
+bs.cmd test
+bs.cmd check
 ```
 
 ```powershell
 Set-Location caminho\para\BananaSuisa
 .\ferramentas\BananaSuisa.cli.ps1 build
+.\ferramentas\BananaSuisa.cli.ps1 compilar
 ```
 
 Código de saída: `0` em sucesso; `1` se o comando for desconhecido (após mostrar ajuda).
@@ -45,7 +50,7 @@ Ferramentas que não fazem parte do repositório mas alinham com o fluxo de trab
 | **git** | Controlo de versão do código e dos recursos. |
 | **pwsh** (PowerShell 7) | Shell moderno; preferido pelo `BananaSuisa.cmd` quando instalado. [Instalação](https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows). |
 | **Node.js + npx** | Necessários para o servidor MCP Playwright em [`.cursor/mcp.json`](../.cursor/mcp.json). |
-| **dotnet** | Build e evolucao da solution `BananaSuisa.slnx`, incluindo `dotnet build` e `dotnet run`. |
+| **dotnet** | Build, execucao e testes da solution `BananaSuisa.slnx`, incluindo `dotnet build`, `dotnet run` e `dotnet test`. |
 
 ### Opcional: testes PowerShell com Pester
 
@@ -62,9 +67,9 @@ Invoke-Pester
 
 ## Integração com agentes e CI
 
-- **Agentes (Cursor):** preferir `.\bs.cmd build` ou `.\ferramentas\BananaSuisa.cli.ps1 build` a partir da pasta [`BananaSuisa`](../) (onde está `BananaSuisa.ps1` gerado).
-- **Agentes (Cursor) na base .NET:** usar `dotnet build .\BananaSuisa.slnx` e, quando necessário, `dotnet run --project .\src\BananaSuisa.App\BananaSuisa.App.csproj`.
-- **CI (GitHub Actions, Azure Pipelines, etc.):** usar `powershell` ou `pwsh` com `-NoProfile -ExecutionPolicy Bypass -File .\ferramentas\BananaSuisa.cli.ps1 build` para o legado e `dotnet build .\BananaSuisa.slnx` para a nova base.
+- **Agentes (Cursor):** preferir `.\bs.cmd compilar`, `.\bs.cmd test` e `.\bs.cmd check` a partir da raiz do repositório.
+- **Agentes (Cursor) na base .NET:** usar `.\bs.cmd run` para abrir a UI WPF e `.\bs.cmd check` para validar o fluxo principal.
+- **CI (GitHub Actions, Azure Pipelines, etc.):** usar `dotnet build .\BananaSuisa.slnx` para a nova base.
 
 ---
 

@@ -1,6 +1,6 @@
 # Roadmap de migracao para .NET
 
-Este documento descreve a estrategia de migracao do BananaSuisa da base atual em PowerShell + WinForms para uma stack .NET mais organizada, testavel e distribuivel.
+Este documento descreve a estrategia da migracao completa (concluída) do BananaSuisa da base em PowerShell para uma stack .NET distribuivel.
 
 ## Objetivo
 
@@ -15,10 +15,9 @@ Migrar o produto sem perder comportamento critico, reduzindo:
 
 Hoje o produto e composto por:
 
-- fonte modular em `BananaSuisa_desenvolvimento/`;
-- consolidado gerado em `BananaSuisa.ps1`;
-- UI desktop WinForms;
-- integracao forte com `winget`, App Installer, AppX, WMI/CIM, downloads e dados locais em `BananaSuisa_recursos/`.
+- fonte principal 100% C# .NET WPF (`src/`).
+- App .exe com solicitação de UAC (`app.manifest`).
+- integracao forte com `winget`, App Installer, downloads e dados locais em `BananaSuisa_recursos/`.
 
 ## Principios da migracao
 

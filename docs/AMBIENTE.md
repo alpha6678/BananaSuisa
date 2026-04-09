@@ -29,19 +29,18 @@ Este documento concentra os requisitos atuais para trabalhar no BananaSuisa e os
 
 ```bat
 .\bs.cmd help
-.\bs.cmd versao
-.\bs.cmd build
+.\bs.cmd compilar
+.\bs.cmd run
+.\bs.cmd test
+.\bs.cmd check
 ```
 
-Alternativa direta:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\ferramentas\Gerar_BananaSuisa.ps1
-```
+Equivalentes diretos no .NET:
 
 ```powershell
 dotnet build .\BananaSuisa.slnx
 dotnet run --project .\src\BananaSuisa.App\BananaSuisa.App.csproj
+dotnet test .\BananaSuisa.slnx
 ```
 
 Observacao: nao e necessario alterar a execution policy global do Windows para usar os comandos acima.
@@ -50,11 +49,9 @@ Observacao: nao e necessario alterar a execution policy global do Windows para u
 
 | Caminho | Papel |
 |---------|-------|
-| `BananaSuisa_desenvolvimento/` | Fonte modular do projeto. |
-| `BananaSuisa.ps1` | Script consolidado gerado localmente para execucao; nao e versionado no Git. |
 | `BananaSuisa_recursos/` | Modelos, config e arquivos de apoio. |
 | `BananaSuisa_recursos/BananaSuisa_memoria/` | Estado, dados em uso, registros e caches locais. |
-| `ferramentas/` | Build e CLI de desenvolvimento. |
+| `ferramentas/` | CLI de desenvolvimento. |
 | `.cursor/mcp.json` | Configuracao MCP compartilhada do workspace. |
 | `BananaSuisa.slnx` | Solution da nova base .NET. |
 | `src/` | Projetos da aplicacao WPF e camadas de suporte. |
@@ -62,12 +59,12 @@ Observacao: nao e necessario alterar a execution policy global do Windows para u
 ## Setup inicial recomendado
 
 1. Abrir a pasta `BananaSuisa` no Cursor ou VS Code.
-2. Confirmar que `powershell` funciona no terminal.
-3. Executar `.\bs.cmd build` para gerar o `BananaSuisa.ps1` local.
-4. Executar `dotnet build .\BananaSuisa.slnx` se for trabalhar na base .NET.
+2. Confirmar que `dotnet` SDK 10.x está instalado.
+3. Executar `.\bs.cmd compilar`.
+4. Executar `.\bs.cmd test` para validar os testes automatizados da solution.
 5. Se for usar MCP Playwright, confirmar `node` e `npx` no `PATH`.
 6. Reiniciar o Cursor se alterar `.cursor/mcp.json`.
-7. Testar `BananaSuisa.ps1` como administrador antes de mexer em fluxos de instalacao.
+7. Testar a interface com `.\bs.cmd run` (ou Visual Studio elevado).
 
 ## Requisitos reservados para as proximas fases
 
@@ -81,6 +78,7 @@ Os itens abaixo ainda nao sao obrigatorios para todos os fluxos do projeto, mas 
 | Sintoma | Acao sugerida |
 |---------|---------------|
 | `.\bs.cmd` nao executa | Confirmar se esta na pasta `BananaSuisa` e se `powershell` ou `pwsh` esta disponivel. |
+| `.\bs.cmd compilar` ou `.\bs.cmd test` falha | Confirmar se o `dotnet` SDK 10.x esta instalado e disponivel no `PATH`. |
 | `winget` nao e encontrado | Verificar App Installer, Store e rotinas de reparo documentadas em `actions.ps1` e `SOLUCAO_PROBLEMAS.md`. |
 | `npx` nao e encontrado | Instalar Node.js LTS e reabrir o terminal. |
 | O app nao grava dados | Confirmar permissao de escrita em `BananaSuisa_recursos\BananaSuisa_memoria`. |

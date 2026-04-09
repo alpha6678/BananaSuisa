@@ -4,62 +4,38 @@ Este arquivo orienta agentes de IA que trabalhem no repositório `BananaSuisa/`.
 
 ## Objetivo do projeto
 
-O BananaSuisa e uma aplicacao desktop Windows baseada em PowerShell + WinForms, focada em instalacao, atualizacao, remocao, reparo e operacoes auxiliares ligadas ao ecossistema `winget`.
+O BananaSuisa é uma aplicação desktop Windows (C# WPF), focada em instalacao, atualizacao, remocao, reparo e operacoes auxiliares ligadas ao ecossistema `winget`.
 
-O codigo-fonte editavel vive em `BananaSuisa_desenvolvimento/`. O arquivo `BananaSuisa.ps1` na raiz e apenas o consolidado gerado localmente e ignorado pelo Git.
-
-## Regra mais importante
-
-Nunca trate `BananaSuisa.ps1` como fonte principal. Edite os modulos em `BananaSuisa_desenvolvimento/` e gere o consolidado com `.\bs.cmd build`.
+O código-fonte base fica na solução `.slnx` e dentro da pasta `src/`.
 
 ## Mapa rapido do codigo
 
 | Caminho | Papel |
 |---------|-------|
-| `BananaSuisa_desenvolvimento/nucleo/` | Bootstrap, requisitos, configuracao, workspace, logs e deteccao de `winget`. |
-| `BananaSuisa_desenvolvimento/interface/` | Tema, layout e views WinForms. |
-| `BananaSuisa_desenvolvimento/funcionalidades/` | Busca, catalogo, downloads, drivers, cache e acoes do produto. |
-| `BananaSuisa_desenvolvimento/eventos/` | Wiring de eventos da UI e execucao dos modos. |
+| `src/BananaSuisa.App/` | App WPF e views. |
+| `src/BananaSuisa.Core/` | Entidades e modelos. |
+| `src/BananaSuisa.Services/` | Lógica de negócios. |
+| `src/BananaSuisa.Infrastructure/` | Implementação de dependências externas (como o `winget`). |
+| `src/BananaSuisa.Shared/` | Contratos e tipos comuns. |
 | `BananaSuisa_recursos/` | Configuracoes base, catalogos, instaladores e memoria persistida. |
-| `ferramentas/` | Build consolidado e CLI de desenvolvimento. |
+| `ferramentas/` | CLI de desenvolvimento. |
 | `docs/` | Documentacao de processo, ambiente, IA e referencias. |
-
-## Ordem de carga atual
-
-O consolidado segue a ordem definida em `ferramentas/Gerar_BananaSuisa.ps1`:
-
-1. `nucleo/bootstrap.ps1`
-2. `interface/theme.ps1`
-3. `funcionalidades/search.ps1`
-4. `interface/layout.ps1`
-5. `funcionalidades/catalog.ps1`
-6. `interface/views.ps1`
-7. `funcionalidades/actions.ps1`
-8. `eventos/app.events.ps1`
-
-Se uma alteracao introduzir novo modulo, dependencia de ordem ou bootstrap adicional, atualize esta lista, o gerador e a documentacao associada.
 
 ## Como trabalhar neste repositorio
 
 - Responder em pt-BR.
 - Fazer mudancas pequenas e localizadas sempre que possivel.
-- Preservar a separacao entre `nucleo`, `interface`, `funcionalidades` e `eventos`.
-- Nao remover ou sobrescrever alteracoes do utilizador sem pedido explicito.
-- Se tocar em instalacao, remocao, reparo, drivers, cache ou paths de dados, considerar teste manual com privilegios elevados.
+- Se tocar em instalacao, remocao, reparo, drivers, cache ou paths de dados, considerar teste manual com privilegios elevados, já que o .exe pede UAC.
 - Atualizar documentacao quando comportamento, requisitos ou comandos mudarem.
 
 ## Comandos uteis
 
 ```bat
 .\bs.cmd help
-.\bs.cmd versao
-.\bs.cmd build
-```
-
-Alternativa direta:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\ferramentas\Gerar_BananaSuisa.ps1
+.\bs.cmd compilar
+.\bs.cmd run
+.\bs.cmd test
+.\bs.cmd check
 ```
 
 ## Quando usar subagentes
@@ -71,7 +47,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\ferramentas\Gerar_BananaSu
 ## Validacao esperada
 
 - Para documentacao: revisar links e coerencia com os ficheiros reais.
-- Para mudancas de script: gerar o consolidado com `.\bs.cmd build`.
+- Para mudancas na base .NET: usar `.\bs.cmd compilar`, `.\bs.cmd test` ou `.\bs.cmd check`.
 - Para mudancas de runtime `winget` ou UI desktop: indicar claramente se ainda falta validacao manual no Windows.
 
 ## Documentacao de apoio
