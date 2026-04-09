@@ -51,7 +51,7 @@ Observacao: nao e necessario alterar a execution policy global do Windows para u
 | Caminho | Papel |
 |---------|-------|
 | `BananaSuisa_desenvolvimento/` | Fonte modular do projeto. |
-| `BananaSuisa.ps1` | Script consolidado gerado para execucao. |
+| `BananaSuisa.ps1` | Script consolidado gerado localmente para execucao; nao e versionado no Git. |
 | `BananaSuisa_recursos/` | Modelos, config e arquivos de apoio. |
 | `BananaSuisa_recursos/BananaSuisa_memoria/` | Estado, dados em uso, registros e caches locais. |
 | `ferramentas/` | Build e CLI de desenvolvimento. |
@@ -63,7 +63,7 @@ Observacao: nao e necessario alterar a execution policy global do Windows para u
 
 1. Abrir a pasta `BananaSuisa` no Cursor ou VS Code.
 2. Confirmar que `powershell` funciona no terminal.
-3. Executar `.\bs.cmd build`.
+3. Executar `.\bs.cmd build` para gerar o `BananaSuisa.ps1` local.
 4. Executar `dotnet build .\BananaSuisa.slnx` se for trabalhar na base .NET.
 5. Se for usar MCP Playwright, confirmar `node` e `npx` no `PATH`.
 6. Reiniciar o Cursor se alterar `.cursor/mcp.json`.

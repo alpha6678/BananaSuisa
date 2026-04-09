@@ -40,7 +40,7 @@ Se um novo modulo for criado, atualize a ordem no gerador e a documentacao arqui
 ## Regras praticas
 
 - Edite a versao somente em `BananaSuisa_desenvolvimento/nucleo/versao.ps1`.
-- Nao altere manualmente o `BananaSuisa.ps1`; ele e artefato gerado.
+- Nao altere manualmente o `BananaSuisa.ps1`; ele e artefato gerado e ignorado pelo Git.
 - Coloque logica reutilizavel em funcoes dos modulos, e nao diretamente em handlers da UI.
 - Preserve a separacao entre `interface/`, `funcionalidades/`, `eventos/` e `nucleo/`.
 - Mudancas que afetem paths, memoria ou sincronizacao de dados devem considerar `BananaSuisa_recursos/BananaSuisa_memoria/`.

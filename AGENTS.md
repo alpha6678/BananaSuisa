@@ -6,7 +6,7 @@ Este arquivo orienta agentes de IA que trabalhem no repositório `BananaSuisa/`.
 
 O BananaSuisa e uma aplicacao desktop Windows baseada em PowerShell + WinForms, focada em instalacao, atualizacao, remocao, reparo e operacoes auxiliares ligadas ao ecossistema `winget`.
 
-O codigo-fonte editavel vive em `BananaSuisa_desenvolvimento/`. O arquivo `BananaSuisa.ps1` na raiz e apenas o consolidado gerado.
+O codigo-fonte editavel vive em `BananaSuisa_desenvolvimento/`. O arquivo `BananaSuisa.ps1` na raiz e apenas o consolidado gerado localmente e ignorado pelo Git.
 
 ## Regra mais importante
 

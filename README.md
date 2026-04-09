@@ -4,7 +4,7 @@
 
 | Local | Função |
 |-------|--------|
-| [`BananaSuisa.ps1`](BananaSuisa.ps1) | Script único gerado para uso no PC (execute como administrador). |
+| `BananaSuisa.ps1` | Script consolidado gerado localmente via build; não é mais versionado no Git. |
 | [`BananaSuisa.bat`](BananaSuisa.bat) | Atalho que inicia `BananaSuisa.ps1`. |
 | [`BananaSuisa_desenvolvimento/`](BananaSuisa_desenvolvimento/) | Código-fonte em módulos (`nucleo`, `interface`, `funcionalidades`, `eventos`). |
 | [`BananaSuisa_desenvolvimento/nucleo/versao.ps1`](BananaSuisa_desenvolvimento/nucleo/versao.ps1) | **Versão única** (`$script:BananaSuisaVersao`) — editar aqui; o gerador embute no `BananaSuisa.ps1` e a UI mostra no título. |
@@ -28,6 +28,8 @@ Apagar a pasta `BananaSuisa_memoria` (com o app fechado) redefine o app aos padr
 
 ## Gerar o script consolidado
 
+Depois de clonar o repositório, gere o consolidado localmente antes de usar o launcher legado.
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\ferramentas\Gerar_BananaSuisa.ps1
 ```
@@ -38,7 +40,7 @@ Ou pela CLI:
 .\bs.cmd build
 ```
 
-Saída: `BananaSuisa.ps1` na raiz (substitui o arquivo anterior).
+Saída: `BananaSuisa.ps1` na raiz (substitui o arquivo anterior). O arquivo é um artefato local e fica ignorado pelo Git.
 
 ## Esqueleto .NET
 

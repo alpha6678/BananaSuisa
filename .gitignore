@@ -12,5 +12,7 @@ TestResults/
 BananaSuisa_recursos/BananaSuisa_memoria/
 
 # Generated and temporary files
+BananaSuisa.ps1
+BananaSuisa_PRO.ps1
 *.log
 *.tmp

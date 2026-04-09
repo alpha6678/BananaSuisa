@@ -14,7 +14,7 @@ Guia das interfaces de terminal do repositório e das CLIs externas úteis ao de
 
 | Comando | Sinónimos | Ação |
 |---------|-----------|------|
-| `build` | `gerar` | Executa [`Gerar_BananaSuisa.ps1`](../ferramentas/Gerar_BananaSuisa.ps1); gera `BananaSuisa.ps1` na raiz da pasta da aplicação. |
+| `build` | `gerar` | Executa [`Gerar_BananaSuisa.ps1`](../ferramentas/Gerar_BananaSuisa.ps1); gera `BananaSuisa.ps1` localmente na raiz da pasta da aplicação. |
 | `versao` | — | Imprime o valor de `$script:BananaSuisaVersao` definido em [`nucleo/versao.ps1`](../BananaSuisa_desenvolvimento/nucleo/versao.ps1). |
 | `help` | `?`, `-h`, `--help` | Mostra a ajuda no terminal. |
 

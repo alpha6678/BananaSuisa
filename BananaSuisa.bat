@@ -6,7 +6,7 @@ set "SCRIPT_FILE=%SCRIPT_DIR%BananaSuisa.ps1"
 
 if not exist "%SCRIPT_FILE%" (
     echo [X] Erro: %SCRIPT_FILE% nao encontrado.
-    echo [!] Gere antes: powershell -File ferramentas\Gerar_BananaSuisa.ps1
+    echo [!] Gere antes: .\bs.cmd build
     pause
     exit /b 1
 )
