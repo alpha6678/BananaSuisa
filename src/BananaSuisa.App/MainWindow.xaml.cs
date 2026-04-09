@@ -17,8 +17,9 @@ public partial class MainWindow : Window
     private static MainWindowViewModel BuildViewModel()
     {
         var projectRootLocator = new ProjectRootLocator();
+        var workspaceBootstrapService = new WorkspaceBootstrapService();
         var wingetLocator = new WingetLocator();
-        var diagnosticsService = new RuntimeDiagnosticsService(projectRootLocator, wingetLocator);
+        var diagnosticsService = new RuntimeDiagnosticsService(projectRootLocator, workspaceBootstrapService, wingetLocator);
         var snapshot = diagnosticsService.Collect(AppContext.BaseDirectory);
 
         return MainWindowViewModel.FromSnapshot(snapshot);

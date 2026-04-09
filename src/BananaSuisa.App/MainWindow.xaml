@@ -18,6 +18,8 @@
                 <RowDefinition Height="24" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="24" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="24" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -76,7 +78,80 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="4">
+            <Border Grid.Row="4"
+                    Padding="20"
+                    Background="#1F2937"
+                    BorderBrush="#374151"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="16" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Grid.ColumnSpan="2"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Text="Workspace inicializado" />
+
+                    <TextBlock Grid.Row="2" Text="Resumo" Foreground="#93C5FD" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding WorkspaceSummary}" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="4" Text="Data root" Foreground="#93C5FD" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding DataRoot}" TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="6" Text="Config path" Foreground="#93C5FD" />
+                    <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ConfigPath}" TextWrapping="Wrap" />
+
+                    <ItemsControl Grid.Row="8" Grid.ColumnSpan="2" ItemsSource="{Binding WorkspaceItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,10"
+                                        Padding="14"
+                                        Background="#0F172A"
+                                        BorderBrush="#334155"
+                                        BorderThickness="1"
+                                        CornerRadius="10">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Text="{Binding Name}" />
+                                            <Border DockPanel.Dock="Right"
+                                                    Padding="8,2"
+                                                    Background="#1E3A8A"
+                                                    CornerRadius="999">
+                                                <TextBlock FontSize="11"
+                                                           FontWeight="Bold"
+                                                           Text="{Binding StatusText}" />
+                                            </Border>
+                                        </DockPanel>
+                                        <TextBlock Margin="0,8,0,0"
+                                                   Foreground="#CBD5E1"
+                                                   TextWrapping="Wrap"
+                                                   Text="{Binding Detail}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="6">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="12" />
