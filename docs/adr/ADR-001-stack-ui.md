@@ -37,6 +37,7 @@ Adotar **WPF em .NET 10** como stack da primeira implementacao .NET do BananaSui
 
 - A UI nao nasce na stack visual mais moderna do ecossistema Windows.
 - Pode ser necessario rever esta decisao no futuro se houver exigencia forte de componentes ou recursos exclusivos do Windows App SDK.
+- Padroes de layout com `ScrollViewer` e controlos com scroll interno (`DataGrid`, `TextBox`) exigem atencao ao encaminhamento da roda do rato; o repositorio documenta convencoes em `src/BananaSuisa.App/Behaviors/README.md` e [`../MELHORIAS.md`](../MELHORIAS.md).
 
 ### O que esta fora desta decisao
 

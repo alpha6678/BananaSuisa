@@ -1,5 +1,11 @@
 # Melhorias recentes (changelog resumido)
 
+## UI WPF: scroll com a roda do rato (DataGrid, TextBox, ScrollViewer)
+
+**Problema:** Em vistas com `ScrollViewer` (ex.: fluxo Instalar, Logs), grelhas `DataGrid` e caixas de texto com scroll interno capturavam a roda mesmo quando não havia nada a rolar dentro do controlo, ou quando o utilizador pretendia mover a página inteira. `ScrollViewer` aninhados na mesma direção para o mesmo conteúdo também impediam a roda de atuar no scroll “certo”.
+
+**Solução:** Um único scroll vertical na casca do fluxo (ex.: `InstallShellView`); vistas filhas sem segundo `ScrollViewer` redundante onde não for necessário. Comportamentos anexados em `src/BananaSuisa.App/Behaviors/` (`DataGridWheelBehavior` aplicado em `LogsDataGridStyle`; `TextBoxWheelBehavior` no log de instalação em `MainWindow`) encaminham a roda para o `ScrollViewer` da página quando o scroll interno não a absorve. Ver `Behaviors/README.md` na pasta do código.
+
 ## Correção de raiz do projeto (`projectRoot`)
 
 **Problema:** Com o script consolidado na raiz do repositório, uma resolução incorreta de `$projectRoot` (`Split-Path -Parent $PSScriptRoot`) apontava para a pasta *pai* do projeto (ex.: Desktop), não para a pasta do BananaSuisa. O `PayloadRoot` deixava de encontrar `BananaSuisa_recursos` (antes `payload`), e catálogo/config podiam não sincronizar — sintoma típico: interface ok, instalação falha ou dados inconsistentes.

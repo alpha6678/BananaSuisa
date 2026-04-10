@@ -13,6 +13,7 @@ O código-fonte base fica na solução `.slnx` e dentro da pasta `src/`.
 | Caminho | Papel |
 |---------|-------|
 | `src/BananaSuisa.App/` | App WPF e views. |
+| `src/BananaSuisa.App/Behaviors/` | Comportamentos anexados (ex.: encaminhar roda do rato para o scroll da página em `DataGrid` / `TextBox`). |
 | `src/BananaSuisa.Core/` | Entidades e modelos. |
 | `src/BananaSuisa.Services/` | Lógica de negócios. |
 | `src/BananaSuisa.Infrastructure/` | Implementação de dependências externas (como o `winget`). |

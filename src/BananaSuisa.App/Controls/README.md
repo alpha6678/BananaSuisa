@@ -6,9 +6,11 @@ Este diretório contém os componentes reutilizáveis (Widgets) e as partes estr
 
 A janela principal (`MainWindow.xaml`) atua como um *Shell* (Casca) que hospeda a aplicação usando três áreas principais:
 1. **SidebarMenu**: Menu lateral de navegação (fixo à esquerda).
-2. **MainContentArea**: Um `ContentControl` central onde as *Views* (como a `DashboardView`) são injetadas dependendo do que o usuário clica no menu.
+2. **MainContentArea** (`x:Name="MainContentArea"`): Um `ContentControl` central onde as *Views* (como a `DashboardView`) são injetadas dependendo do que o usuário clica no menu. O nome é usado por comportamentos de scroll (ver `Behaviors/README.md`).
 3. **StatusFooter**: Barra de rodapé para mostrar progresso, mensagens rápidas e versão do app.
 4. **LoadingOverlay**: Camada com fundo semi-transparente que pode cobrir a interface para indicar que uma operação em segundo plano está acontecendo (ex: instalação do Winget).
+
+No fluxo **Instalar**, a faixa **Log de instalação** (abaixo da área central) usa `TextBoxWheelBehavior` para que a roda do rato possa mover o scroll da view principal quando o próprio log não precisa de scroll interno.
 
 ---
 
@@ -73,3 +75,13 @@ A barra na base do aplicativo. Ideal para o usuário entender se a aplicação e
 
 ### 5. `SidebarMenu`
 A barra de navegação principal. Possui botões estilizados. Por padrão eles ativam o comando `NavigateCommand` associado ao ViewModel atual para injetar uma nova View no centro da tela.
+
+---
+
+## Comportamentos de scroll (pasta `Behaviors/`)
+
+Não são controlos visuais, mas propriedades anexadas para a roda do rato e `ScrollViewer`. Documentação: [`../Behaviors/README.md`](../Behaviors/README.md).
+
+### `LogViewerWidget` e scroll aninhado
+
+Se este widget for colocado **dentro** de outro `ScrollViewer` (página já rolável), o scroll interno do widget pode interferir na roda; nesse caso avalie o mesmo padrão de encaminhamento descrito em `Behaviors/README.md` ou evite duplo scroll na mesma direção.

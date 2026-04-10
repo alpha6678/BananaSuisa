@@ -21,6 +21,7 @@ Este documento define o fluxo minimo para evoluir o BananaSuisa na stack .NET/WP
 ## Regras praticas
 
 - Preserve a separacao de camadas do .NET.
+- **UI WPF:** evite `ScrollViewer` aninhados para o mesmo eixo no mesmo conteúdo; para `DataGrid` com estilo `LogsDataGridStyle` e para `TextBox` de log junto à área principal, siga os padrões em `src/BananaSuisa.App/Behaviors/README.md`.
 - Mudancas que afetem paths, memoria ou sincronizacao de dados devem considerar `BananaSuisa_recursos/BananaSuisa_memoria/`.
 - Se tocar em `winget`, App Installer, drivers ou update do Windows, registe claramente o fluxo testado (lembre-se que requer permissão de Administrador).
 

@@ -5,8 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-        <Grid Margin="28" Background="Transparent">
+    <Grid Margin="28" Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="16" />
@@ -93,6 +92,5 @@
 
             <TextBlock Grid.Row="8" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap"
                        Text="Para instalar um pacote a partir da lista, use o terminal: winget install --id &lt;ID&gt; (integracao de instalacao em um clique pode ser adicionada depois)." />
-        </Grid>
-    </ScrollViewer>
+    </Grid>
 </UserControl>
