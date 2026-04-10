@@ -22,9 +22,9 @@ public sealed class WingetSearchRelevanceTests
     {
         var items = new[]
         {
-            new WingetSearchItem("Foo Bar", "X.Foo", "1", "winget"),
-            new WingetSearchItem("Google Chrome", "Google.Chrome", "1", "winget"),
-            new WingetSearchItem("Outro", "Other.App", "1", "winget"),
+            new WingetSearchItem("Foo Bar", "X.Foo", "1", "winget", ""),
+            new WingetSearchItem("Google Chrome", "Google.Chrome", "1", "winget", ""),
+            new WingetSearchItem("Outro", "Other.App", "1", "winget", ""),
         };
 
         IReadOnlyList<WingetSearchItem> ranked = WingetSearchRelevance.RankByRelevance(items, "navegador chrome", 10);
@@ -35,7 +35,7 @@ public sealed class WingetSearchRelevanceTests
     [Fact]
     public void ScoreAgainstQuery_ContemFrasePontuaAlto()
     {
-        var item = new WingetSearchItem("Microsoft Edge", "Microsoft.Edge", "1", "winget");
+        var item = new WingetSearchItem("Microsoft Edge", "Microsoft.Edge", "1", "winget", "");
         int s1 = WingetSearchRelevance.ScoreAgainstQuery("edge browser", item);
         int s2 = WingetSearchRelevance.ScoreAgainstQuery("xyz unrelated", item);
         Assert.True(s1 > s2);

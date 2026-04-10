@@ -239,6 +239,11 @@ public sealed class MainWindowViewModel : ObservableObject
             "InstallUwp" => new UwpProvisionView { DataContext = this },
             _ => InstallChildView
         };
+
+        if (key == "InstallRun")
+        {
+            _ = LoadInstalledWingetPackagesAsync();
+        }
     }
 
     private void AppendInstallLog(string line)
@@ -370,6 +375,47 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
+    private async Task LoadInstalledWingetPackagesAsync()
+    {
+        IsLoading = true;
+        LoadingMessage = "Listando programas instalados (winget)...";
+        try
+        {
+            WingetSearchRows.Clear();
+            var outcome = await _wingetSearch.ListInstalledAsync(200).ConfigureAwait(true);
+            if (!outcome.Success)
+            {
+                AppendInstallLog($"[winget instalados] {outcome.Message}");
+                if (!string.IsNullOrEmpty(outcome.FailureDetail))
+                {
+                    _appLog.Write(
+                        AppLogLevel.Warning,
+                        "install.winget.list",
+                        outcome.Message,
+                        data: new Dictionary<string, string> { ["saidaWinget"] = outcome.FailureDetail });
+                }
+
+                return;
+            }
+
+            foreach (var row in outcome.Items)
+            {
+                WingetSearchRows.Add(new WingetSearchRowViewModel(row.Name, row.Id, row.Version, row.Source ?? string.Empty, row.InstallationOrigin));
+            }
+
+            AppendInstallLog($"[winget instalados] {outcome.Message}");
+        }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.winget.list", "LoadInstalledWingetPackagesAsync falhou.", ex);
+            AppendInstallLog($"[winget instalados] ERRO interno: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
     private async Task SearchWingetCatalogAsync()
     {
         IsLoading = true;
@@ -395,7 +441,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
             foreach (var row in outcome.Items)
             {
-                WingetSearchRows.Add(new WingetSearchRowViewModel(row.Name, row.Id, row.Version, row.Source ?? string.Empty));
+                WingetSearchRows.Add(new WingetSearchRowViewModel(row.Name, row.Id, row.Version, row.Source ?? string.Empty, row.InstallationOrigin));
             }
 
             AppendInstallLog($"[winget pesquisa] {outcome.Message}");

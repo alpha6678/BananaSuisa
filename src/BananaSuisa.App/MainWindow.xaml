@@ -40,7 +40,11 @@
             </Grid.RowDefinitions>
 
             <!-- Área de Trabalho Dinâmica -->
-            <ContentControl x:Name="MainContentArea" Grid.Row="0" Content="{Binding CurrentView}" />
+            <ContentControl x:Name="MainContentArea"
+                            Grid.Row="0"
+                            VerticalContentAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Content="{Binding CurrentView}" />
 
             <!-- Log de instalação junto ao rodapé (apenas no fluxo Instalar); scroll vertical/horizontal quando o texto excede a área -->
             <Border Grid.Row="1"

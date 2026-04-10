@@ -12,4 +12,9 @@ public interface IWingetSearchService
     /// e os resultados são ordenados por similaridade ao texto original (nome/ID).
     /// </summary>
     Task<WingetSearchOutcome> SearchAsync(string query, int maxResults, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lista pacotes ja instalados nesta maquina (equivalente a <c>winget list</c>).
+    /// </summary>
+    Task<WingetSearchOutcome> ListInstalledAsync(int maxResults, CancellationToken cancellationToken = default);
 }

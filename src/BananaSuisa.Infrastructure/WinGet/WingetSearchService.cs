@@ -107,6 +107,72 @@ public sealed class WingetSearchService : IWingetSearchService
             rankedText);
     }
 
+    public async Task<WingetSearchOutcome> ListInstalledAsync(int maxResults, CancellationToken cancellationToken = default)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return WingetSearchOutcome.Fail("Listagem winget disponivel apenas no Windows.");
+        }
+
+        if (maxResults < 1)
+        {
+            maxResults = 50;
+        }
+
+        maxResults = Math.Min(maxResults, HardCap);
+
+        string? wingetPath = _locator.TryLocate();
+        if (string.IsNullOrWhiteSpace(wingetPath))
+        {
+            return WingetSearchOutcome.Fail("winget.exe nao encontrado. Instale o App Installer ou use a secao Winget para provisionar.");
+        }
+
+        string argsJson = "list --accept-source-agreements --json";
+        ProcessRunResult runJson = await ProcessRunner.RunAsync(wingetPath, argsJson, cancellationToken).ConfigureAwait(false);
+
+        if (runJson.ExitCode == 0)
+        {
+            string json = runJson.StandardOutput.Trim();
+            if (json.StartsWith("{", StringComparison.Ordinal))
+            {
+                try
+                {
+                    List<WingetSearchItem> items = ParseJson(json, maxResults);
+                    return WingetSearchOutcome.Ok(
+                        items.Count == 0
+                            ? "Nenhum pacote winget listado como instalado."
+                            : $"{items.Count} pacote(s) instalado(s) (limite {maxResults}).",
+                        items);
+                }
+                catch (Exception ex)
+                {
+                    return WingetSearchOutcome.Fail(
+                        $"Nao foi possivel interpretar a saida JSON do winget list. Detalhe: {ex.Message}",
+                        TruncateCombined(runJson));
+                }
+            }
+        }
+
+        string argsText = "list --accept-source-agreements";
+        ProcessRunResult runText = await ProcessRunner.RunAsync(wingetPath, argsText, cancellationToken).ConfigureAwait(false);
+
+        if (runText.ExitCode != 0)
+        {
+            return FailFromProcess(runText, "Listagem winget falhou");
+        }
+
+        List<WingetSearchItem> textItems = ParseTextOutput(runText.StandardOutput, maxResults);
+        string note = runJson.ExitCode != 0 || !runJson.StandardOutput.TrimStart().StartsWith("{", StringComparison.Ordinal)
+            ? " (saida em texto; atualize o App Installer para suportar --json)"
+            : "";
+
+        return WingetSearchOutcome.Ok(
+            textItems.Count == 0
+                ? $"Nenhum pacote winget listado como instalado{note}."
+                : $"{textItems.Count} pacote(s) instalado(s) (limite {maxResults}){note}.",
+            textItems);
+    }
+
     private static WingetSearchOutcome FailFromProcess(ProcessRunResult run, string shortPrefix)
     {
         string detail = TruncateCombined(run);
@@ -161,9 +227,23 @@ public sealed class WingetSearchService : IWingetSearchService
     }
 
     /// <summary>
-    /// Tabela de texto padrao do winget (locale PT/EN): linhas apos o separador de hifens.
+    /// Tabela de texto padrao do winget (locale PT/EN): colunas alinhadas; fallback para split legado.
     /// </summary>
     private static List<WingetSearchItem> ParseTextOutput(string text, int maxPackagesBeforeRank)
+    {
+        List<WingetSearchItem> fromTable = WingetCliTextTableParser.TryParsePackageTable(text, maxPackagesBeforeRank);
+        if (fromTable.Count > 0)
+        {
+            return fromTable;
+        }
+
+        return ParseTextOutputLegacySplit(text, maxPackagesBeforeRank);
+    }
+
+    /// <summary>
+    /// Fallback quando o cabecalho nao e reconhecido: split por espacos (pode falhar se colunas vazias).
+    /// </summary>
+    private static List<WingetSearchItem> ParseTextOutputLegacySplit(string text, int maxPackagesBeforeRank)
     {
         var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
         var list = new List<WingetSearchItem>();
@@ -215,7 +295,17 @@ public sealed class WingetSearchService : IWingetSearchService
             string version = parts.Length > 2 ? parts[2] : "";
             string source = parts.Length > 3 ? parts[^1] : "";
 
-            list.Add(new WingetSearchItem(name, id, version, source));
+            // Coluna ID vazia: nome | versao | winget (3 tokens) — sem isto, versao aparece como ID.
+            if (parts.Length == 3 && IsWingetRepositoryToken(parts[2]) && LooksLikeVersionToken(parts[1]))
+            {
+                id = "";
+                version = parts[1];
+                source = parts[2];
+            }
+
+            string origin = WingetInstallationOrigin.Resolve(source, id);
+
+            list.Add(new WingetSearchItem(name, id, version, source, origin));
             if (list.Count >= maxPackagesBeforeRank)
             {
                 break;
@@ -223,6 +313,28 @@ public sealed class WingetSearchService : IWingetSearchService
         }
 
         return list;
+    }
+
+    private static bool IsWingetRepositoryToken(string s)
+    {
+        return s.Equals("winget", StringComparison.OrdinalIgnoreCase) ||
+               s.Equals("msstore", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool LooksLikeVersionToken(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+        {
+            return false;
+        }
+
+        // Versoes numericas ou Unknown
+        if (s.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return char.IsDigit(s[0]) || (s[0] == '<' && s.Length > 1 && char.IsDigit(s[1]));
     }
 
     private static bool IsSeparatorLine(string line)
@@ -263,7 +375,8 @@ public sealed class WingetSearchService : IWingetSearchService
                     string id = GetString(pkg, "PackageIdentifier") ?? GetString(pkg, "Id") ?? "";
                     string name = GetString(pkg, "PackageName") ?? GetString(pkg, "Name") ?? id;
                     string version = ExtractVersion(pkg);
-                    list.Add(new WingetSearchItem(name, id, version, sourceName));
+                    string origin = BuildOriginFromPackageJson(pkg, sourceName, id);
+                    list.Add(new WingetSearchItem(name, id, version, sourceName, origin));
 
                     if (list.Count >= maxPackagesBeforeRank)
                     {
@@ -274,6 +387,20 @@ public sealed class WingetSearchService : IWingetSearchService
         }
 
         return list;
+    }
+
+    private static string BuildOriginFromPackageJson(JsonElement pkg, string sourceName, string id)
+    {
+        string? pfn = GetString(pkg, "PackageFamilyName");
+        string? installerType = GetString(pkg, "InstallerType");
+        if (string.IsNullOrEmpty(installerType) &&
+            pkg.TryGetProperty("Installer", out JsonElement inst) &&
+            inst.ValueKind == JsonValueKind.Object)
+        {
+            installerType = GetString(inst, "InstallerType");
+        }
+
+        return WingetInstallationOrigin.Resolve(sourceName, id, pfn, installerType);
     }
 
     private static string ExtractVersion(JsonElement pkg)
