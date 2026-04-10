@@ -5,8 +5,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:controls="clr-namespace:BananaSuisa.App.Controls"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="900">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="28">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+        <Grid Margin="28" Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="20" />
@@ -30,6 +30,7 @@
             <controls:InfoCardWidget Grid.Row="2" CardTitle="Caminhos e ambiente">
                 <controls:InfoCardWidget.CardContent>
                     <DataGrid Style="{StaticResource LogsDataGridStyle}"
+                              MaxHeight="300"
                               ItemsSource="{Binding BootstrapPathRows}"
                               AutoGenerateColumns="False"
                               HeadersVisibility="Column"
@@ -89,6 +90,7 @@
 
                         <TextBlock Margin="0,16,0,8" Style="{StaticResource SubHeaderTextStyle}" Text="Itens do workspace" />
                         <DataGrid Style="{StaticResource LogsDataGridStyle}"
+                                  MaxHeight="300"
                                   ItemsSource="{Binding WorkspaceItems}"
                                   AutoGenerateColumns="False"
                                   HeadersVisibility="Column"
@@ -128,6 +130,7 @@
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SearchPreviewQuery}" TextWrapping="Wrap" />
                         </Grid>
                         <DataGrid Style="{StaticResource LogsDataGridStyle}"
+                                  MaxHeight="300"
                                   ItemsSource="{Binding SearchPreviewItems}"
                                   AutoGenerateColumns="False"
                                   HeadersVisibility="Column"
@@ -172,6 +175,7 @@
                             <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding CatalogSearchPreviewQuery}" TextWrapping="Wrap" />
                         </Grid>
                         <DataGrid Style="{StaticResource LogsDataGridStyle}"
+                                  MaxHeight="300"
                                   ItemsSource="{Binding CatalogSearchPreviewItems}"
                                   AutoGenerateColumns="False"
                                   HeadersVisibility="Column"
@@ -194,6 +198,7 @@
                 <controls:InfoCardWidget.CardContent>
                     <StackPanel>
                         <DataGrid Style="{StaticResource LogsDataGridStyle}"
+                                  MaxHeight="300"
                                   ItemsSource="{Binding Checks}"
                                   AutoGenerateColumns="False"
                                   HeadersVisibility="Column"

@@ -14,7 +14,11 @@
             <TextBlock Text="BananaSuisa" Foreground="{StaticResource TextHighlightBrush}" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
         </StackPanel>
         
-        <StackPanel Grid.Row="1">
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="0,0,4,0">
+        <StackPanel Background="Transparent">
             <Button Content="Início" Command="{Binding NavigateCommand}" CommandParameter="Dashboard">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
@@ -76,5 +80,6 @@
                 </Button.Style>
             </Button>
         </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

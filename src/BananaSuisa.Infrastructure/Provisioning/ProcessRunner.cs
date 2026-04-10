@@ -19,6 +19,8 @@ internal static class ProcessRunner
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
         if (!string.IsNullOrWhiteSpace(workingDirectory))
         {

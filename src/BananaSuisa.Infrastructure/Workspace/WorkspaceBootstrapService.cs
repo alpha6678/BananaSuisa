@@ -58,7 +58,7 @@ public sealed class WorkspaceBootstrapService : IWorkspaceBootstrapService
         items.Add(new WorkspaceBootstrapItem(
             "Arquivo de log",
             true,
-            $"O log principal desta base .NET sera escrito em {paths.LogFilePath} quando o servico de log for implementado."));
+            $"Diagnostico em JSON (NDJSON): {paths.LogFilePath}."));
 
         return new WorkspaceBootstrapResult(paths, items, createdDirectoryCount, synchronizedFileCount);
     }

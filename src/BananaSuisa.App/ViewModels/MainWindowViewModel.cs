@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using BananaSuisa.App.Views;
 using BananaSuisa.Core.Diagnostics;
+using BananaSuisa.Core.Logging;
 using BananaSuisa.Services.Abstractions;
 
 namespace BananaSuisa.App.ViewModels;
@@ -25,6 +27,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly IWingetProvisioningService _wingetProvisioning;
     private readonly IUwpAppInstallerProvisioningService _uwpProvisioning;
     private readonly IWingetSearchService _wingetSearch;
+    private readonly IAppJsonLog _appLog;
 
     public object? CurrentView
     {
@@ -144,11 +147,13 @@ public sealed class MainWindowViewModel : ObservableObject
         IReadOnlyList<DiagnosticCheckViewModel> checks,
         IWingetProvisioningService wingetProvisioning,
         IUwpAppInstallerProvisioningService uwpProvisioning,
-        IWingetSearchService wingetSearch)
+        IWingetSearchService wingetSearch,
+        IAppJsonLog appLog)
     {
         _wingetProvisioning = wingetProvisioning;
         _uwpProvisioning = uwpProvisioning;
         _wingetSearch = wingetSearch;
+        _appLog = appLog;
 
         Title = title;
         Subtitle = subtitle;
@@ -247,6 +252,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private void AppendInstallLog(string line)
     {
         InstallActivityLog += $"[{DateTime.Now:HH:mm:ss}] {line}\r\n";
+        _appLog.Write(AppLogLevel.Information, "install.ui", line);
     }
 
     private async Task ProbeWingetAsync()
@@ -256,6 +262,11 @@ public sealed class MainWindowViewModel : ObservableObject
         try
         {
             await ProbeWingetCoreAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.winget", "ProbeWingetAsync falhou.", ex);
+            AppendInstallLog($"[winget] ERRO interno: {ex.Message}");
         }
         finally
         {
@@ -288,6 +299,11 @@ public sealed class MainWindowViewModel : ObservableObject
             AppendInstallLog(r.Succeeded ? $"[winget] {r.Message}" : $"[winget] ERRO: {r.Message}");
             await ProbeWingetCoreAsync().ConfigureAwait(true);
         }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.winget", "InstallWingetBundleAsync falhou.", ex);
+            AppendInstallLog($"[winget] ERRO interno: {ex.Message}");
+        }
         finally
         {
             IsLoading = false;
@@ -304,6 +320,11 @@ public sealed class MainWindowViewModel : ObservableObject
             AppendInstallLog(r.Succeeded ? $"[winget] {r.Message}" : $"[winget] ERRO: {r.Message}");
             await ProbeWingetCoreAsync().ConfigureAwait(true);
         }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.winget", "ReinstallWingetAsync falhou.", ex);
+            AppendInstallLog($"[winget] ERRO interno: {ex.Message}");
+        }
         finally
         {
             IsLoading = false;
@@ -317,6 +338,11 @@ public sealed class MainWindowViewModel : ObservableObject
         try
         {
             await ProbeUwpCoreAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.uwp", "ProbeUwpAsync falhou.", ex);
+            AppendInstallLog($"[uwp] ERRO interno: {ex.Message}");
         }
         finally
         {
@@ -341,6 +367,11 @@ public sealed class MainWindowViewModel : ObservableObject
             AppendInstallLog(r.Succeeded ? $"[uwp] {r.Message}" : $"[uwp] ERRO: {r.Message}");
             await ProbeUwpCoreAsync().ConfigureAwait(true);
         }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.uwp", "InstallUwpBundleAsync falhou.", ex);
+            AppendInstallLog($"[uwp] ERRO interno: {ex.Message}");
+        }
         finally
         {
             IsLoading = false;
@@ -359,6 +390,15 @@ public sealed class MainWindowViewModel : ObservableObject
             if (!outcome.Success)
             {
                 AppendInstallLog($"[winget pesquisa] {outcome.Message}");
+                if (!string.IsNullOrEmpty(outcome.FailureDetail))
+                {
+                    _appLog.Write(
+                        AppLogLevel.Warning,
+                        "install.winget.search",
+                        outcome.Message,
+                        data: new Dictionary<string, string> { ["saidaWinget"] = outcome.FailureDetail });
+                }
+
                 return;
             }
 
@@ -368,6 +408,11 @@ public sealed class MainWindowViewModel : ObservableObject
             }
 
             AppendInstallLog($"[winget pesquisa] {outcome.Message}");
+        }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.winget.search", "SearchWingetCatalogAsync falhou.", ex);
+            AppendInstallLog($"[winget pesquisa] ERRO interno: {ex.Message}");
         }
         finally
         {
@@ -425,7 +470,8 @@ public sealed class MainWindowViewModel : ObservableObject
         RuntimeDiagnosticsSnapshot snapshot,
         IWingetProvisioningService wingetProvisioning,
         IUwpAppInstallerProvisioningService uwpProvisioning,
-        IWingetSearchService wingetSearch)
+        IWingetSearchService wingetSearch,
+        IAppJsonLog appLog)
     {
         IReadOnlyList<DiagnosticCheckViewModel> checks = snapshot.Checks
             .Select(check => new DiagnosticCheckViewModel(check.Name, check.IsHealthy, check.Detail))
@@ -504,6 +550,7 @@ public sealed class MainWindowViewModel : ObservableObject
             checks: checks,
             wingetProvisioning: wingetProvisioning,
             uwpProvisioning: uwpProvisioning,
-            wingetSearch: wingetSearch);
+            wingetSearch: wingetSearch,
+            appLog: appLog);
     }
 }

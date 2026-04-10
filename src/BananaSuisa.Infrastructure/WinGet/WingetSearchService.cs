@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using BananaSuisa.Core.Winget;
 using BananaSuisa.Infrastructure.Provisioning;
 using BananaSuisa.Services.Abstractions;
@@ -8,6 +9,7 @@ namespace BananaSuisa.Infrastructure.WinGet;
 public sealed class WingetSearchService : IWingetSearchService
 {
     private const int HardCap = 500;
+    private const int FailureDetailMaxChars = 8000;
     private readonly IWingetLocator _locator;
 
     public WingetSearchService(IWingetLocator locator)
@@ -42,38 +44,184 @@ public sealed class WingetSearchService : IWingetSearchService
         }
 
         string safeQuery = trimmed.Replace("\"", "", StringComparison.Ordinal);
-        string args = $"search \"{safeQuery}\" --json --accept-source-agreements";
 
-        ProcessRunResult run = await ProcessRunner.RunAsync(wingetPath, args, cancellationToken).ConfigureAwait(false);
+        // 1) tentar JSON (winget recente)
+        string argsJson = $"search \"{safeQuery}\" --accept-source-agreements --json";
+        ProcessRunResult runJson = await ProcessRunner.RunAsync(wingetPath, argsJson, cancellationToken).ConfigureAwait(false);
 
-        if (run.ExitCode != 0)
+        if (runJson.ExitCode == 0)
         {
-            string err = $"{run.StandardError}{run.StandardOutput}".Trim();
-            return WingetSearchOutcome.Fail(string.IsNullOrEmpty(err) ? $"winget search falhou (exit {run.ExitCode})." : err);
+            string json = runJson.StandardOutput.Trim();
+            if (json.StartsWith("{", StringComparison.Ordinal))
+            {
+                try
+                {
+                    List<WingetSearchItem> items = ParseJson(json, maxResults);
+                    if (items.Count == 0)
+                    {
+                        return WingetSearchOutcome.Ok("Nenhum pacote encontrado para este termo.", []);
+                    }
+
+                    return WingetSearchOutcome.Ok($"{items.Count} resultado(s) (limite {maxResults}).", items);
+                }
+                catch (Exception ex)
+                {
+                    return WingetSearchOutcome.Fail(
+                        $"Nao foi possivel interpretar a saida JSON do winget. Detalhe: {ex.Message}",
+                        TruncateCombined(runJson));
+                }
+            }
         }
 
-        string json = run.StandardOutput.Trim();
-        if (string.IsNullOrEmpty(json))
+        // 2) fallback: saida em texto (winget antigo ou --json nao suportado)
+        string argsText = $"search \"{safeQuery}\" --accept-source-agreements";
+        ProcessRunResult runText = await ProcessRunner.RunAsync(wingetPath, argsText, cancellationToken).ConfigureAwait(false);
+
+        if (runText.ExitCode != 0)
         {
-            return WingetSearchOutcome.Ok("Nenhum resultado.", []);
+            return FailFromProcess(runText, "Pesquisa winget falhou");
         }
 
-        List<WingetSearchItem> items;
-        try
-        {
-            items = ParseJson(json, maxResults);
-        }
-        catch (Exception ex)
-        {
-            return WingetSearchOutcome.Fail($"Nao foi possivel interpretar a saida do winget. Atualize o App Installer/winget. Detalhe: {ex.Message}");
-        }
-
-        if (items.Count == 0)
+        List<WingetSearchItem> textItems = ParseTextOutput(runText.StandardOutput, maxResults);
+        if (textItems.Count == 0)
         {
             return WingetSearchOutcome.Ok("Nenhum pacote encontrado para este termo.", []);
         }
 
-        return WingetSearchOutcome.Ok($"{items.Count} resultado(s) (limite {maxResults}).", items);
+        string note = runJson.ExitCode != 0 || !runJson.StandardOutput.TrimStart().StartsWith("{", StringComparison.Ordinal)
+            ? " (saida em texto; atualize o App Installer para suportar --json)"
+            : "";
+
+        return WingetSearchOutcome.Ok($"{textItems.Count} resultado(s) (limite {maxResults}){note}.", textItems);
+    }
+
+    private static WingetSearchOutcome FailFromProcess(ProcessRunResult run, string shortPrefix)
+    {
+        string detail = TruncateCombined(run);
+        string? userLine = ExtractFirstLineForUser(detail);
+        string user = string.IsNullOrEmpty(userLine)
+            ? $"{shortPrefix} (exit {run.ExitCode})."
+            : userLine;
+
+        if (user.Length > 400)
+        {
+            user = user.Substring(0, 397) + "...";
+        }
+
+        return WingetSearchOutcome.Fail(user, string.IsNullOrEmpty(detail) ? null : detail);
+    }
+
+    private static string TruncateCombined(ProcessRunResult run)
+    {
+        string s = $"{run.StandardError}{run.StandardOutput}".Trim();
+        if (s.Length <= FailureDetailMaxChars)
+        {
+            return s;
+        }
+
+        return s.Substring(0, FailureDetailMaxChars) + "\n...[truncado]";
+    }
+
+    private static string? ExtractFirstLineForUser(string combined)
+    {
+        foreach (string line in combined.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string t = line.Trim();
+            if (t.Length == 0)
+            {
+                continue;
+            }
+
+            if (t.StartsWith("---", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (t.StartsWith("Windows Package Manager", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return t;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Tabela de texto padrao do winget (locale PT/EN): linhas apos o separador de hifens.
+    /// </summary>
+    private static List<WingetSearchItem> ParseTextOutput(string text, int maxResults)
+    {
+        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
+        var list = new List<WingetSearchItem>();
+        bool pastSeparator = false;
+
+        foreach (string line in lines)
+        {
+            string t = line.TrimEnd();
+            if (string.IsNullOrWhiteSpace(t))
+            {
+                continue;
+            }
+
+            if (IsSeparatorLine(t))
+            {
+                pastSeparator = true;
+                continue;
+            }
+
+            if (!pastSeparator)
+            {
+                continue;
+            }
+
+            if (t.StartsWith("Nenhum pacote encontrado", StringComparison.OrdinalIgnoreCase) ||
+                t.StartsWith("No package found", StringComparison.OrdinalIgnoreCase) ||
+                t.StartsWith("No packages found", StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+
+            if (t.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                t.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            string[] parts = Regex.Split(t.Trim(), @"\s{2,}")
+                .Where(p => p.Length > 0)
+                .ToArray();
+
+            if (parts.Length < 2)
+            {
+                continue;
+            }
+
+            string name = parts[0];
+            string id = parts[1];
+            string version = parts.Length > 2 ? parts[2] : "";
+            string source = parts.Length > 3 ? parts[^1] : "";
+
+            list.Add(new WingetSearchItem(name, id, version, source));
+            if (list.Count >= maxResults)
+            {
+                break;
+            }
+        }
+
+        return list;
+    }
+
+    private static bool IsSeparatorLine(string line)
+    {
+        string trimmed = line.Trim();
+        if (trimmed.Length < 5)
+        {
+            return false;
+        }
+
+        return trimmed.All(c => c == '-' || c == '+' || c == ' ' || c == '|');
     }
 
     private static List<WingetSearchItem> ParseJson(string json, int maxResults)
@@ -147,5 +295,4 @@ public sealed class WingetSearchService : IWingetSearchService
             _ => null
         };
     }
-
 }

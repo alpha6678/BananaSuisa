@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Name="root">
     <Border Background="{StaticResource WidgetBackgroundBrush}" BorderBrush="{StaticResource WidgetBorderBrush}" BorderThickness="1" CornerRadius="8">
-        <ScrollViewer x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="8">
+        <ScrollViewer x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="8">
             <ItemsControl ItemsSource="{Binding Logs, ElementName=root}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>

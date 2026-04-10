@@ -1,5 +1,6 @@
 ﻿using System.Net.Http;
 using System.Windows;
+using BananaSuisa.App.Logging;
 using BananaSuisa.App.ViewModels;
 using BananaSuisa.Infrastructure.Catalog;
 using BananaSuisa.Infrastructure.Configuration;
@@ -43,6 +44,6 @@ public partial class MainWindow : Window
             wingetLocator);
         var snapshot = diagnosticsService.Collect(AppContext.BaseDirectory);
 
-        return MainWindowViewModel.FromSnapshot(snapshot, wingetProvisioning, uwpProvisioning, wingetSearch);
+        return MainWindowViewModel.FromSnapshot(snapshot, wingetProvisioning, uwpProvisioning, wingetSearch, AppJsonLogRegistry.Current);
     }
 }
