@@ -8,8 +8,8 @@ namespace BananaSuisa.Services.Abstractions;
 public interface IWingetSearchService
 {
     /// <summary>
-    /// Executa busca por texto. Lista completa estilo "loja" não é suportada de forma eficiente pelo CLI;
-    /// use termos de pesquisa (nome, id ou categoria).
+    /// Executa busca por texto em linguagem natural: palavras de preenchimento são ignoradas na query do winget
+    /// e os resultados são ordenados por similaridade ao texto original (nome/ID).
     /// </summary>
     Task<WingetSearchOutcome> SearchAsync(string query, int maxResults, CancellationToken cancellationToken = default);
 }

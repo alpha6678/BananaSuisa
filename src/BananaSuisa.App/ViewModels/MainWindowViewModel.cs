@@ -21,8 +21,6 @@ public sealed class MainWindowViewModel : ObservableObject
     private string _wingetProbeSummary = "Clique em Verificar para analisar o winget nesta maquina.";
     private string _uwpProbeSummary = "Clique em Verificar para analisar App Installer e Loja (quando existir).";
     private string _wingetSearchQuery = string.Empty;
-    private string _wingetSearchBanner =
-        "Pesquise por nome, ID ou editor. O winget nao oferece listagem completa estilo loja (dezenas de milhares de entradas); use termos ou navegue por categorias na documentacao Microsoft.";
 
     private readonly IWingetProvisioningService _wingetProvisioning;
     private readonly IUwpAppInstallerProvisioningService _uwpProvisioning;
@@ -81,12 +79,6 @@ public sealed class MainWindowViewModel : ObservableObject
     {
         get => _wingetSearchQuery;
         set => SetProperty(ref _wingetSearchQuery, value);
-    }
-
-    public string WingetSearchBanner
-    {
-        get => _wingetSearchBanner;
-        set => SetProperty(ref _wingetSearchBanner, value);
     }
 
     public ObservableCollection<WingetSearchRowViewModel> WingetSearchRows { get; } = new();
@@ -386,7 +378,6 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             WingetSearchRows.Clear();
             var outcome = await _wingetSearch.SearchAsync(WingetSearchQuery, 200).ConfigureAwait(true);
-            WingetSearchBanner = outcome.Message;
             if (!outcome.Success)
             {
                 AppendInstallLog($"[winget pesquisa] {outcome.Message}");

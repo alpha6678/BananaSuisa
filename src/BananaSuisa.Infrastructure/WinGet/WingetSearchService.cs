@@ -9,6 +9,7 @@ namespace BananaSuisa.Infrastructure.WinGet;
 public sealed class WingetSearchService : IWingetSearchService
 {
     private const int HardCap = 500;
+    private const int MaxPackagesBeforeRank = 500;
     private const int FailureDetailMaxChars = 8000;
     private readonly IWingetLocator _locator;
 
@@ -43,7 +44,12 @@ public sealed class WingetSearchService : IWingetSearchService
             return WingetSearchOutcome.Fail("winget.exe nao encontrado. Instale o App Installer ou use a secao Winget para provisionar.");
         }
 
-        string safeQuery = trimmed.Replace("\"", "", StringComparison.Ordinal);
+        string cliQuery = WingetSearchRelevance.BuildWingetCliQuery(trimmed);
+        string safeQuery = cliQuery.Replace("\"", "", StringComparison.Ordinal);
+        if (string.IsNullOrWhiteSpace(safeQuery))
+        {
+            safeQuery = trimmed.Replace("\"", "", StringComparison.Ordinal);
+        }
 
         // 1) tentar JSON (winget recente)
         string argsJson = $"search \"{safeQuery}\" --accept-source-agreements --json";
@@ -56,13 +62,16 @@ public sealed class WingetSearchService : IWingetSearchService
             {
                 try
                 {
-                    List<WingetSearchItem> items = ParseJson(json, maxResults);
+                    List<WingetSearchItem> items = ParseJson(json, MaxPackagesBeforeRank);
                     if (items.Count == 0)
                     {
                         return WingetSearchOutcome.Ok("Nenhum pacote encontrado para este termo.", []);
                     }
 
-                    return WingetSearchOutcome.Ok($"{items.Count} resultado(s) (limite {maxResults}).", items);
+                    IReadOnlyList<WingetSearchItem> ranked = WingetSearchRelevance.RankByRelevance(items, trimmed, maxResults);
+                    return WingetSearchOutcome.Ok(
+                        $"{ranked.Count} resultado(s) por similaridade ao texto (limite {maxResults}).",
+                        ranked);
                 }
                 catch (Exception ex)
                 {
@@ -82,7 +91,7 @@ public sealed class WingetSearchService : IWingetSearchService
             return FailFromProcess(runText, "Pesquisa winget falhou");
         }
 
-        List<WingetSearchItem> textItems = ParseTextOutput(runText.StandardOutput, maxResults);
+        List<WingetSearchItem> textItems = ParseTextOutput(runText.StandardOutput, MaxPackagesBeforeRank);
         if (textItems.Count == 0)
         {
             return WingetSearchOutcome.Ok("Nenhum pacote encontrado para este termo.", []);
@@ -92,7 +101,10 @@ public sealed class WingetSearchService : IWingetSearchService
             ? " (saida em texto; atualize o App Installer para suportar --json)"
             : "";
 
-        return WingetSearchOutcome.Ok($"{textItems.Count} resultado(s) (limite {maxResults}){note}.", textItems);
+        IReadOnlyList<WingetSearchItem> rankedText = WingetSearchRelevance.RankByRelevance(textItems, trimmed, maxResults);
+        return WingetSearchOutcome.Ok(
+            $"{rankedText.Count} resultado(s) por similaridade ao texto (limite {maxResults}){note}.",
+            rankedText);
     }
 
     private static WingetSearchOutcome FailFromProcess(ProcessRunResult run, string shortPrefix)
@@ -151,7 +163,7 @@ public sealed class WingetSearchService : IWingetSearchService
     /// <summary>
     /// Tabela de texto padrao do winget (locale PT/EN): linhas apos o separador de hifens.
     /// </summary>
-    private static List<WingetSearchItem> ParseTextOutput(string text, int maxResults)
+    private static List<WingetSearchItem> ParseTextOutput(string text, int maxPackagesBeforeRank)
     {
         var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
         var list = new List<WingetSearchItem>();
@@ -204,7 +216,7 @@ public sealed class WingetSearchService : IWingetSearchService
             string source = parts.Length > 3 ? parts[^1] : "";
 
             list.Add(new WingetSearchItem(name, id, version, source));
-            if (list.Count >= maxResults)
+            if (list.Count >= maxPackagesBeforeRank)
             {
                 break;
             }
@@ -224,7 +236,7 @@ public sealed class WingetSearchService : IWingetSearchService
         return trimmed.All(c => c == '-' || c == '+' || c == ' ' || c == '|');
     }
 
-    private static List<WingetSearchItem> ParseJson(string json, int maxResults)
+    private static List<WingetSearchItem> ParseJson(string json, int maxPackagesBeforeRank)
     {
         using JsonDocument doc = JsonDocument.Parse(json);
         JsonElement root = doc.RootElement;
@@ -243,7 +255,7 @@ public sealed class WingetSearchService : IWingetSearchService
 
                 foreach (JsonElement pkg in packages.EnumerateArray())
                 {
-                    if (list.Count >= maxResults)
+                    if (list.Count >= maxPackagesBeforeRank)
                     {
                         return list;
                     }
@@ -253,7 +265,7 @@ public sealed class WingetSearchService : IWingetSearchService
                     string version = ExtractVersion(pkg);
                     list.Add(new WingetSearchItem(name, id, version, sourceName));
 
-                    if (list.Count >= maxResults)
+                    if (list.Count >= maxPackagesBeforeRank)
                     {
                         return list;
                     }

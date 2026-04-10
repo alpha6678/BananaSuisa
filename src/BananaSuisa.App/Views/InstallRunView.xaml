@@ -6,91 +6,64 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640">
     <Grid Margin="28" Background="Transparent">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="20" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0">
-                <TextBlock Style="{StaticResource HeaderTextStyle}" Text="Instalar" />
-                <TextBlock Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14" TextWrapping="Wrap"
-                           Text="Pesquise pacotes no catalogo winget (equivalente a winget search). Para ferramentas CLI e remocao avancada, use as secoes Winget ou UWP no menu." />
-            </StackPanel>
+        <TextBlock Grid.Row="0" Style="{StaticResource HeaderTextStyle}" Text="Instalar" />
 
-            <controls:InfoCardWidget Grid.Row="2" CardTitle="Pesquisar no repositorio winget">
-                <controls:InfoCardWidget.CardContent>
-                    <StackPanel>
-                        <TextBlock Margin="0,0,0,10" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"
-                                   Text="O winget nao expoe uma API de loja com catalogo completo paginado: ha dezenas de milhares de pacotes. O fluxo recomendado e pesquisar por termos (nome, ID Microsoft.X, editor). Resultados limitados a 200 linhas." />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0"
-                                     MinHeight="38"
-                                     VerticalContentAlignment="Center"
-                                     Padding="10,8"
-                                     Background="{StaticResource CardBackgroundBrush}"
-                                     BorderBrush="{StaticResource WidgetBorderBrush}"
-                                     Foreground="{StaticResource TextPrimaryBrush}"
-                                     Text="{Binding WingetSearchQuery, UpdateSourceTrigger=PropertyChanged}" />
-                            <Button Grid.Column="2"
-                                    MinWidth="120"
-                                    Style="{StaticResource ToolbarActionButtonStyle}"
-                                    Content="Pesquisar"
-                                    Command="{Binding SearchWingetCatalogCommand}" />
-                        </Grid>
-                        <TextBlock Margin="0,10,0,0" FontSize="12" Foreground="{StaticResource TextHighlightBrush}" TextWrapping="Wrap" Text="{Binding WingetSearchBanner}" />
-                    </StackPanel>
-                </controls:InfoCardWidget.CardContent>
-            </controls:InfoCardWidget>
+        <Border Grid.Row="2"
+                Padding="20"
+                Background="{StaticResource CardBackgroundBrush}"
+                BorderBrush="{StaticResource CardBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0"
+                         MinHeight="38"
+                         VerticalContentAlignment="Center"
+                         Padding="10,8"
+                         Background="{StaticResource CardBackgroundBrush}"
+                         BorderBrush="{StaticResource WidgetBorderBrush}"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         Text="{Binding WingetSearchQuery, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Grid.Column="2"
+                        MinWidth="120"
+                        Style="{StaticResource ToolbarActionButtonStyle}"
+                        Content="Pesquisar"
+                        Command="{Binding SearchWingetCatalogCommand}" />
+            </Grid>
+        </Border>
 
-            <controls:InfoCardWidget Grid.Row="4" CardTitle="Resultados">
-                <controls:InfoCardWidget.CardContent>
-                    <DataGrid Style="{StaticResource LogsDataGridStyle}"
-                              MinHeight="200"
-                              MaxHeight="320"
-                              ItemsSource="{Binding WingetSearchRows}"
-                              AutoGenerateColumns="False"
-                              HeadersVisibility="Column"
-                              SelectionMode="Single"
-                              CanUserAddRows="False"
-                              CanUserDeleteRows="False"
-                              IsReadOnly="True">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="160" />
-                            <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="2*" MinWidth="180" />
-                            <DataGridTextColumn Header="Versao" Binding="{Binding Version}" Width="100" />
-                            <DataGridTextColumn Header="Fonte" Binding="{Binding Source}" Width="100" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </controls:InfoCardWidget.CardContent>
-            </controls:InfoCardWidget>
-
-            <controls:InfoCardWidget Grid.Row="6" CardTitle="Outras acoes">
-                <controls:InfoCardWidget.CardContent>
-                    <StackPanel>
-                        <TextBlock Margin="0,0,0,10" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Text="Provisionamento e diagnostico por canal:" />
-                        <Button Margin="0,0,0,8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="16,12"
-                                Style="{StaticResource SidebarButtonStyle}" Background="{StaticResource CardBackgroundBrush}"
-                                Content="Windows Package Manager (winget)" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallWinget" />
-                        <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="16,12"
-                                Style="{StaticResource SidebarButtonStyle}" Background="{StaticResource CardBackgroundBrush}"
-                                Content="App Installer e ecossistema UWP / Loja" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallUwp" />
-                    </StackPanel>
-                </controls:InfoCardWidget.CardContent>
-            </controls:InfoCardWidget>
-
-            <TextBlock Grid.Row="8" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap"
-                       Text="Para instalar um pacote a partir da lista, use o terminal: winget install --id &lt;ID&gt; (integracao de instalacao em um clique pode ser adicionada depois)." />
+        <controls:InfoCardWidget Grid.Row="4" CardTitle="Resultados">
+            <controls:InfoCardWidget.CardContent>
+                <DataGrid Style="{StaticResource LogsDataGridStyle}"
+                          MinHeight="200"
+                          MaxHeight="320"
+                          ItemsSource="{Binding WingetSearchRows}"
+                          AutoGenerateColumns="False"
+                          HeadersVisibility="Column"
+                          SelectionMode="Single"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="160" />
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="2*" MinWidth="180" />
+                        <DataGridTextColumn Header="Versao" Binding="{Binding Version}" Width="100" />
+                        <DataGridTextColumn Header="Fonte" Binding="{Binding Source}" Width="100" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </controls:InfoCardWidget.CardContent>
+        </controls:InfoCardWidget>
     </Grid>
 </UserControl>
