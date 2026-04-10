@@ -1,6 +1,8 @@
+using System.Collections.ObjectModel;
 using System.Windows.Input;
 using BananaSuisa.App.Views;
 using BananaSuisa.Core.Diagnostics;
+using BananaSuisa.Services.Abstractions;
 
 namespace BananaSuisa.App.ViewModels;
 
@@ -10,6 +12,19 @@ public sealed class MainWindowViewModel : ObservableObject
     private string _navigationSelectedKey = "Dashboard";
     private bool _isLoading;
     private string _loadingMessage = "Carregando...";
+    private bool _isInstallMode;
+    private string _installSubKey = "InstallOverview";
+    private object? _installChildView;
+    private string _installActivityLog = string.Empty;
+    private string _wingetProbeSummary = "Clique em Verificar para analisar o winget nesta maquina.";
+    private string _uwpProbeSummary = "Clique em Verificar para analisar App Installer e Loja (quando existir).";
+    private string _wingetSearchQuery = string.Empty;
+    private string _wingetSearchBanner =
+        "Pesquise por nome, ID ou editor. O winget nao oferece listagem completa estilo loja (dezenas de milhares de entradas); use termos ou navegue por categorias na documentacao Microsoft.";
+
+    private readonly IWingetProvisioningService _wingetProvisioning;
+    private readonly IUwpAppInstallerProvisioningService _uwpProvisioning;
+    private readonly IWingetSearchService _wingetSearch;
 
     public object? CurrentView
     {
@@ -22,6 +37,56 @@ public sealed class MainWindowViewModel : ObservableObject
         get => _navigationSelectedKey;
         set => SetProperty(ref _navigationSelectedKey, value);
     }
+
+    public bool IsInstallMode
+    {
+        get => _isInstallMode;
+        set => SetProperty(ref _isInstallMode, value);
+    }
+
+    public string InstallSubKey
+    {
+        get => _installSubKey;
+        set => SetProperty(ref _installSubKey, value);
+    }
+
+    public object? InstallChildView
+    {
+        get => _installChildView;
+        set => SetProperty(ref _installChildView, value);
+    }
+
+    public string InstallActivityLog
+    {
+        get => _installActivityLog;
+        set => SetProperty(ref _installActivityLog, value);
+    }
+
+    public string WingetProbeSummary
+    {
+        get => _wingetProbeSummary;
+        set => SetProperty(ref _wingetProbeSummary, value);
+    }
+
+    public string UwpProbeSummary
+    {
+        get => _uwpProbeSummary;
+        set => SetProperty(ref _uwpProbeSummary, value);
+    }
+
+    public string WingetSearchQuery
+    {
+        get => _wingetSearchQuery;
+        set => SetProperty(ref _wingetSearchQuery, value);
+    }
+
+    public string WingetSearchBanner
+    {
+        get => _wingetSearchBanner;
+        set => SetProperty(ref _wingetSearchBanner, value);
+    }
+
+    public ObservableCollection<WingetSearchRowViewModel> WingetSearchRows { get; } = new();
 
     public bool IsLoading
     {
@@ -36,6 +101,22 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public ICommand NavigateCommand { get; }
+
+    public ICommand ExitInstallModeCommand { get; }
+
+    public ICommand NavigateInstallSubCommand { get; }
+
+    public ICommand ProbeWingetCommand { get; }
+
+    public ICommand InstallWingetBundleCommand { get; }
+
+    public ICommand ReinstallWingetCommand { get; }
+
+    public ICommand ProbeUwpCommand { get; }
+
+    public ICommand InstallUwpBundleCommand { get; }
+
+    public ICommand SearchWingetCatalogCommand { get; }
 
     private MainWindowViewModel(
         string title,
@@ -60,8 +141,15 @@ public sealed class MainWindowViewModel : ObservableObject
         IReadOnlyList<BootstrapPathRowViewModel> bootstrapPathRows,
         IReadOnlyList<DiagnosticCheckViewModel> workspaceItems,
         string generatedAt,
-        IReadOnlyList<DiagnosticCheckViewModel> checks)
+        IReadOnlyList<DiagnosticCheckViewModel> checks,
+        IWingetProvisioningService wingetProvisioning,
+        IUwpAppInstallerProvisioningService uwpProvisioning,
+        IWingetSearchService wingetSearch)
     {
+        _wingetProvisioning = wingetProvisioning;
+        _uwpProvisioning = uwpProvisioning;
+        _wingetSearch = wingetSearch;
+
         Title = title;
         Subtitle = subtitle;
         BaseDirectory = baseDirectory;
@@ -87,14 +175,36 @@ public sealed class MainWindowViewModel : ObservableObject
         Checks = checks;
 
         NavigateCommand = new RelayCommand(Navigate);
+        ExitInstallModeCommand = new RelayCommand(_ => ExitInstallMode());
+        NavigateInstallSubCommand = new RelayCommand(NavigateInstallSub);
+        ProbeWingetCommand = new AsyncRelayCommand(_ => ProbeWingetAsync());
+        InstallWingetBundleCommand = new AsyncRelayCommand(_ => InstallWingetBundleAsync());
+        ReinstallWingetCommand = new AsyncRelayCommand(_ => ReinstallWingetAsync());
+        ProbeUwpCommand = new AsyncRelayCommand(_ => ProbeUwpAsync());
+        InstallUwpBundleCommand = new AsyncRelayCommand(_ => InstallUwpBundleAsync());
+        SearchWingetCatalogCommand = new AsyncRelayCommand(_ => SearchWingetCatalogAsync());
+
         CurrentView = new DashboardView { DataContext = this };
     }
 
     private void Navigate(object? parameter)
     {
         if (parameter is not string viewName)
+        {
             return;
+        }
 
+        if (viewName == "Install")
+        {
+            NavigationSelectedKey = viewName;
+            IsInstallMode = true;
+            InstallSubKey = "InstallOverview";
+            InstallChildView = new InstallOverviewView { DataContext = this };
+            CurrentView = new InstallShellView { DataContext = this };
+            return;
+        }
+
+        IsInstallMode = false;
         NavigationSelectedKey = viewName;
 
         CurrentView = viewName switch
@@ -105,6 +215,164 @@ public sealed class MainWindowViewModel : ObservableObject
             "Settings" => new SettingsView { DataContext = this },
             _ => CurrentView
         };
+    }
+
+    private void ExitInstallMode()
+    {
+        IsInstallMode = false;
+        NavigationSelectedKey = "Dashboard";
+        InstallChildView = null;
+        InstallSubKey = "InstallOverview";
+        CurrentView = new DashboardView { DataContext = this };
+    }
+
+    private void NavigateInstallSub(object? parameter)
+    {
+        if (parameter is not string key)
+        {
+            return;
+        }
+
+        InstallSubKey = key;
+        InstallChildView = key switch
+        {
+            "InstallOverview" => new InstallOverviewView { DataContext = this },
+            "InstallRun" => new InstallRunView { DataContext = this },
+            "InstallWinget" => new WingetProvisionView { DataContext = this },
+            "InstallUwp" => new UwpProvisionView { DataContext = this },
+            _ => InstallChildView
+        };
+    }
+
+    private void AppendInstallLog(string line)
+    {
+        InstallActivityLog += $"[{DateTime.Now:HH:mm:ss}] {line}\r\n";
+    }
+
+    private async Task ProbeWingetAsync()
+    {
+        IsLoading = true;
+        LoadingMessage = "Verificando winget...";
+        try
+        {
+            await ProbeWingetCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ProbeWingetCoreAsync()
+    {
+        var r = await _wingetProvisioning.ProbeAsync().ConfigureAwait(true);
+        WingetProbeSummary = r.Summary;
+        AppendInstallLog($"[winget] {r.Summary}");
+        if (r.IsHealthy)
+        {
+            AppendInstallLog($"[winget] Integridade: OK (source list exit={r.SourceListExitCode}).");
+        }
+        else
+        {
+            AppendInstallLog("[winget] Integridade: possivel falha — tente Instalar bundle ou Reinstalar.");
+        }
+    }
+
+    private async Task InstallWingetBundleAsync()
+    {
+        IsLoading = true;
+        LoadingMessage = "Baixando e instalando App Installer / winget (GitHub oficial)...";
+        try
+        {
+            var r = await _wingetProvisioning.InstallLatestFromGitHubReleaseAsync().ConfigureAwait(true);
+            AppendInstallLog(r.Succeeded ? $"[winget] {r.Message}" : $"[winget] ERRO: {r.Message}");
+            await ProbeWingetCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ReinstallWingetAsync()
+    {
+        IsLoading = true;
+        LoadingMessage = "Removendo App Installer e reinstalando do release oficial...";
+        try
+        {
+            var r = await _wingetProvisioning.ReinstallAsync().ConfigureAwait(true);
+            AppendInstallLog(r.Succeeded ? $"[winget] {r.Message}" : $"[winget] ERRO: {r.Message}");
+            await ProbeWingetCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ProbeUwpAsync()
+    {
+        IsLoading = true;
+        LoadingMessage = "Verificando pacotes App Installer e Loja...";
+        try
+        {
+            await ProbeUwpCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ProbeUwpCoreAsync()
+    {
+        var r = await _uwpProvisioning.ProbeAsync().ConfigureAwait(true);
+        UwpProbeSummary = r.Summary;
+        AppendInstallLog($"[uwp] {r.Summary}");
+    }
+
+    private async Task InstallUwpBundleAsync()
+    {
+        IsLoading = true;
+        LoadingMessage = "Instalando pacote oficial (App Installer)...";
+        try
+        {
+            var r = await _uwpProvisioning.InstallOrRepairAppInstallerFromOfficialBundleAsync().ConfigureAwait(true);
+            AppendInstallLog(r.Succeeded ? $"[uwp] {r.Message}" : $"[uwp] ERRO: {r.Message}");
+            await ProbeUwpCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SearchWingetCatalogAsync()
+    {
+        IsLoading = true;
+        LoadingMessage = "Pesquisando no repositorio winget...";
+        try
+        {
+            WingetSearchRows.Clear();
+            var outcome = await _wingetSearch.SearchAsync(WingetSearchQuery, 200).ConfigureAwait(true);
+            WingetSearchBanner = outcome.Message;
+            if (!outcome.Success)
+            {
+                AppendInstallLog($"[winget pesquisa] {outcome.Message}");
+                return;
+            }
+
+            foreach (var row in outcome.Items)
+            {
+                WingetSearchRows.Add(new WingetSearchRowViewModel(row.Name, row.Id, row.Version, row.Source ?? string.Empty));
+            }
+
+            AppendInstallLog($"[winget pesquisa] {outcome.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     public string Title { get; }
@@ -153,7 +421,11 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public IReadOnlyList<DiagnosticCheckViewModel> Checks { get; }
 
-    public static MainWindowViewModel FromSnapshot(RuntimeDiagnosticsSnapshot snapshot)
+    public static MainWindowViewModel FromSnapshot(
+        RuntimeDiagnosticsSnapshot snapshot,
+        IWingetProvisioningService wingetProvisioning,
+        IUwpAppInstallerProvisioningService uwpProvisioning,
+        IWingetSearchService wingetSearch)
     {
         IReadOnlyList<DiagnosticCheckViewModel> checks = snapshot.Checks
             .Select(check => new DiagnosticCheckViewModel(check.Name, check.IsHealthy, check.Detail))
@@ -229,6 +501,9 @@ public sealed class MainWindowViewModel : ObservableObject
             bootstrapPathRows: bootstrapPathRows,
             workspaceItems: workspaceItems,
             generatedAt: snapshot.GeneratedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss"),
-            checks: checks);
+            checks: checks,
+            wingetProvisioning: wingetProvisioning,
+            uwpProvisioning: uwpProvisioning,
+            wingetSearch: wingetSearch);
     }
 }

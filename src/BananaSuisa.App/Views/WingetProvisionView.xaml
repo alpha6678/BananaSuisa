@@ -1,0 +1,35 @@
+<UserControl x:Class="BananaSuisa.App.Views.WingetProvisionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:BananaSuisa.App.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="500">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Style="{StaticResource HeaderTextStyle}" Text="Winget" />
+            <TextBlock Margin="0,6,0,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14" TextWrapping="Wrap"
+                       Text="Verifica presenca do executavel, versao e fontes (winget source list). Instalacao usa o .msixbundle Microsoft.DesktopAppInstaller do ultimo release oficial no GitHub. O log de operacoes aparece na barra inferior." />
+        </StackPanel>
+
+        <controls:InfoCardWidget Grid.Row="2" CardTitle="Status">
+            <controls:InfoCardWidget.CardContent>
+                <TextBlock TextWrapping="Wrap" Text="{Binding WingetProbeSummary}" />
+            </controls:InfoCardWidget.CardContent>
+        </controls:InfoCardWidget>
+
+        <WrapPanel Grid.Row="4" Orientation="Horizontal">
+            <Button Margin="0,0,10,10" Style="{StaticResource ToolbarActionButtonStyle}" MinWidth="140" Content="Verificar" Command="{Binding ProbeWingetCommand}" />
+            <Button Margin="0,0,10,10" Style="{StaticResource ToolbarActionButtonStyle}" MinWidth="200" Content="Instalar bundle oficial" Command="{Binding InstallWingetBundleCommand}" />
+            <Button Margin="0,0,10,10" Style="{StaticResource ToolbarActionButtonStyle}" MinWidth="220" Content="Reinstalar (remover + instalar)" Command="{Binding ReinstallWingetCommand}" />
+        </WrapPanel>
+    </Grid>
+</UserControl>

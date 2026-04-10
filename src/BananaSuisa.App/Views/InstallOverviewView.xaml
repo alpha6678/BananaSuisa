@@ -1,0 +1,23 @@
+<UserControl x:Class="BananaSuisa.App.Views.InstallOverviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="20" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Style="{StaticResource HeaderTextStyle}" Text="Visão geral" />
+            <TextBlock Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14" TextWrapping="Wrap"
+                       Text="Fluxo para Windows enxutos ou sem Loja: verificamos winget e pacotes MSIX (App Installer), baixamos o bundle oficial do GitHub quando necessario e tentamos reparar removendo e reinstalando em caso de falha." />
+        </StackPanel>
+
+        <TextBlock Grid.Row="2" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" TextWrapping="Wrap"
+                   Text="No submenu Instalar você acessa os atalhos para Winget e UWP / App Installer. Use o menu lateral para navegar." />
+    </Grid>
+</UserControl>

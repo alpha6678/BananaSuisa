@@ -1,0 +1,81 @@
+<UserControl x:Class="BananaSuisa.App.Controls.InstallSidebarMenu"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource SidebarBackgroundBrush}"
+             BorderBrush="{StaticResource SidebarBorderBrush}" BorderThickness="0,0,1,0">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Margin="20,24,20,16">
+            <Image Source="pack://application:,,,/Assets/BananaSuisa.png" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <TextBlock Text="Instalar/Remover" Foreground="{StaticResource TextHighlightBrush}" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+            <Button Content="← Voltar ao menu" Command="{Binding ExitInstallModeCommand}" Margin="0,0,0,12" Padding="16,12" HorizontalContentAlignment="Left"
+                    Style="{StaticResource SidebarButtonStyle}" Foreground="{StaticResource TextHighlightBrush}" />
+
+            <Rectangle Height="1" Margin="12,0,12,12" Fill="{StaticResource SidebarBorderBrush}" />
+
+            <Button Content="Visão geral" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallOverview">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding InstallSubKey}" Value="InstallOverview">
+                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+
+            <!-- Subitem indentado sob Visão geral -->
+            <Border Margin="12,4,0,0" Padding="12,0,0,0" BorderThickness="2,0,0,0" BorderBrush="{StaticResource TextHighlightBrush}" Opacity="0.85">
+                <Button HorizontalContentAlignment="Left" Padding="12,10"
+                        Content="Instalar" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallRun"
+                        FontSize="13">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding InstallSubKey}" Value="InstallRun">
+                                    <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </Border>
+
+            <Button Margin="0,6,0,0" Content="Winget" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallWinget">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding InstallSubKey}" Value="InstallWinget">
+                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button Content="UWP / App Installer" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallUwp">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding InstallSubKey}" Value="InstallUwp">
+                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>
