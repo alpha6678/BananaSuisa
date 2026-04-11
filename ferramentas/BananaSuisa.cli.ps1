@@ -204,16 +204,17 @@ function Invoke-FullCheck {
 
 function Invoke-AppPublish {
     <#
-    Gera pasta de publicacao com executavel autonomo (self-contained win-x64, Release).
-    Saida: artifacts\publish\win-x64\BananaSuisa.App.exe
+    Gera executavel autonomo num unico ficheiro (self-contained win-x64, Release, single-file com compressao).
+    Saida principal: artifacts\publish\BananaSuisa.App.exe
     #>
     Assert-PathExists -Path $script:AppProjectPath -Description 'Projeto da aplicacao'
 
-    $outDir = Join-Path $script:ProjectRoot 'artifacts\publish\win-x64'
+    $outDir = Join-Path $script:ProjectRoot 'artifacts\publish'
     if (Test-Path -LiteralPath $outDir) {
         Write-Host "A limpar saida anterior: $outDir" -ForegroundColor DarkYellow
         Remove-Item -LiteralPath $outDir -Recurse -Force -ErrorAction Stop
     }
+    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
     Stop-BananaSuisaAppIfRunning
 
@@ -222,6 +223,9 @@ function Invoke-AppPublish {
         '-c', 'Release',
         '-r', 'win-x64',
         '--self-contained', 'true',
+        '-p:PublishSingleFile=true',
+        '-p:IncludeNativeLibrariesForSelfExtract=true',
+        '-p:EnableCompressionInSingleFile=true',
         '-p:PublishReadyToRun=true',
         '-p:DebugType=None',
         '-p:DebugSymbols=false',
@@ -236,9 +240,8 @@ function Invoke-AppPublish {
     }
 
     Write-Host ''
-    Write-Host 'Publicacao concluida.' -ForegroundColor Green
+    Write-Host 'Publicacao concluida (ficheiro unico).' -ForegroundColor Green
     Write-Host "  Executavel: $exe" -ForegroundColor Cyan
-    Write-Host "  Pasta:      $outDir" -ForegroundColor Cyan
 }
 
 function Show-BananaSuisaCliHelp {
@@ -250,7 +253,7 @@ Comandos:
   run, rodar, ui                Sempre verifica/encerra processos residuais deste repo, compila e abre a UI
   test, testar                  Executa dotnet test BananaSuisa.slnx
   check, validar                Executa build + test
-  publish, empacotar, package   Publica a app WPF (Release, win-x64, self-contained) para artifacts\publish\win-x64\
+  publish, empacotar, package   Publica a app WPF num unico .exe (Release, win-x64, self-contained, single-file) em artifacts\publish\
   help                          Esta ajuda
 
 Exemplos:

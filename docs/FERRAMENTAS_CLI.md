@@ -18,7 +18,7 @@ Guia das interfaces de terminal do repositório e das CLIs externas úteis ao de
 | `run` | `rodar`, `ui` | Compila o projeto da app e inicia o `.exe` de Debug com UAC (ver script em `ferramentas/BananaSuisa.cli.ps1`). |
 | `test` | `testar` | Executa `dotnet test .\BananaSuisa.slnx`. |
 | `check` | `validar` | Executa `compilar` + `test` em sequencia. |
-| `publish` | `empacotar`, `package` | Publica a app WPF em **Release**, **win-x64**, **self-contained**, com ReadyToRun, para `artifacts\publish\win-x64\` (inclui `BananaSuisa.App.exe` e DLLs de runtime). A pasta `artifacts\` está no `.gitignore`. |
+| `publish` | `empacotar`, `package` | Publica a app WPF em **Release**, **win-x64**, **self-contained**, **ficheiro único** (`PublishSingleFile`, compressão, nativos embutidos), com ReadyToRun, para `artifacts\publish\BananaSuisa.App.exe`. A pasta `artifacts\` está no `.gitignore`. |
 | `help` | `?`, `-h`, `--help` | Mostra a ajuda no terminal. |
 
 ### Exemplos
@@ -71,8 +71,8 @@ Invoke-Pester
 
 - **Agentes (Cursor):** preferir `.\bs.cmd compilar`, `.\bs.cmd test` e `.\bs.cmd check` a partir da raiz do repositório.
 - **Agentes (Cursor) na base .NET:** usar `.\bs.cmd run` para abrir a UI WPF e `.\bs.cmd check` para validar o fluxo principal.
-- **Empacotamento local:** `.\bs.cmd publish` gera o executavel autonomo em `artifacts\publish\win-x64\` (pode passar argumentos extra do `dotnet publish` após o comando).
-- **CI (GitHub Actions, Azure Pipelines, etc.):** usar `dotnet build .\BananaSuisa.slnx` para a nova base; para artefactos de release, reutilizar os mesmos parametros que `publish` ou `dotnet publish .\src\BananaSuisa.App\BananaSuisa.App.csproj -c Release -r win-x64 --self-contained true`.
+- **Empacotamento local:** `.\bs.cmd publish` gera o `.exe` autonomo (single-file) em `artifacts\publish\BananaSuisa.App.exe` (pode passar argumentos extra do `dotnet publish` após o comando).
+- **CI (GitHub Actions, Azure Pipelines, etc.):** usar `dotnet build .\BananaSuisa.slnx` para a nova base; para artefactos de release, reutilizar os mesmos parametros que `publish` ou equivalente `dotnet publish` com `-p:PublishSingleFile=true` e `-p:IncludeNativeLibrariesForSelfExtract=true`.
 
 ---
 
