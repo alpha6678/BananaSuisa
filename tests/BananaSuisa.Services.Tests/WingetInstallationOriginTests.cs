@@ -18,4 +18,18 @@ public sealed class WingetInstallationOriginTests
         string r = WingetInstallationOrigin.Resolve(source, id);
         Assert.Equal(expected, r);
     }
+
+    [Theory]
+    [InlineData("winget", "7zip.7zip", true)]
+    [InlineData("msstore", "9NBLGGH4NNS1", true)]
+    [InlineData("Microsoft Store", "Some.App", true)]
+    [InlineData("CustomVendor", "Foo.Bar", false)]
+    [InlineData("", "ARP\\Machine\\X64\\Git_is1", false)]
+    [InlineData("", "MSIX\\Microsoft.WindowsStore_1.0.0.0_x64__8wekyb3d8bbwe", true)]
+    public void IsEligibleForInstallTab_CasosRepresentativos(string source, string id, bool expected)
+    {
+        string origin = WingetInstallationOrigin.Resolve(source, id);
+        bool ok = WingetInstallationOrigin.IsEligibleForInstallTab(source, id, origin);
+        Assert.Equal(expected, ok);
+    }
 }

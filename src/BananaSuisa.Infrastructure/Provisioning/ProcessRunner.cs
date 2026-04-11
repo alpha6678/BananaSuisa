@@ -48,7 +48,36 @@ internal static class ProcessRunner
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch
+            {
+                // ignorar falha ao terminar o processo filho
+            }
+
+            try
+            {
+                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch
+            {
+                // ignorar
+            }
+
+            throw;
+        }
+
         return new ProcessRunResult(process.ExitCode, stdout.ToString(), stderr.ToString());
     }
 }

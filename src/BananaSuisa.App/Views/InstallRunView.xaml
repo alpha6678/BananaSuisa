@@ -6,30 +6,35 @@
              VerticalAlignment="Stretch"
              HorizontalAlignment="Stretch"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="InstallMutedRowBackgroundBrush" Color="#2d3344" />
+        <SolidColorBrush x:Key="InstallMutedRowForegroundBrush" Color="#94a3b8" />
+        <Style x:Key="InstallPlanDataGridRowStyle" TargetType="DataGridRow">
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMutedInstalled}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource InstallMutedRowBackgroundBrush}" />
+                    <Setter Property="Foreground" Value="{StaticResource InstallMutedRowForegroundBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
     <Grid Margin="28" Background="Transparent" VerticalAlignment="Stretch">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="16" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="16" />
             <RowDefinition Height="*" MinHeight="160" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Style="{StaticResource HeaderTextStyle}" Text="Instalar" />
-
-        <Border Grid.Row="2"
-                Padding="20"
-                Background="{StaticResource CardBackgroundBrush}"
-                BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0"
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid Grid.Column="0" MinHeight="38">
+                <TextBox x:Name="WingetSearchBox"
                          MinHeight="38"
                          VerticalContentAlignment="Center"
                          Padding="10,8"
@@ -41,32 +46,109 @@
                         <KeyBinding Key="Enter" Command="{Binding SearchWingetCatalogCommand}" />
                     </TextBox.InputBindings>
                 </TextBox>
-                <Button Grid.Column="2"
-                        MinWidth="120"
-                        Style="{StaticResource ToolbarActionButtonStyle}"
-                        Content="Pesquisar"
-                        Command="{Binding SearchWingetCatalogCommand}" />
+                <TextBlock Margin="12,0,8,0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           IsHitTestVisible="False"
+                           Text="Buscar">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=WingetSearchBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
             </Grid>
-        </Border>
+            <Button Grid.Column="2"
+                    MinWidth="120"
+                    MinHeight="38"
+                    VerticalAlignment="Center"
+                    Style="{StaticResource ToolbarActionButtonStyle}"
+                    Content="Pesquisar"
+                    Command="{Binding SearchWingetCatalogCommand}" />
+        </Grid>
 
-        <DataGrid Grid.Row="4"
-                  Style="{StaticResource LogsDataGridStyle}"
-                  MinHeight="120"
-                  VerticalAlignment="Stretch"
-                  ItemsSource="{Binding WingetSearchRows}"
-                  AutoGenerateColumns="False"
-                  HeadersVisibility="Column"
-                  SelectionMode="Single"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  IsReadOnly="True">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="160" />
-                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="2*" MinWidth="180" />
-                <DataGridTextColumn Header="Versao" Binding="{Binding Version}" Width="100" />
-                        <DataGridTextColumn Header="Tipo" Binding="{Binding InstallationOrigin}" Width="200" MinWidth="140" />
-                        <DataGridTextColumn Header="Repositório" Binding="{Binding Source}" Width="100" />
-            </DataGrid.Columns>
-        </DataGrid>
+        <Grid Grid.Row="2" VerticalAlignment="Stretch" MinHeight="160">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" MinWidth="280" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="3*" MinWidth="320" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Pesquisa catálogo + checkbox -->
+            <Grid Grid.Column="0" VerticalAlignment="Stretch">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" MinHeight="80" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0"
+                           Margin="0,0,0,8"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Text="Resultados da pesquisa" />
+                <DataGrid Grid.Row="1"
+                          Style="{StaticResource LogsDataGridStyle}"
+                          ItemsSource="{Binding WingetCatalogSearchRows}"
+                          AutoGenerateColumns="False"
+                          HeadersVisibility="Column"
+                          SelectionMode="Single"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="False">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Width="40" Header="" IsReadOnly="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="100" IsReadOnly="True" />
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="*" MinWidth="100" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Versao" Binding="{Binding Version}" Width="72" IsReadOnly="True" />
+                        <DataGridTextColumn Header="Repositório" Binding="{Binding Source}" Width="80" IsReadOnly="True" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+
+            <!-- Lista instalados + fila -->
+            <Grid Grid.Column="2" VerticalAlignment="Stretch">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" MinHeight="80" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0"
+                           Margin="0,0,0,8"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Text="Nesta máquina / fila de instalação" />
+                <DataGrid Grid.Row="1"
+                          Style="{StaticResource LogsDataGridStyle}"
+                          RowStyle="{StaticResource InstallPlanDataGridRowStyle}"
+                          ItemsSource="{Binding WingetSearchRows}"
+                          AutoGenerateColumns="False"
+                          HeadersVisibility="Column"
+                          SelectionMode="Single"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="120" />
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="2*" MinWidth="140" />
+                        <DataGridTextColumn Header="Versao" Binding="{Binding Version}" Width="80" />
+                        <DataGridTextColumn Header="Tipo" Binding="{Binding InstallationOrigin}" Width="160" MinWidth="120" />
+                        <DataGridTextColumn Header="Repositório" Binding="{Binding Source}" Width="90" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Grid>
     </Grid>
 </UserControl>

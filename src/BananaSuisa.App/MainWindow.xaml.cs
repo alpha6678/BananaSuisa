@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         var wingetProvisioning = new WingetProvisioningService(wingetLocator, http);
         var uwpProvisioning = new UwpAppInstallerProvisioningService(wingetProvisioning);
         var wingetSearch = new WingetSearchService(wingetLocator);
+        var wingetPackageInstall = new WingetPackageInstallService(wingetLocator);
         var diagnosticsService = new RuntimeDiagnosticsService(
             catalogLoader,
             catalogSearchService,
@@ -44,6 +45,6 @@ public partial class MainWindow : Window
             wingetLocator);
         var snapshot = diagnosticsService.Collect(AppContext.BaseDirectory);
 
-        return MainWindowViewModel.FromSnapshot(snapshot, wingetProvisioning, uwpProvisioning, wingetSearch, AppJsonLogRegistry.Current);
+        return MainWindowViewModel.FromSnapshot(snapshot, wingetProvisioning, uwpProvisioning, wingetSearch, wingetPackageInstall, AppJsonLogRegistry.Current);
     }
 }

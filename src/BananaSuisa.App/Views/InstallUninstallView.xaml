@@ -1,0 +1,47 @@
+<UserControl x:Class="BananaSuisa.App.Views.InstallUninstallView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640">
+    <Grid Margin="28" Background="Transparent" VerticalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="8" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" MinHeight="160" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Style="{StaticResource HeaderTextStyle}" Text="Desinstalar" />
+            <TextBlock Margin="0,6,0,0"
+                       FontSize="12"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       TextWrapping="Wrap"
+                       Text="Lista completa reportada pelo winget (repositórios adicionais, ARP e pacotes da Loja). Use esta vista para localizar qualquer entrada gerida pelo winget." />
+        </StackPanel>
+
+        <DataGrid Grid.Row="4"
+                  Style="{StaticResource LogsDataGridStyle}"
+                  MinHeight="120"
+                  VerticalAlignment="Stretch"
+                  ItemsSource="{Binding WingetSearchRows}"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column"
+                  SelectionMode="Single"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="160" />
+                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="2*" MinWidth="180" />
+                <DataGridTextColumn Header="Versao" Binding="{Binding Version}" Width="100" />
+                <DataGridTextColumn Header="Tipo" Binding="{Binding InstallationOrigin}" Width="200" MinWidth="140" />
+                <DataGridTextColumn Header="Repositório" Binding="{Binding Source}" Width="100" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

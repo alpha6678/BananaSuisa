@@ -7,6 +7,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Margin="20,24,20,16">
@@ -18,7 +19,7 @@
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       Padding="0,0,4,0"
-                      Margin="0,0,0,16">
+                      Margin="0,0,0,0">
         <StackPanel Background="Transparent">
             <Button Content="← Voltar ao menu" Command="{Binding ExitInstallModeCommand}" Margin="0,0,0,12" Padding="16,12" HorizontalContentAlignment="Left"
                     Style="{StaticResource SidebarButtonStyle}" Foreground="{StaticResource TextHighlightBrush}" />
@@ -43,6 +44,19 @@
                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding InstallSubKey}" Value="InstallRun">
+                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+
+            <Button Margin="0,6,0,0" Content="Desinstalar" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallUninstall">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding InstallSubKey}" Value="InstallUninstall">
                                 <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
                                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
                             </DataTrigger>
@@ -77,5 +91,11 @@
             </Button>
         </StackPanel>
         </ScrollViewer>
+
+        <TextBlock Grid.Row="2"
+                   Margin="20,8,20,16"
+                   FontSize="11"
+                   Foreground="{StaticResource TextSecondaryBrush}"
+                   Text="{Binding AppVersionLabel}" />
     </Grid>
 </UserControl>

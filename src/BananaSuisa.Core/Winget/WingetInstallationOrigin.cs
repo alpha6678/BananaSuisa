@@ -81,6 +81,67 @@ public static class WingetInstallationOrigin
     }
 
     /// <summary>
+    /// Pacotes a mostrar no separador Instalar: repositório community <c>winget</c>, Loja Microsoft (msstore / UWP / MSIX
+    /// identificável). Exclui fontes winget adicionais e entradas ARP só do Windows.
+    /// </summary>
+    public static bool IsEligibleForInstallTab(string? repositorySource, string packageId, string installationOrigin)
+    {
+        if (IsDefaultWingetOrMicrosoftStoreRepository(repositorySource))
+        {
+            return true;
+        }
+
+        string s = repositorySource?.Trim() ?? "";
+        if (s.Length > 0)
+        {
+            return false;
+        }
+
+        if (IsMicrosoftStoreMsixPackageId(packageId))
+        {
+            return true;
+        }
+
+        if (LooksLikeStoreProductId(packageId))
+        {
+            return true;
+        }
+
+        if (LooksLikePackageFamilyNameStyle(packageId))
+        {
+            return true;
+        }
+
+        string o = installationOrigin ?? "";
+        if (o.Contains("Microsoft Store", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (o.Contains("Loja", StringComparison.OrdinalIgnoreCase) &&
+            (o.Contains("Microsoft", StringComparison.OrdinalIgnoreCase) || o.Contains("Windows", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Repositório padrão community ou Loja (rótulos conhecidos do winget).
+    /// </summary>
+    public static bool IsDefaultWingetOrMicrosoftStoreRepository(string? repositorySource)
+    {
+        string s = repositorySource?.Trim() ?? "";
+        if (s.Equals("winget", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return IsMicrosoftStoreRepositoryLabel(s);
+    }
+
+    /// <summary>
     /// True quando o winget usa prefixo de pacote MSIX/AppX (inclui apps da Loja e MSIX de sistema).
     /// </summary>
     private static bool IsMicrosoftStoreMsixPackageId(string id)

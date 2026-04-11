@@ -1,9 +1,12 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
 using System.Windows.Input;
 using BananaSuisa.App.Views;
 using BananaSuisa.Core.Diagnostics;
 using BananaSuisa.Core.Logging;
+using BananaSuisa.Core.Winget;
 using BananaSuisa.Services.Abstractions;
 
 namespace BananaSuisa.App.ViewModels;
@@ -25,7 +28,17 @@ public sealed class MainWindowViewModel : ObservableObject
     private readonly IWingetProvisioningService _wingetProvisioning;
     private readonly IUwpAppInstallerProvisioningService _uwpProvisioning;
     private readonly IWingetSearchService _wingetSearch;
+    private readonly IWingetPackageInstallService _wingetPackageInstall;
     private readonly IAppJsonLog _appLog;
+
+    private readonly List<WingetSearchItem> _installTabInstalledItems = [];
+    private readonly HashSet<string> _installedIdsForInstallTab = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PendingInstallEntry> _pendingInstall = new(StringComparer.OrdinalIgnoreCase);
+
+    private CancellationTokenSource? _installCts;
+    private bool _isInstallingPackages;
+
+    private sealed record PendingInstallEntry(string Name, string Id, string Version, string Source, string InstallationOrigin);
 
     public object? CurrentView
     {
@@ -83,6 +96,24 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<WingetSearchRowViewModel> WingetSearchRows { get; } = new();
 
+    public ObservableCollection<WingetCatalogPickRowViewModel> WingetCatalogSearchRows { get; } = new();
+
+    public bool HasPendingInstalls =>
+        _pendingInstall.Keys.Any(id => !_installedIdsForInstallTab.Contains(id));
+
+    /// <summary>True enquanto <c>winget install</c> corre em lote (sem overlay global; log continua visível).</summary>
+    public bool IsInstallingPackages
+    {
+        get => _isInstallingPackages;
+        private set
+        {
+            if (SetProperty(ref _isInstallingPackages, value))
+            {
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+    }
+
     public bool IsLoading
     {
         get => _isLoading;
@@ -113,9 +144,14 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public ICommand SearchWingetCatalogCommand { get; }
 
+    public ICommand InstallPendingPackagesCommand { get; }
+
+    public ICommand CancelInstallCommand { get; }
+
     private MainWindowViewModel(
         string title,
         string subtitle,
+        string appVersion,
         string baseDirectory,
         string projectRoot,
         string resourcesRoot,
@@ -140,15 +176,18 @@ public sealed class MainWindowViewModel : ObservableObject
         IWingetProvisioningService wingetProvisioning,
         IUwpAppInstallerProvisioningService uwpProvisioning,
         IWingetSearchService wingetSearch,
+        IWingetPackageInstallService wingetPackageInstall,
         IAppJsonLog appLog)
     {
         _wingetProvisioning = wingetProvisioning;
         _uwpProvisioning = uwpProvisioning;
         _wingetSearch = wingetSearch;
+        _wingetPackageInstall = wingetPackageInstall;
         _appLog = appLog;
 
         Title = title;
         Subtitle = subtitle;
+        AppVersionLabel = string.IsNullOrWhiteSpace(appVersion) ? "v?" : $"v{appVersion}";
         BaseDirectory = baseDirectory;
         ProjectRoot = projectRoot;
         ResourcesRoot = resourcesRoot;
@@ -180,6 +219,10 @@ public sealed class MainWindowViewModel : ObservableObject
         ProbeUwpCommand = new AsyncRelayCommand(_ => ProbeUwpAsync());
         InstallUwpBundleCommand = new AsyncRelayCommand(_ => InstallUwpBundleAsync());
         SearchWingetCatalogCommand = new AsyncRelayCommand(_ => SearchWingetCatalogAsync());
+        InstallPendingPackagesCommand = new AsyncRelayCommand(
+            _ => InstallPendingPackagesAsync(),
+            _ => HasPendingInstalls && !IsInstallingPackages);
+        CancelInstallCommand = new RelayCommand(_ => _installCts?.Cancel(), _ => IsInstallingPackages);
 
         CurrentView = new DashboardView { DataContext = this };
     }
@@ -216,10 +259,16 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private void ExitInstallMode()
     {
+        _installCts?.Cancel();
         IsInstallMode = false;
         NavigationSelectedKey = "Dashboard";
         InstallChildView = null;
         InstallSubKey = "InstallOverview";
+        _pendingInstall.Clear();
+        _installTabInstalledItems.Clear();
+        _installedIdsForInstallTab.Clear();
+        WingetSearchRows.Clear();
+        WingetCatalogSearchRows.Clear();
         CurrentView = new DashboardView { DataContext = this };
     }
 
@@ -235,6 +284,7 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             "InstallOverview" => new InstallOverviewView { DataContext = this },
             "InstallRun" => new InstallRunView { DataContext = this },
+            "InstallUninstall" => new InstallUninstallView { DataContext = this },
             "InstallWinget" => new WingetProvisionView { DataContext = this },
             "InstallUwp" => new UwpProvisionView { DataContext = this },
             _ => InstallChildView
@@ -242,7 +292,11 @@ public sealed class MainWindowViewModel : ObservableObject
 
         if (key == "InstallRun")
         {
-            _ = LoadInstalledWingetPackagesAsync();
+            _ = LoadInstalledWingetPackagesForInstallTabAsync();
+        }
+        else if (key == "InstallUninstall")
+        {
+            _ = LoadInstalledPackagesForUninstallTabAsync();
         }
     }
 
@@ -375,16 +429,74 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
-    private async Task LoadInstalledWingetPackagesAsync()
+    public void OnCatalogPickSelectionChanged(WingetCatalogPickRowViewModel row)
     {
-        IsLoading = true;
-        LoadingMessage = "Listando programas instalados (winget)...";
+        if (row.IsSelected)
+        {
+            _pendingInstall[row.Id] = new PendingInstallEntry(
+                row.Name,
+                row.Id,
+                row.Version,
+                row.Source,
+                row.InstallationOrigin);
+        }
+        else
+        {
+            _pendingInstall.Remove(row.Id);
+        }
+
+        RebuildInstallPlanRows();
+        OnPropertyChanged(nameof(HasPendingInstalls));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private void RebuildInstallPlanRows()
+    {
+        WingetSearchRows.Clear();
+        foreach (WingetSearchItem row in _installTabInstalledItems)
+        {
+            WingetSearchRows.Add(new WingetSearchRowViewModel(
+                row.Name,
+                row.Id,
+                row.Version,
+                row.Source ?? string.Empty,
+                row.InstallationOrigin,
+                isMutedInstalled: true));
+        }
+
+        foreach (PendingInstallEntry e in _pendingInstall.Values.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            if (_installedIdsForInstallTab.Contains(e.Id))
+            {
+                continue;
+            }
+
+            WingetSearchRows.Add(new WingetSearchRowViewModel(
+                e.Name,
+                e.Id,
+                e.Version,
+                e.Source,
+                e.InstallationOrigin,
+                isMutedInstalled: false));
+        }
+    }
+
+    private async Task LoadInstalledWingetPackagesForInstallTabAsync(bool showLoadingOverlay = true)
+    {
+        if (showLoadingOverlay)
+        {
+            IsLoading = true;
+            LoadingMessage = "Listando programas (winget / Loja)...";
+        }
+
         try
         {
-            WingetSearchRows.Clear();
-            var outcome = await _wingetSearch.ListInstalledAsync(200).ConfigureAwait(true);
+            _installTabInstalledItems.Clear();
+            _installedIdsForInstallTab.Clear();
+            var outcome = await _wingetSearch.ListInstalledAsync(500).ConfigureAwait(true);
             if (!outcome.Success)
             {
+                WingetSearchRows.Clear();
                 AppendInstallLog($"[winget instalados] {outcome.Message}");
                 if (!string.IsNullOrEmpty(outcome.FailureDetail))
                 {
@@ -398,17 +510,82 @@ public sealed class MainWindowViewModel : ObservableObject
                 return;
             }
 
+            foreach (WingetSearchItem row in outcome.Items)
+            {
+                if (!WingetInstallationOrigin.IsEligibleForInstallTab(row.Source, row.Id, row.InstallationOrigin))
+                {
+                    continue;
+                }
+
+                _installTabInstalledItems.Add(row);
+                _installedIdsForInstallTab.Add(row.Id);
+            }
+
+            foreach (string id in _installedIdsForInstallTab)
+            {
+                _pendingInstall.Remove(id);
+            }
+
+            foreach (WingetCatalogPickRowViewModel pick in WingetCatalogSearchRows)
+            {
+                pick.SetSelectedSilent(_pendingInstall.ContainsKey(pick.Id));
+            }
+
+            RebuildInstallPlanRows();
+            OnPropertyChanged(nameof(HasPendingInstalls));
+            CommandManager.InvalidateRequerySuggested();
+
+            AppendInstallLog($"[winget instalados] {outcome.Message} (filtrado: catálogo winget e Loja Microsoft.)");
+        }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.winget.list", "LoadInstalledWingetPackagesForInstallTabAsync falhou.", ex);
+            AppendInstallLog($"[winget instalados] ERRO interno: {ex.Message}");
+        }
+        finally
+        {
+            if (showLoadingOverlay)
+            {
+                IsLoading = false;
+            }
+        }
+    }
+
+    private async Task LoadInstalledPackagesForUninstallTabAsync()
+    {
+        IsLoading = true;
+        LoadingMessage = "Listando todos os pacotes (winget list)...";
+        try
+        {
+            WingetCatalogSearchRows.Clear();
+            WingetSearchRows.Clear();
+            var outcome = await _wingetSearch.ListInstalledAsync(500).ConfigureAwait(true);
+            if (!outcome.Success)
+            {
+                AppendInstallLog($"[desinstalar listagem] {outcome.Message}");
+                if (!string.IsNullOrEmpty(outcome.FailureDetail))
+                {
+                    _appLog.Write(
+                        AppLogLevel.Warning,
+                        "install.winget.list.full",
+                        outcome.Message,
+                        data: new Dictionary<string, string> { ["saidaWinget"] = outcome.FailureDetail });
+                }
+
+                return;
+            }
+
             foreach (var row in outcome.Items)
             {
                 WingetSearchRows.Add(new WingetSearchRowViewModel(row.Name, row.Id, row.Version, row.Source ?? string.Empty, row.InstallationOrigin));
             }
 
-            AppendInstallLog($"[winget instalados] {outcome.Message}");
+            AppendInstallLog($"[desinstalar listagem] {outcome.Message}");
         }
         catch (Exception ex)
         {
-            _appLog.Write(AppLogLevel.Error, "install.winget.list", "LoadInstalledWingetPackagesAsync falhou.", ex);
-            AppendInstallLog($"[winget instalados] ERRO interno: {ex.Message}");
+            _appLog.Write(AppLogLevel.Error, "install.winget.list.full", "LoadInstalledPackagesForUninstallTabAsync falhou.", ex);
+            AppendInstallLog($"[desinstalar listagem] ERRO interno: {ex.Message}");
         }
         finally
         {
@@ -422,7 +599,7 @@ public sealed class MainWindowViewModel : ObservableObject
         LoadingMessage = "Pesquisando no repositorio winget...";
         try
         {
-            WingetSearchRows.Clear();
+            WingetCatalogSearchRows.Clear();
             var outcome = await _wingetSearch.SearchAsync(WingetSearchQuery, 200).ConfigureAwait(true);
             if (!outcome.Success)
             {
@@ -439,9 +616,17 @@ public sealed class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            foreach (var row in outcome.Items)
+            foreach (WingetSearchItem row in outcome.Items)
             {
-                WingetSearchRows.Add(new WingetSearchRowViewModel(row.Name, row.Id, row.Version, row.Source ?? string.Empty, row.InstallationOrigin));
+                bool selected = _pendingInstall.ContainsKey(row.Id);
+                WingetCatalogSearchRows.Add(new WingetCatalogPickRowViewModel(
+                    this,
+                    row.Name,
+                    row.Id,
+                    row.Version,
+                    row.Source ?? string.Empty,
+                    row.InstallationOrigin,
+                    selected));
             }
 
             AppendInstallLog($"[winget pesquisa] {outcome.Message}");
@@ -457,9 +642,82 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
+    private async Task InstallPendingPackagesAsync()
+    {
+        List<PendingInstallEntry> toInstall = _pendingInstall.Values
+            .Where(p => !_installedIdsForInstallTab.Contains(p.Id))
+            .ToList();
+        if (toInstall.Count == 0)
+        {
+            return;
+        }
+
+        _installCts?.Dispose();
+        _installCts = new CancellationTokenSource();
+        CancellationToken token = _installCts.Token;
+
+        IsInstallingPackages = true;
+        AppendInstallLog($"[instalar] Lote: {toInstall.Count} pacote(s) (pode cancelar durante a execução).");
+        try
+        {
+            foreach (PendingInstallEntry p in toInstall)
+            {
+                token.ThrowIfCancellationRequested();
+                AppendInstallLog($"[instalar] Iniciando: {p.Id} ...");
+                WingetInstallOutcome outcome = await _wingetPackageInstall
+                    .InstallAsync(p.Id, string.IsNullOrWhiteSpace(p.Source) ? null : p.Source, token)
+                    .ConfigureAwait(true);
+                if (outcome.IsCancelled)
+                {
+                    AppendInstallLog("[instalar] Cancelado — interrompendo o lote.");
+                    break;
+                }
+
+                if (outcome.Success)
+                {
+                    AppendInstallLog($"[instalar] OK {p.Id}: {outcome.Message}");
+                }
+                else
+                {
+                    AppendInstallLog($"[instalar] FALHA {p.Id}: {outcome.Message}");
+                    if (!string.IsNullOrEmpty(outcome.FailureDetail))
+                    {
+                        _appLog.Write(
+                            AppLogLevel.Warning,
+                            "install.winget.install",
+                            outcome.Message,
+                            data: new Dictionary<string, string> { ["detalhe"] = outcome.FailureDetail });
+                    }
+                }
+            }
+
+            await LoadInstalledWingetPackagesForInstallTabAsync(showLoadingOverlay: false).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            AppendInstallLog("[instalar] Cancelado pelo utilizador.");
+            await LoadInstalledWingetPackagesForInstallTabAsync(showLoadingOverlay: false).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _appLog.Write(AppLogLevel.Error, "install.winget.install", "InstallPendingPackagesAsync falhou.", ex);
+            AppendInstallLog($"[instalar] ERRO interno: {ex.Message}");
+        }
+        finally
+        {
+            IsInstallingPackages = false;
+            _installCts?.Dispose();
+            _installCts = null;
+            OnPropertyChanged(nameof(HasPendingInstalls));
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
     public string Title { get; }
 
     public string Subtitle { get; }
+
+    public string AppVersionLabel { get; }
 
     public string BaseDirectory { get; }
 
@@ -508,6 +766,7 @@ public sealed class MainWindowViewModel : ObservableObject
         IWingetProvisioningService wingetProvisioning,
         IUwpAppInstallerProvisioningService uwpProvisioning,
         IWingetSearchService wingetSearch,
+        IWingetPackageInstallService wingetPackageInstall,
         IAppJsonLog appLog)
     {
         IReadOnlyList<DiagnosticCheckViewModel> checks = snapshot.Checks
@@ -564,6 +823,7 @@ public sealed class MainWindowViewModel : ObservableObject
         return new MainWindowViewModel(
             title: $"BananaSuisa .NET Bootstrap v{snapshot.AppVersion}",
             subtitle: "Primeiro esqueleto WPF com diagnostico de runtime, workspace e busca inicial sobre configuracao e catalogo.",
+            appVersion: snapshot.AppVersion,
             baseDirectory: snapshot.BaseDirectory,
             projectRoot: projectRoot,
             resourcesRoot: resourcesRoot,
@@ -588,6 +848,7 @@ public sealed class MainWindowViewModel : ObservableObject
             wingetProvisioning: wingetProvisioning,
             uwpProvisioning: uwpProvisioning,
             wingetSearch: wingetSearch,
+            wingetPackageInstall: wingetPackageInstall,
             appLog: appLog);
     }
 }
