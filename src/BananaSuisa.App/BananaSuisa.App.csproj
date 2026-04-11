@@ -15,6 +15,7 @@
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\BananaSuisa.ico</ApplicationIcon>
+    <AssemblyName>BananaSuisa</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

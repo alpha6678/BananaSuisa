@@ -62,7 +62,7 @@ function Assert-NoExtraArguments {
 function Get-BananaSuisaAppProcessesFromRepo {
     $root = [System.IO.Path]::GetFullPath($script:ProjectRoot)
     $list = @()
-    foreach ($p in (Get-Process -Name 'BananaSuisa.App' -ErrorAction SilentlyContinue)) {
+    foreach ($p in (Get-Process -Name 'BananaSuisa', 'BananaSuisa.App' -ErrorAction SilentlyContinue)) {
         $exePath = $null
         try {
             $exePath = $p.Path
@@ -179,7 +179,7 @@ function Invoke-AppRun {
     Invoke-DotNetCommand -Arguments (@('build', $script:AppProjectPath) + $script:RestArguments)
     
     # 2. Tenta iniciar o executavel forçando o prompt de administrador (UAC)
-    $exePath = Join-Path $script:ProjectRoot 'src\BananaSuisa.App\bin\Debug\net10.0-windows\BananaSuisa.App.exe'
+    $exePath = Join-Path $script:ProjectRoot 'src\BananaSuisa.App\bin\Debug\net10.0-windows\BananaSuisa.exe'
     
     if (Test-Path -LiteralPath $exePath) {
         Write-Host "`nSolicitando privilegios de Administrador (Verifique o prompt do UAC)..." -ForegroundColor Cyan
@@ -202,13 +202,26 @@ function Invoke-FullCheck {
     Invoke-DotNetCommand -Arguments @('test', $script:SolutionPath)
 }
 
+function Get-AppVersionFromSource {
+    $versionFile = Join-Path $script:ProjectRoot 'src\BananaSuisa.Core\Versioning\AppVersion.cs'
+    if (Test-Path -LiteralPath $versionFile) {
+        $content = Get-Content -LiteralPath $versionFile -Raw
+        if ($content -match '"(\d+\.\d+\.\d+)"') {
+            return $Matches[1]
+        }
+    }
+    return '0.0.0'
+}
+
 function Invoke-AppPublish {
     <#
     Gera executavel autonomo num unico ficheiro (self-contained win-x64, Release, single-file com compressao).
-    Saida principal: artifacts\publish\BananaSuisa.App.exe
+    O nome do .exe inclui a versao (ex: BananaSuisa_0.3.0.exe) para que versoes anteriores
+    coexistam sem serem substituidas pelo Windows.
     #>
     Assert-PathExists -Path $script:AppProjectPath -Description 'Projeto da aplicacao'
 
+    $version = Get-AppVersionFromSource
     $outDir = Join-Path $script:ProjectRoot 'artifacts\publish'
     if (Test-Path -LiteralPath $outDir) {
         Write-Host "A limpar saida anterior: $outDir" -ForegroundColor DarkYellow
@@ -234,14 +247,19 @@ function Invoke-AppPublish {
 
     Invoke-DotNetCommand -Arguments $publishArgs
 
-    $exe = Join-Path $outDir 'BananaSuisa.App.exe'
-    if (-not (Test-Path -LiteralPath $exe)) {
-        throw "Publicacao concluida mas o executavel nao foi encontrado: $exe"
+    $originalExe = Join-Path $outDir 'BananaSuisa.exe'
+    if (-not (Test-Path -LiteralPath $originalExe)) {
+        throw "Publicacao concluida mas o executavel nao foi encontrado: $originalExe"
     }
 
+    $versionedName = "BananaSuisa_${version}.exe"
+    $versionedExe = Join-Path $outDir $versionedName
+    Move-Item -LiteralPath $originalExe -Destination $versionedExe -Force
+
     Write-Host ''
-    Write-Host 'Publicacao concluida (ficheiro unico).' -ForegroundColor Green
-    Write-Host "  Executavel: $exe" -ForegroundColor Cyan
+    Write-Host "Publicacao concluida (ficheiro unico, v${version})." -ForegroundColor Green
+    Write-Host "  Executavel: $versionedExe" -ForegroundColor Cyan
+    Write-Host "  Desenvolvedor: Dioner Frigi" -ForegroundColor DarkGray
 }
 
 function Show-BananaSuisaCliHelp {
