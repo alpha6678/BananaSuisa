@@ -256,6 +256,20 @@ function Invoke-AppPublish {
     $versionedExe = Join-Path $outDir $versionedName
     Move-Item -LiteralPath $originalExe -Destination $versionedExe -Force
 
+    # Assinar o executavel com certificado de desenvolvimento (Dioner Frigi)
+    $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq 'CN=Dioner Frigi' } | Select-Object -First 1
+    if ($cert) {
+        Write-Host "Assinando executavel com certificado '$($cert.Subject)' ..." -ForegroundColor Cyan
+        try {
+            Set-AuthenticodeSignature -FilePath $versionedExe -Certificate $cert -TimestampServer 'http://timestamp.digicert.com' -HashAlgorithm SHA256 -ErrorAction Stop | Out-Null
+            Write-Host "  Assinatura aplicada. Fornecedor no UAC: Dioner Frigi" -ForegroundColor Green
+        } catch {
+            Write-Warning "Falha ao assinar (o .exe funciona sem assinatura): $_"
+        }
+    } else {
+        Write-Warning "Certificado 'CN=Dioner Frigi' nao encontrado. Execute: .\ferramentas\create-dev-cert.ps1"
+    }
+
     Write-Host ''
     Write-Host "Publicacao concluida (ficheiro unico, v${version})." -ForegroundColor Green
     Write-Host "  Executavel: $versionedExe" -ForegroundColor Cyan
