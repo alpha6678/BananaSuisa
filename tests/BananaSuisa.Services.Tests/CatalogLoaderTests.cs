@@ -1,105 +1,120 @@
 using BananaSuisa.Core.Catalog;
-using BananaSuisa.Core.Workspace;
-using BananaSuisa.Infrastructure.Catalog;
-using BananaSuisa.Services.Search;
+using BananaSuisa.Core.Vault;
+using BananaSuisa.Infrastructure.Vault;
+using BananaSuisa.Services.Abstractions;
 
 namespace BananaSuisa.Services.Tests;
 
-public sealed class CatalogLoaderTests : IDisposable
+public sealed class VaultTests : IDisposable
 {
-    private readonly string _projectRoot;
-    private readonly WorkspacePaths _paths;
+    private readonly string _vaultPath;
+    private readonly IVault _vault;
 
-    public CatalogLoaderTests()
+    public VaultTests()
     {
-        _projectRoot = Path.Combine(Path.GetTempPath(), "BananaSuisa.Tests", Guid.NewGuid().ToString("N"));
-        _paths = WorkspacePaths.FromProjectRoot(_projectRoot);
-
-        Directory.CreateDirectory(_paths.DataRoot);
-        Directory.CreateDirectory(_paths.ResourcesRoot);
+        _vaultPath = Path.Combine(Path.GetTempPath(), "BananaSuisa.Tests", Guid.NewGuid().ToString("N"), "test.dat");
+        _vault = new LiteDbVault(_vaultPath);
     }
 
     [Fact]
-    public void Load_ParsesAliasesAndKeepsOnlyCurrentCatalogSources()
+    public void NewVault_IsSeededWithMetadataAndCatalog()
     {
-        File.WriteAllText(_paths.InstallCatalogPath, """
-[
-  { "name": "Chrome Corporativo", "id": "Google.Chrome", "category": "Navegadores", "essential": true },
-  { "N": "ERP Cliente", "I": "Empresa.ERP", "C": "Negocio", "E": false },
-  "WinRAR.WinRAR"
-]
-""");
-        File.WriteAllText(_paths.TechCatalogPath, """
-[
-  { "Name": "Chrome Duplicado", "Id": "Google.Chrome", "Category": "Tecnico", "Essential": false }
-]
-""");
+        VaultMetadata meta = _vault.GetMetadata();
 
-        CatalogLoader loader = new();
+        Assert.Equal(1, meta.SchemaVersion);
+        Assert.True(meta.CreatedAtUtc > DateTime.MinValue);
 
-        CatalogLoadResult result = loader.Load(_paths);
-
-        Assert.True(result.Succeeded);
-        Assert.Equal(3, result.UniqueItemCount);
-        Assert.Equal(2, result.Sources.Count);
-        Assert.DoesNotContain(result.Sources, source => source.Name == "Legado");
-        Assert.Contains(result.AllItems, item => item.PackageId == "Empresa.ERP" && item.Name == "ERP Cliente" && item.Category == "Negocio");
-        Assert.Contains(result.AllItems, item => item.PackageId == "WinRAR.WinRAR" && item.Name == "WinRAR.WinRAR");
-
-        CatalogItem chrome = Assert.Single(result.AllItems, item => item.PackageId == "Google.Chrome");
-        Assert.Equal("Chrome Corporativo", chrome.Name);
+        IReadOnlyList<CatalogItem> items = _vault.GetCatalogItems();
+        Assert.True(items.Count > 100);
     }
 
     [Fact]
-    public void Search_FindsTypedCatalogEntries()
+    public void GetSettings_ReturnsDefaultsForNewVault()
     {
-        File.WriteAllText(_paths.InstallCatalogPath, """
-[
-  { "Name": "Chrome Corporativo", "Id": "Google.Chrome", "Category": "Navegadores", "Essential": true },
-  { "N": "ERP Cliente", "I": "Empresa.ERP", "C": "Negocio", "E": false },
-  "WinRAR.WinRAR"
-]
-""");
-        File.WriteAllText(_paths.TechCatalogPath, "[]");
+        VaultSettings settings = _vault.GetSettings();
 
-        CatalogLoader loader = new();
-        CatalogSearchService searchService = new();
-
-        CatalogLoadResult result = loader.Load(_paths);
-        IReadOnlyList<CatalogItem> erpMatches = searchService.Search(result, "erp");
-        CatalogSearchPreview preview = searchService.BuildPreview(result);
-
-        Assert.Contains(erpMatches, item => item.PackageId == "Empresa.ERP");
-        Assert.Equal(3, preview.UniqueItemCount);
-        Assert.Equal(3, preview.CategoryCount);
-        Assert.Equal(1, preview.EssentialItemCount);
-        Assert.NotEmpty(preview.PreviewItems);
+        Assert.True(settings.FollowSystemTheme);
+        Assert.True(settings.AutoCheckDependencies);
+        Assert.True(settings.ConfirmBeforeInstall);
     }
 
     [Fact]
-    public void BuildPreview_AllowsEmptyCatalogWithoutFallbackSeed()
+    public void SaveSettings_PersistsChanges()
     {
-        File.WriteAllText(_paths.InstallCatalogPath, "[]");
-        File.WriteAllText(_paths.TechCatalogPath, "[]");
+        var settings = _vault.GetSettings();
+        settings.FollowSystemTheme = false;
+        _vault.SaveSettings(settings);
 
-        CatalogLoader loader = new();
-        CatalogSearchService searchService = new();
+        var reloaded = _vault.GetSettings();
+        Assert.False(reloaded.FollowSystemTheme);
+    }
 
-        CatalogLoadResult result = loader.Load(_paths);
-        CatalogSearchPreview preview = searchService.BuildPreview(result);
+    [Fact]
+    public void UpsertAndDeleteCatalogItem_WorksCorrectly()
+    {
+        var item = new CatalogItem("Test App", "Test.App", "Test", false, "UnitTest");
+        _vault.UpsertCatalogItem(item);
 
-        Assert.True(result.Succeeded);
-        Assert.Empty(result.AllItems);
-        Assert.Equal(0, preview.UniqueItemCount);
-        Assert.Equal(string.Empty, preview.PreviewQuery);
-        Assert.Empty(preview.PreviewItems);
+        var items = _vault.GetCatalogItems();
+        Assert.Contains(items, i => i.PackageId == "Test.App");
+
+        _vault.DeleteCatalogItem("Test.App");
+        items = _vault.GetCatalogItems();
+        Assert.DoesNotContain(items, i => i.PackageId == "Test.App");
+    }
+
+    [Fact]
+    public void ImportCatalogFromJson_ImportsItems()
+    {
+        string json = """
+        [
+          { "name": "Imported App", "packageId": "Imported.App", "category": "Test", "isEssential": true, "sourceName": "JsonImport" }
+        ]
+        """;
+
+        int count = _vault.ImportCatalogFromJson(json);
+
+        Assert.Equal(1, count);
+        var items = _vault.GetCatalogItems();
+        Assert.Contains(items, i => i.PackageId == "Imported.App" && i.Name == "Imported App");
+    }
+
+    [Fact]
+    public void WriteLog_AndGetRecentLogs_WorkCorrectly()
+    {
+        var entry = new BananaSuisa.Core.Logging.JsonLogEntry(
+            Guid.NewGuid(), "0.0.1", 1, 1, DateTime.UtcNow,
+            "Information", "test", "Hello vault", null, null);
+
+        _vault.WriteLog(entry);
+
+        var logs = _vault.GetRecentLogs(10);
+        Assert.Contains(logs, l => l.Message == "Hello vault");
+    }
+
+    [Fact]
+    public void GetAuditTrail_ContainsSeedEntry()
+    {
+        var trail = _vault.GetAuditTrail(10);
+
+        Assert.Contains(trail, e => e.Operation == "seed");
+    }
+
+    [Fact]
+    public void ExportAllToJson_ReturnsValidJson()
+    {
+        string json = _vault.ExportAllToJson();
+
+        Assert.Contains("metadata", json);
+        Assert.Contains("catalogo", json);
+        Assert.Contains("settings", json);
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_projectRoot))
-        {
-            Directory.Delete(_projectRoot, recursive: true);
-        }
+        _vault.Dispose();
+        string? dir = Path.GetDirectoryName(_vaultPath);
+        if (dir is not null && Directory.Exists(dir))
+            Directory.Delete(dir, recursive: true);
     }
 }

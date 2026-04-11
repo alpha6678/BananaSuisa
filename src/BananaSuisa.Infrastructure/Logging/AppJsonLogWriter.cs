@@ -1,4 +1,3 @@
-using System.Text.Json;
 using BananaSuisa.Core.Logging;
 using BananaSuisa.Core.Versioning;
 using BananaSuisa.Services.Abstractions;
@@ -8,25 +7,14 @@ namespace BananaSuisa.Infrastructure.Logging;
 public sealed class AppJsonLogWriter : IAppJsonLog
 {
     private static readonly Guid SessionId = Guid.NewGuid();
-    private readonly object _lock = new();
-    private readonly string _path;
-    private readonly JsonSerializerOptions _json = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
+    private readonly IVault _vault;
 
-    public AppJsonLogWriter(string logFilePath)
+    public AppJsonLogWriter(IVault vault)
     {
-        _path = logFilePath ?? throw new ArgumentNullException(nameof(logFilePath));
-        string? dir = Path.GetDirectoryName(_path);
-        if (!string.IsNullOrEmpty(dir))
-        {
-            Directory.CreateDirectory(dir);
-        }
+        _vault = vault ?? throw new ArgumentNullException(nameof(vault));
     }
 
-    public string LogFilePath => _path;
+    public string LogFilePath => "(vault)";
 
     public void Write(
         AppLogLevel level,
@@ -49,16 +37,10 @@ public sealed class AppJsonLogWriter : IAppJsonLog
                 exception?.ToString(),
                 data);
 
-            string line = JsonSerializer.Serialize(entry, _json) + Environment.NewLine;
-
-            lock (_lock)
-            {
-                File.AppendAllText(_path, line);
-            }
+            _vault.WriteLog(entry);
         }
         catch
         {
-            // Diagnostico nao deve derrubar a aplicacao.
         }
     }
 }

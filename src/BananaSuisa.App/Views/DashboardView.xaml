@@ -24,14 +24,12 @@
                 <controls:InfoCardWidget.CardContent>
                     <StackPanel>
                         <TextBlock TextWrapping="Wrap" LineHeight="22"
-                                   Text="Use o menu à esquerda para navegar. O diagnóstico de runtime, caminhos do workspace e checagens detalhadas ficam em Logs, organizados em tabelas para leitura rápida." />
-                        <TextBlock Margin="0,16,0,0" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" TextWrapping="Wrap"
-                                   Text="Catálogo e Configurações receberão telas dedicadas conforme o app evoluir." />
+                                   Text="Use o menu à esquerda para navegar. Selecione Instalar/Remover para gerenciar programas via winget." />
                     </StackPanel>
                 </controls:InfoCardWidget.CardContent>
             </controls:InfoCardWidget>
 
-            <controls:InfoCardWidget Grid.Row="4" CardTitle="Resumo rápido">
+            <controls:InfoCardWidget Grid.Row="4" CardTitle="Ambiente">
                 <controls:InfoCardWidget.CardContent>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -44,8 +42,8 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Text="Workspace" Foreground="{StaticResource TextHighlightBrush}" />
-                        <TextBlock Grid.Column="1" Text="{Binding WorkspaceSummary}" TextWrapping="Wrap" />
+                        <TextBlock Text="Winget" Foreground="{StaticResource TextHighlightBrush}" />
+                        <TextBlock Grid.Column="1" Text="{Binding WingetPath}" TextWrapping="Wrap" />
 
                         <TextBlock Grid.Row="2" Text="Coleta" Foreground="{StaticResource TextHighlightBrush}" />
                         <TextBlock Grid.Row="2" Grid.Column="1" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" Text="{Binding GeneratedAt, StringFormat=Última coleta: {0}}" />
