@@ -4,13 +4,16 @@ public sealed record WorkspacePaths(string ProjectRoot, string VaultPath)
 {
     public static WorkspacePaths FromProjectRoot(string projectRoot)
     {
-        var vaultPath = Path.Combine(projectRoot, "BananaSuisa_recursos", "BananaSuisa.dat");
-        return new WorkspacePaths(projectRoot, vaultPath);
+        return new WorkspacePaths(projectRoot, ResolveVaultPath());
     }
 
     public static WorkspacePaths FromBaseDirectory(string baseDirectory)
     {
-        var vaultPath = Path.Combine(baseDirectory, "BananaSuisa.dat");
-        return new WorkspacePaths(baseDirectory, vaultPath);
+        return new WorkspacePaths(baseDirectory, ResolveVaultPath());
+    }
+
+    private static string ResolveVaultPath()
+    {
+        return Path.Combine(AppContext.BaseDirectory, "BananaSuisa.dat");
     }
 }
