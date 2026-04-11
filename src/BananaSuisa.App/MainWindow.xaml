@@ -52,6 +52,10 @@
 
             <!-- Overlay de Carregamento Global -->
             <controls:LoadingOverlay Grid.RowSpan="2" Message="{Binding LoadingMessage}" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}" />
+
+            <!-- Overlay de Resumo de Instalação com Retry -->
+            <controls:InstallRetrySummaryDialog Grid.RowSpan="2"
+                                                 Visibility="{Binding ShowRetrySummary, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}" />
         </Grid>
     </Grid>
 </Window>

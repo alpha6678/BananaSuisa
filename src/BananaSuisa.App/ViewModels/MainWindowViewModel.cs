@@ -8,6 +8,7 @@ using BananaSuisa.App.Views;
 using BananaSuisa.Core.Catalog;
 using BananaSuisa.Core.Diagnostics;
 using BananaSuisa.Core.Logging;
+using BananaSuisa.Core.Text;
 using BananaSuisa.Core.Winget;
 using BananaSuisa.Services.Abstractions;
 
@@ -39,6 +40,15 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private CancellationTokenSource? _installCts;
     private bool _isInstallingPackages;
+    private string _installCatalogModeLabel = "Sugestões validadas";
+    private bool _isShowingOfflineList = true;
+    private bool _showRetrySummary;
+
+    private readonly List<WingetCatalogPickRowViewModel> _offlineValidatedRows = [];
+    private readonly List<WingetCatalogPickRowViewModel> _repositorySearchRows = [];
+    private readonly List<InstallBatchResultEntry> _succeededInstalls = [];
+    private readonly List<InstallBatchResultEntry> _failedInstalls = [];
+    private readonly ObservableCollection<RetryCandidateViewModel> _retryCandidates = [];
 
     private sealed record PendingInstallEntry(string Name, string Id, string Version, string Source, string InstallationOrigin);
 
@@ -101,7 +111,13 @@ public sealed class MainWindowViewModel : ObservableObject
     public string WingetSearchQuery
     {
         get => _wingetSearchQuery;
-        set => SetProperty(ref _wingetSearchQuery, value);
+        set
+        {
+            if (SetProperty(ref _wingetSearchQuery, value))
+            {
+                ApplyOfflineFilter(value);
+            }
+        }
     }
 
     public ObservableCollection<WingetSearchRowViewModel> WingetSearchRows { get; } = new();
@@ -109,6 +125,29 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<WingetCatalogPickRowViewModel> WingetCatalogSearchRows { get; } = new();
 
     public ObservableCollection<WingetCatalogPickRowViewModel> RecommendedApps { get; } = new();
+
+    public string InstallCatalogModeLabel
+    {
+        get => _installCatalogModeLabel;
+        set => SetProperty(ref _installCatalogModeLabel, value);
+    }
+
+    public bool IsShowingOfflineList
+    {
+        get => _isShowingOfflineList;
+        set => SetProperty(ref _isShowingOfflineList, value);
+    }
+
+    public bool ShowRetrySummary
+    {
+        get => _showRetrySummary;
+        set => SetProperty(ref _showRetrySummary, value);
+    }
+
+    public ObservableCollection<RetryCandidateViewModel> RetryCandidates => _retryCandidates;
+
+    public int BatchSucceededCount => _succeededInstalls.Count;
+    public int BatchFailedCount => _failedInstalls.Count;
 
     public bool HasPendingInstalls =>
         _pendingInstall.Keys.Any(id => !_installedIdsForInstallTab.Contains(id));
@@ -161,6 +200,12 @@ public sealed class MainWindowViewModel : ObservableObject
     public ICommand CancelInstallCommand { get; }
 
     public ICommand LoadRecommendationsCommand { get; }
+
+    public ICommand CloseRetrySummaryCommand { get; }
+
+    public ICommand RetryAllSuggestedCommand { get; }
+
+    public ICommand RetryOneByOneCommand { get; }
 
     private readonly IReadOnlyList<CatalogItem> _rawCatalogItems;
 
@@ -242,6 +287,9 @@ public sealed class MainWindowViewModel : ObservableObject
             _ => HasPendingInstalls && !IsInstallingPackages);
         CancelInstallCommand = new RelayCommand(_ => _installCts?.Cancel(), _ => IsInstallingPackages);
         LoadRecommendationsCommand = new AsyncRelayCommand(_ => LoadRecommendationsAsync());
+        CloseRetrySummaryCommand = new RelayCommand(_ => ShowRetrySummary = false);
+        RetryAllSuggestedCommand = new AsyncRelayCommand(_ => RetryAllSuggestedAsync());
+        RetryOneByOneCommand = new AsyncRelayCommand(_ => RetryOneByOneAsync());
 
         CurrentView = new DashboardView { DataContext = this };
     }
@@ -370,10 +418,10 @@ public sealed class MainWindowViewModel : ObservableObject
 
         App.Current.Dispatcher.Invoke(() =>
         {
-            WingetCatalogSearchRows.Clear();
+            _offlineValidatedRows.Clear();
             foreach (var app in RecommendedApps)
             {
-                WingetCatalogSearchRows.Add(new WingetCatalogPickRowViewModel(
+                _offlineValidatedRows.Add(new WingetCatalogPickRowViewModel(
                     this,
                     app.Name,
                     app.Id,
@@ -382,7 +430,52 @@ public sealed class MainWindowViewModel : ObservableObject
                     app.InstallationOrigin,
                     _pendingInstall.ContainsKey(app.Id)));
             }
+
+            IsShowingOfflineList = true;
+            InstallCatalogModeLabel = "Sugestões validadas";
+            SyncVisibleCatalogRows(_offlineValidatedRows);
         });
+    }
+
+    private void ApplyOfflineFilter(string query)
+    {
+        if (!IsInstallMode || InstallSubKey != "InstallRun")
+        {
+            return;
+        }
+
+        if (!IsShowingOfflineList && !string.IsNullOrWhiteSpace(query))
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            IsShowingOfflineList = true;
+            InstallCatalogModeLabel = "Sugestões validadas";
+            SyncVisibleCatalogRows(_offlineValidatedRows);
+            return;
+        }
+
+        IsShowingOfflineList = true;
+        InstallCatalogModeLabel = "Sugestões validadas (filtrado)";
+
+        var filtered = _offlineValidatedRows
+            .Where(r => FuzzyTextMatcher.IsFuzzyMatch(query, r.Name)
+                        || FuzzyTextMatcher.IsFuzzyMatch(query, r.Id))
+            .ToList();
+
+        SyncVisibleCatalogRows(filtered);
+    }
+
+    private void SyncVisibleCatalogRows(List<WingetCatalogPickRowViewModel> source)
+    {
+        WingetCatalogSearchRows.Clear();
+        foreach (var row in source)
+        {
+            row.SetSelectedSilent(_pendingInstall.ContainsKey(row.Id));
+            WingetCatalogSearchRows.Add(row);
+        }
     }
 
     private void AppendInstallLog(string line)
@@ -690,7 +783,7 @@ public sealed class MainWindowViewModel : ObservableObject
         LoadingMessage = "Pesquisando no repositorio winget...";
         try
         {
-            WingetCatalogSearchRows.Clear();
+            _repositorySearchRows.Clear();
             var outcome = await _wingetSearch.SearchAsync(WingetSearchQuery, 200).ConfigureAwait(true);
             if (!outcome.Success)
             {
@@ -710,7 +803,7 @@ public sealed class MainWindowViewModel : ObservableObject
             foreach (WingetSearchItem row in outcome.Items)
             {
                 bool selected = _pendingInstall.ContainsKey(row.Id);
-                WingetCatalogSearchRows.Add(new WingetCatalogPickRowViewModel(
+                _repositorySearchRows.Add(new WingetCatalogPickRowViewModel(
                     this,
                     row.Name,
                     row.Id,
@@ -719,6 +812,10 @@ public sealed class MainWindowViewModel : ObservableObject
                     row.InstallationOrigin,
                     selected));
             }
+
+            IsShowingOfflineList = false;
+            InstallCatalogModeLabel = "Resultados do repositório";
+            SyncVisibleCatalogRows(_repositorySearchRows);
 
             AppendInstallLog($"[winget pesquisa] {outcome.Message}");
         }
@@ -747,8 +844,13 @@ public sealed class MainWindowViewModel : ObservableObject
         _installCts = new CancellationTokenSource();
         CancellationToken token = _installCts.Token;
 
+        _succeededInstalls.Clear();
+        _failedInstalls.Clear();
+        _retryCandidates.Clear();
+
         IsInstallingPackages = true;
         AppendInstallLog($"[instalar] Lote: {toInstall.Count} pacote(s) (pode cancelar durante a execução).");
+        bool wasCancelled = false;
         try
         {
             foreach (PendingInstallEntry p in toInstall)
@@ -761,16 +863,19 @@ public sealed class MainWindowViewModel : ObservableObject
                 if (outcome.IsCancelled)
                 {
                     AppendInstallLog("[instalar] Cancelado — interrompendo o lote.");
+                    wasCancelled = true;
                     break;
                 }
 
                 if (outcome.Success)
                 {
                     AppendInstallLog($"[instalar] OK {p.Id}: {outcome.Message}");
+                    _succeededInstalls.Add(new InstallBatchResultEntry(p.Name, p.Id, p.Source, true, outcome.Message));
                 }
                 else
                 {
                     AppendInstallLog($"[instalar] FALHA {p.Id}: {outcome.Message}");
+                    _failedInstalls.Add(new InstallBatchResultEntry(p.Name, p.Id, p.Source, false, outcome.Message, outcome.FailureDetail));
                     if (!string.IsNullOrEmpty(outcome.FailureDetail))
                     {
                         _appLog.Write(
@@ -786,6 +891,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
+            wasCancelled = true;
             AppendInstallLog("[instalar] Cancelado pelo utilizador.");
             await LoadInstalledWingetPackagesForInstallTabAsync(showLoadingOverlay: false).ConfigureAwait(true);
         }
@@ -793,6 +899,199 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             _appLog.Write(AppLogLevel.Error, "install.winget.install", "InstallPendingPackagesAsync falhou.", ex);
             AppendInstallLog($"[instalar] ERRO interno: {ex.Message}");
+        }
+        finally
+        {
+            IsInstallingPackages = false;
+            _installCts?.Dispose();
+            _installCts = null;
+            OnPropertyChanged(nameof(HasPendingInstalls));
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        if (!wasCancelled && _failedInstalls.Count > 0)
+        {
+            await ResolveSimilarityCandidatesAsync();
+        }
+
+        if (_succeededInstalls.Count > 0 || _failedInstalls.Count > 0)
+        {
+            OnPropertyChanged(nameof(BatchSucceededCount));
+            OnPropertyChanged(nameof(BatchFailedCount));
+            ShowRetrySummary = true;
+        }
+    }
+
+    private async Task ResolveSimilarityCandidatesAsync()
+    {
+        AppendInstallLog($"[retry] Resolvendo candidatos por similaridade para {_failedInstalls.Count} falha(s)...");
+        foreach (var fail in _failedInstalls)
+        {
+            try
+            {
+                var outcome = await _wingetSearch.SearchAsync(fail.Name, 20).ConfigureAwait(true);
+                if (!outcome.Success || outcome.Items.Count == 0)
+                {
+                    _retryCandidates.Add(new RetryCandidateViewModel(
+                        fail.Name, fail.Id,
+                        string.Empty, string.Empty, string.Empty, 0));
+                    continue;
+                }
+
+                var ranked = outcome.Items
+                    .Select(item => (item, Score: WingetSearchRelevance.ScoreAgainstQuery(fail.Name, item)))
+                    .Where(x => x.Score > 0 && !string.Equals(x.item.Id, fail.Id, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(x => x.Score)
+                    .FirstOrDefault();
+
+                if (ranked.item is not null)
+                {
+                    _retryCandidates.Add(new RetryCandidateViewModel(
+                        fail.Name, fail.Id,
+                        ranked.item.Name, ranked.item.Id,
+                        ranked.item.Source ?? "winget",
+                        ranked.Score));
+                    AppendInstallLog($"[retry] {fail.Name} → sugestão: {ranked.item.Name} ({ranked.item.Id}) score={ranked.Score}");
+                }
+                else
+                {
+                    _retryCandidates.Add(new RetryCandidateViewModel(
+                        fail.Name, fail.Id,
+                        string.Empty, string.Empty, string.Empty, 0));
+                    AppendInstallLog($"[retry] {fail.Name} → sem candidato alternativo encontrado.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _appLog.Write(AppLogLevel.Warning, "install.retry.resolve", $"Falha ao buscar similares para {fail.Id}", ex);
+                _retryCandidates.Add(new RetryCandidateViewModel(
+                    fail.Name, fail.Id,
+                    string.Empty, string.Empty, string.Empty, 0));
+            }
+        }
+    }
+
+    private async Task RetryAllSuggestedAsync()
+    {
+        ShowRetrySummary = false;
+        var toRetry = _retryCandidates.Where(c => c.HasSuggestion && c.IsApproved).ToList();
+        if (toRetry.Count == 0)
+        {
+            AppendInstallLog("[retry] Nenhum candidato aprovado para retry.");
+            return;
+        }
+
+        _installCts?.Dispose();
+        _installCts = new CancellationTokenSource();
+        CancellationToken token = _installCts.Token;
+        IsInstallingPackages = true;
+
+        AppendInstallLog($"[retry] Tentando {toRetry.Count} candidato(s) sugeridos...");
+        try
+        {
+            foreach (var candidate in toRetry)
+            {
+                token.ThrowIfCancellationRequested();
+                candidate.RetryStatus = "Instalando...";
+                AppendInstallLog($"[retry] {candidate.OriginalName} → tentando {candidate.SuggestedId}...");
+                var outcome = await _wingetPackageInstall
+                    .InstallAsync(candidate.SuggestedId, candidate.SuggestedSource, token)
+                    .ConfigureAwait(true);
+
+                if (outcome.IsCancelled)
+                {
+                    candidate.RetryStatus = "Cancelado";
+                    AppendInstallLog("[retry] Cancelado — interrompendo retry.");
+                    break;
+                }
+
+                if (outcome.Success)
+                {
+                    candidate.RetryStatus = "OK";
+                    AppendInstallLog($"[retry] OK {candidate.SuggestedId}: {outcome.Message}");
+                }
+                else
+                {
+                    candidate.RetryStatus = "Falhou";
+                    AppendInstallLog($"[retry] FALHA {candidate.SuggestedId}: {outcome.Message}");
+                }
+            }
+
+            await LoadInstalledWingetPackagesForInstallTabAsync(showLoadingOverlay: false).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            AppendInstallLog("[retry] Cancelado pelo utilizador.");
+        }
+        finally
+        {
+            IsInstallingPackages = false;
+            _installCts?.Dispose();
+            _installCts = null;
+            OnPropertyChanged(nameof(HasPendingInstalls));
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    private async Task RetryOneByOneAsync()
+    {
+        ShowRetrySummary = false;
+        var toRetry = _retryCandidates.Where(c => c.HasSuggestion).ToList();
+        if (toRetry.Count == 0)
+        {
+            AppendInstallLog("[retry] Nenhum candidato com sugestão disponível.");
+            return;
+        }
+
+        _installCts?.Dispose();
+        _installCts = new CancellationTokenSource();
+        CancellationToken token = _installCts.Token;
+        IsInstallingPackages = true;
+
+        AppendInstallLog($"[retry] Modo item a item: {toRetry.Count} candidato(s).");
+        try
+        {
+            foreach (var candidate in toRetry)
+            {
+                token.ThrowIfCancellationRequested();
+
+                if (!candidate.IsApproved)
+                {
+                    candidate.RetryStatus = "Ignorado";
+                    AppendInstallLog($"[retry] {candidate.OriginalName} → ignorado pelo utilizador.");
+                    continue;
+                }
+
+                candidate.RetryStatus = "Instalando...";
+                AppendInstallLog($"[retry] {candidate.OriginalName} → tentando {candidate.SuggestedId}...");
+                var outcome = await _wingetPackageInstall
+                    .InstallAsync(candidate.SuggestedId, candidate.SuggestedSource, token)
+                    .ConfigureAwait(true);
+
+                if (outcome.IsCancelled)
+                {
+                    candidate.RetryStatus = "Cancelado";
+                    AppendInstallLog("[retry] Cancelado — interrompendo retry.");
+                    break;
+                }
+
+                if (outcome.Success)
+                {
+                    candidate.RetryStatus = "OK";
+                    AppendInstallLog($"[retry] OK {candidate.SuggestedId}: {outcome.Message}");
+                }
+                else
+                {
+                    candidate.RetryStatus = "Falhou";
+                    AppendInstallLog($"[retry] FALHA {candidate.SuggestedId}: {outcome.Message}");
+                }
+            }
+
+            await LoadInstalledWingetPackagesForInstallTabAsync(showLoadingOverlay: false).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            AppendInstallLog("[retry] Cancelado pelo utilizador.");
         }
         finally
         {

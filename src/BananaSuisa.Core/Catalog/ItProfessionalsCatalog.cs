@@ -71,6 +71,7 @@ public static class ItProfessionalsCatalog
             new CatalogItem("PowerToys", "Microsoft.PowerToys", "Sistema", true, "Curadoria TI"),
             new CatalogItem("gsudo", "gerardog.gsudo", "Sistema", false, "Curadoria TI"),
             new CatalogItem("7-Zip", "7zip.7zip", "Sistema", true, "Curadoria TI"),
+            new CatalogItem("PeaZip", "Giorgiotani.Peazip", "Sistema", false, "Curadoria TI"),
             new CatalogItem("Notepad++", "Notepad++.Notepad++", "Utilitários", true, "Curadoria TI"),
             new CatalogItem("PuTTY", "PuTTY.PuTTY", "Rede", true, "Curadoria TI"),
             new CatalogItem("WinDirStat", "WinDirStat.WinDirStat", "Sistema", false, "Curadoria TI"),
@@ -89,10 +90,15 @@ public static class ItProfessionalsCatalog
             new CatalogItem("ShareX", "ShareX.ShareX", "Utilitários", false, "Curadoria TI"),
             new CatalogItem("Flow Launcher", "Flow-Launcher.Flow-Launcher", "Utilitários", false, "Curadoria TI"),
 
-            // Redes Privadas & Segurança
+            // Redes, Diagnóstico de Rede & Segurança
             new CatalogItem("Tailscale", "Tailscale.Tailscale", "Rede", false, "Curadoria TI"),
             new CatalogItem("Cloudflare WARP", "Cloudflare.Warp", "Rede", false, "Curadoria TI"),
             new CatalogItem("WireGuard", "WireGuard.WireGuard", "Rede", false, "Curadoria TI"),
+            new CatalogItem("Wireshark", "WiresharkFoundation.Wireshark", "Rede", true, "Curadoria TI"),
+            new CatalogItem("Nmap", "Insecure.Nmap", "Rede", false, "Curadoria TI"),
+            new CatalogItem("Angry IP Scanner", "angryziber.AngryIPScanner", "Rede", false, "Curadoria TI"),
+            new CatalogItem("Advanced IP Scanner", "Famatech.AdvancedIPScanner", "Rede", false, "Curadoria TI"),
+            new CatalogItem("Fiddler Classic", "Telerik.Fiddler.Classic", "Rede", false, "Curadoria TI"),
             new CatalogItem("KeePassXC", "KeePassXCTeam.KeePassXC", "Segurança", true, "Curadoria TI"),
             new CatalogItem("Bitwarden", "Bitwarden.Bitwarden", "Segurança", true, "Curadoria TI"),
 
@@ -102,6 +108,7 @@ public static class ItProfessionalsCatalog
             new CatalogItem("Brave", "Brave.Brave", "Navegadores", false, "Curadoria TI"),
             new CatalogItem("Microsoft Edge", "Microsoft.Edge", "Navegadores", false, "Curadoria TI"),
             new CatalogItem("Opera", "Opera.Opera", "Navegadores", false, "Curadoria TI"),
+            new CatalogItem("Opera GX", "Opera.OperaGX", "Navegadores", false, "Curadoria TI"),
             new CatalogItem("Vivaldi", "Vivaldi.Vivaldi", "Navegadores", false, "Curadoria TI"),
             new CatalogItem("Tor Browser", "TorProject.TorBrowser", "Navegadores", false, "Curadoria TI"),
 
@@ -110,6 +117,8 @@ public static class ItProfessionalsCatalog
             new CatalogItem("Notion", "Notion.Notion", "Produtividade", false, "Curadoria TI"),
             new CatalogItem("Logseq", "Logseq.Logseq", "Produtividade", false, "Curadoria TI"),
             new CatalogItem("PowerBI Desktop", "Microsoft.PowerBI", "Produtividade", false, "Curadoria TI"),
+            new CatalogItem("LibreOffice", "TheDocumentFoundation.LibreOffice", "Produtividade", false, "Curadoria TI"),
+            new CatalogItem("WPS Office", "Kingsoft.WPSOffice", "Produtividade", false, "Curadoria TI"),
 
             // Comunicação & Acesso Remoto
             new CatalogItem("Discord", "Discord.Discord", "Comunicação", false, "Curadoria TI"),
@@ -124,11 +133,54 @@ public static class ItProfessionalsCatalog
 
             // Design & Mídia
             new CatalogItem("Figma", "Figma.Figma", "Design", false, "Curadoria TI"),
+            new CatalogItem("GIMP 3", "GIMP.GIMP.3", "Design", false, "Curadoria TI"),
+            new CatalogItem("Krita", "KDE.Krita", "Design", false, "Curadoria TI"),
+            new CatalogItem("Inkscape", "Inkscape.Inkscape", "Design", false, "Curadoria TI"),
+            new CatalogItem("Upscayl", "Upscayl.Upscayl", "Design", false, "Curadoria TI"),
             new CatalogItem("VLC media player", "VideoLAN.VLC", "Mídia", true, "Curadoria TI"),
             new CatalogItem("OBS Studio", "OBSProject.OBSStudio", "Mídia", false, "Curadoria TI"),
-            new CatalogItem("Inkscape", "Inkscape.Inkscape", "Design", false, "Curadoria TI"),
             new CatalogItem("Audacity", "Audacity.Audacity", "Mídia", false, "Curadoria TI"),
-            new CatalogItem("Spotify", "Spotify.Spotify", "Mídia", false, "Curadoria TI")
+            new CatalogItem("Spotify", "Spotify.Spotify", "Mídia", false, "Curadoria TI"),
+
+            // Captura de Tela & Gravação
+            new CatalogItem("Flameshot", "Flameshot.Flameshot", "Utilitários", false, "Curadoria TI"),
+            new CatalogItem("Lightshot", "Skillbrains.Lightshot", "Utilitários", false, "Curadoria TI"),
+            new CatalogItem("Greenshot", "Greenshot.Greenshot", "Utilitários", false, "Curadoria TI"),
+            new CatalogItem("ScreenToGif", "NickeManarin.ScreenToGif", "Utilitários", false, "Curadoria TI"),
+
+            // Editores de Código & IDE
+            new CatalogItem("Cursor", "Anysphere.Cursor", "Desenvolvimento", false, "Curadoria TI"),
+
+            // PDF & Documentos
+            new CatalogItem("PDFCreator Free", "Avanquestpdfforge.PDFCreator-Free", "Utilitários", false, "Curadoria TI"),
+            new CatalogItem("SumatraPDF", "SumatraPDF.SumatraPDF", "Utilitários", false, "Curadoria TI"),
+            new CatalogItem("Foxit PDF Editor", "Foxit.PhantomPDF", "Utilitários", false, "Curadoria TI"),
+            new CatalogItem("wkhtmltopdf", "wkhtmltopdf.wkhtmltox", "Utilitários", false, "Curadoria TI"),
+
+            // Produtividade Desktop
+            new CatalogItem("Ditto Clipboard", "Ditto.Ditto", "Utilitários", false, "Curadoria TI"),
+            new CatalogItem("draw.io", "JGraph.Draw", "Produtividade", false, "Curadoria TI"),
+
+            // Mídia & Conversão
+            new CatalogItem("HandBrake", "HandBrake.HandBrake", "Mídia", false, "Curadoria TI"),
+            new CatalogItem("qBittorrent", "qBittorrent.qBittorrent", "Utilitários", false, "Curadoria TI"),
+
+            // Diagnóstico & Benchmark
+            new CatalogItem("CrystalDiskInfo", "CrystalDewWorld.CrystalDiskInfo", "Sistema", false, "Curadoria TI"),
+            new CatalogItem("CrystalMark 3D25", "CrystalDewWorld.CrystalMark3D25", "Sistema", false, "Curadoria TI"),
+            new CatalogItem("MiniTool Partition Wizard", "MiniTool.PartitionWizard.Free", "Sistema", false, "Curadoria TI"),
+            new CatalogItem("Revo Uninstaller", "RevoUninstaller.RevoUninstaller", "Sistema", false, "Curadoria TI"),
+            new CatalogItem("TreeSize Free", "JAMSoftware.TreeSize.Free", "Sistema", false, "Curadoria TI"),
+            new CatalogItem("Ventoy", "Ventoy.Ventoy", "Sistema", false, "Curadoria TI"),
+
+            // Hardware & Diagnóstico
+            new CatalogItem("HWiNFO", "REALiX.HWiNFO", "Diagnóstico", false, "Curadoria TI"),
+            new CatalogItem("CPU-Z", "CPUID.CPU-Z", "Diagnóstico", false, "Curadoria TI"),
+            new CatalogItem("GPU-Z", "TechPowerUp.GPU-Z", "Diagnóstico", false, "Curadoria TI"),
+            new CatalogItem("HWMonitor", "CPUID.HWMonitor", "Diagnóstico", false, "Curadoria TI"),
+
+            // Emuladores
+            new CatalogItem("Dolphin Emulator", "DolphinEmulator.Dolphin", "Mídia", false, "Curadoria TI")
         };
     }
 }

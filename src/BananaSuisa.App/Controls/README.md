@@ -106,6 +106,17 @@ Um conjunto de 1 a 2 botões padrão alinhados à direita, utilizado tipicamente
                             SecondaryButtonCommand="{Binding CancelCommand}" />
 ```
 
+### 9. `InstallRetrySummaryDialog`
+Overlay-dialog de resumo exibido ao final de um lote de instalação. Mostra totais de sucesso/falha, uma grade de candidatos de retry por similaridade (com checkbox de aprovação) e botões para **Fechar**, **Tentar todos sugeridos** ou **Revisar um por um**.
+
+Controlado pela propriedade `ShowRetrySummary` do ViewModel. Os candidatos vêm de `RetryCandidates` (coleção de `RetryCandidateViewModel`).
+
+**Exemplo de Uso (já integrado no `MainWindow.xaml`):**
+```xml
+<controls:InstallRetrySummaryDialog Grid.RowSpan="2"
+                                     Visibility="{Binding ShowRetrySummary, Converter={StaticResource BooleanToVisibilityConverter}}" />
+```
+
 ---
 
 ## Comportamentos de scroll (pasta `Behaviors/`)

@@ -36,5 +36,6 @@ flowchart TB
 - **`CompactActivityLogStrip`**: Rodapé de log desenhado para conter mensagens breves de atividade. Ocupa o mínimo de espaço vertical (~32px), limitando o texto a 2 linhas com reticências (`...`) e permitindo ver o log completo no ToolTip.
 - **`SearchTextButtonRow`**: Um campo de busca associado a um botão de pesquisa, otimizado para o tema da app (com "hint" textual e atalho de `Enter`).
 - **`ActionButtonStrip`**: Um slot ou conjunto de botões padrão alinhados à direita.
+- **`InstallRetrySummaryDialog`**: Overlay-dialog exibido ao final de um lote de instalação. Mostra totais de sucesso/falha, uma grade de candidatos de retry por similaridade (com checkbox de aprovação) e botões para **Fechar**, **Tentar todos sugeridos** ou **Revisar um por um**. Controlado pela propriedade `ShowRetrySummary` do ViewModel.
 
 Para detalhes práticos sobre como instanciar estes controlos, consulte o `README.md` dentro de `src/BananaSuisa.App/Controls/`.

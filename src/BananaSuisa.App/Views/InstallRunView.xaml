@@ -53,7 +53,7 @@
                            FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="{StaticResource TextSecondaryBrush}"
-                           Text="Resultados da pesquisa" />
+                           Text="{Binding InstallCatalogModeLabel}" />
                 <DataGrid Grid.Row="1"
                           Style="{StaticResource LogsDataGridStyle}"
                           ItemsSource="{Binding WingetCatalogSearchRows}"
