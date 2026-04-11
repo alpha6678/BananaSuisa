@@ -6,7 +6,7 @@
              xmlns:controls="clr-namespace:BananaSuisa.App.Controls"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="900">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-        <Grid Margin="28" Background="Transparent">
+        <Grid Margin="{StaticResource WorkspaceContentMargin}" Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="20" />

@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:BananaSuisa.App.Controls"
              VerticalAlignment="Stretch"
              HorizontalAlignment="Stretch"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="640">
@@ -20,63 +21,25 @@
             </Style.Triggers>
         </Style>
     </UserControl.Resources>
-    <Grid Margin="28" Background="Transparent" VerticalAlignment="Stretch">
+    <Grid Margin="{StaticResource WorkspacePageMargin}" Background="Transparent" VerticalAlignment="Stretch">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="16" />
+            <RowDefinition Height="12" />
             <RowDefinition Height="*" MinHeight="160" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <Grid Grid.Column="0" MinHeight="38">
-                <TextBox x:Name="WingetSearchBox"
-                         MinHeight="38"
-                         VerticalContentAlignment="Center"
-                         Padding="10,8"
-                         Background="{StaticResource CardBackgroundBrush}"
-                         BorderBrush="{StaticResource WidgetBorderBrush}"
-                         Foreground="{StaticResource TextPrimaryBrush}"
-                         Text="{Binding WingetSearchQuery, UpdateSourceTrigger=PropertyChanged}">
-                    <TextBox.InputBindings>
-                        <KeyBinding Key="Enter" Command="{Binding SearchWingetCatalogCommand}" />
-                    </TextBox.InputBindings>
-                </TextBox>
-                <TextBlock Margin="12,0,8,0"
-                           VerticalAlignment="Center"
-                           Foreground="{StaticResource TextSecondaryBrush}"
-                           IsHitTestVisible="False"
-                           Text="Buscar">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Text, ElementName=WingetSearchBox}" Value="">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </Grid>
-            <Button Grid.Column="2"
-                    MinWidth="120"
-                    MinHeight="38"
-                    VerticalAlignment="Center"
-                    Style="{StaticResource ToolbarActionButtonStyle}"
-                    Content="Pesquisar"
-                    Command="{Binding SearchWingetCatalogCommand}" />
-        </Grid>
+        <controls:SearchTextButtonRow Grid.Row="0"
+                                      SearchText="{Binding WingetSearchQuery}"
+                                      SearchCommand="{Binding SearchWingetCatalogCommand}"
+                                      SearchButtonText="Pesquisar"
+                                      WatermarkText="Buscar" />
 
         <Grid Grid.Row="2" VerticalAlignment="Stretch" MinHeight="160">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" MinWidth="280" />
+                <ColumnDefinition Width="*" MinWidth="260" />
                 <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="3*" MinWidth="320" />
+                <ColumnDefinition Width="*" MinWidth="260" />
             </Grid.ColumnDefinitions>
 
             <!-- Pesquisa catálogo + checkbox -->
@@ -150,5 +113,11 @@
                 </DataGrid>
             </Grid>
         </Grid>
+
+        <controls:ActionButtonStrip Grid.Row="3"
+                                    PrimaryButtonText="Instalar"
+                                    PrimaryButtonCommand="{Binding InstallPendingPackagesCommand}"
+                                    SecondaryButtonText="Cancelar"
+                                    SecondaryButtonCommand="{Binding CancelInstallCommand}" />
     </Grid>
 </UserControl>

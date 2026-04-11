@@ -6,8 +6,10 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="400">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-        <Grid Margin="28" Background="Transparent">
+        <Grid Margin="{StaticResource WorkspaceContentMargin}" Background="Transparent">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="24" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="24" />
                 <RowDefinition Height="Auto" />
@@ -19,11 +21,52 @@
                            Text="Área reservada para busca e instalação a partir do catálogo. O resumo abaixo reflete o estado atual carregado na inicialização." />
             </StackPanel>
 
-            <controls:InfoCardWidget Grid.Row="2" CardTitle="Estado do catálogo">
+            <controls:InfoCardWidget Grid.Row="2" CardTitle="Aplicações Recomendadas">
                 <controls:InfoCardWidget.CardContent>
-                    <TextBlock TextWrapping="Wrap" Text="{Binding CatalogSummary}" />
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="12" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" Text="Esta lista exibe aplicações essenciais selecionadas e valida se ainda estão acessíveis via repositório winget." />
+
+                        <DataGrid Grid.Row="2"
+                                  Style="{StaticResource LogsDataGridStyle}"
+                                  MinHeight="160"
+                                  MaxHeight="400"
+                                  VerticalAlignment="Stretch"
+                                  ItemsSource="{Binding RecommendedApps}"
+                                  AutoGenerateColumns="False"
+                                  HeadersVisibility="Column"
+                                  SelectionMode="Single"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="False">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Width="40" Header="" IsReadOnly="False">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <CheckBox HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="120" IsReadOnly="True" />
+                                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="*" MinWidth="140" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="80" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Repositório" Binding="{Binding Source}" Width="90" IsReadOnly="True" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
                 </controls:InfoCardWidget.CardContent>
             </controls:InfoCardWidget>
+
+            <controls:ActionButtonStrip Grid.Row="4"
+                                        PrimaryButtonText="Instalar Selecionados"
+                                        PrimaryButtonCommand="{Binding InstallPendingPackagesCommand}" />
         </Grid>
     </ScrollViewer>
 </UserControl>

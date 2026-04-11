@@ -10,7 +10,7 @@ A janela principal (`MainWindow.xaml`) atua como um *Shell* (Casca) que hospeda 
 3. **StatusFooter**: Barra de rodapé para mostrar progresso, mensagens rápidas e versão do app.
 4. **LoadingOverlay**: Camada com fundo semi-transparente que pode cobrir a interface para indicar que uma operação em segundo plano está acontecendo (ex: instalação do Winget).
 
-No fluxo **Instalar**, a faixa **Log de instalação** (abaixo da área central) usa `TextBoxWheelBehavior` para que a roda do rato possa mover o scroll da view principal quando o próprio log não precisa de scroll interno.
+No fluxo **Instalar**, as ações **Cancelar** / **Instalar** estão na **InstallRunView**, por baixo das grelhas. O **rodapé** da janela (`MainWindow`) mostra só uma **linha de log** compacta (`TextBlock`, truncagem e tooltip), sem título.
 
 ---
 
@@ -75,6 +75,36 @@ A barra na base do aplicativo. Ideal para o usuário entender se a aplicação e
 
 ### 5. `SidebarMenu`
 A barra de navegação principal. Possui botões estilizados. Por padrão eles ativam o comando `NavigateCommand` associado ao ViewModel atual para injetar uma nova View no centro da tela.
+
+### 6. `CompactActivityLogStrip`
+Rodapé de log desenhado para conter mensagens breves de atividade. Ocupa o mínimo de espaço vertical, limitando o texto a 2 linhas com reticências (`...`) e permitindo ver o log completo no ToolTip.
+
+**Exemplo de Uso:**
+```xml
+<controls:CompactActivityLogStrip LogText="{Binding ActivityLog}" />
+```
+
+### 7. `SearchTextButtonRow`
+Um campo de busca associado a um botão de pesquisa, otimizado para o tema da app (com hint textual e atalho de `Enter`).
+
+**Exemplo de Uso:**
+```xml
+<controls:SearchTextButtonRow SearchText="{Binding Query}" 
+                              SearchCommand="{Binding SearchCommand}" 
+                              SearchButtonText="Procurar" 
+                              WatermarkText="Digite o termo..." />
+```
+
+### 8. `ActionButtonStrip`
+Um conjunto de 1 a 2 botões padrão alinhados à direita, utilizado tipicamente no fim de uma view.
+
+**Exemplo de Uso:**
+```xml
+<controls:ActionButtonStrip PrimaryButtonText="Guardar" 
+                            PrimaryButtonCommand="{Binding SaveCommand}" 
+                            SecondaryButtonText="Cancelar" 
+                            SecondaryButtonCommand="{Binding CancelCommand}" />
+```
 
 ---
 

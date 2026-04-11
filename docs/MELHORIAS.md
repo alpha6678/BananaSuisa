@@ -4,7 +4,7 @@
 
 **Problema:** Em vistas com `ScrollViewer` (ex.: fluxo Instalar, Logs), grelhas `DataGrid` e caixas de texto com scroll interno capturavam a roda mesmo quando não havia nada a rolar dentro do controlo, ou quando o utilizador pretendia mover a página inteira. `ScrollViewer` aninhados na mesma direção para o mesmo conteúdo também impediam a roda de atuar no scroll “certo”.
 
-**Solução:** Um único scroll vertical na casca do fluxo (ex.: `InstallShellView`); vistas filhas sem segundo `ScrollViewer` redundante onde não for necessário. Comportamentos anexados em `src/BananaSuisa.App/Behaviors/` (`DataGridWheelBehavior` aplicado em `LogsDataGridStyle`; `TextBoxWheelBehavior` no log de instalação em `MainWindow`) encaminham a roda para o `ScrollViewer` da página quando o scroll interno não a absorve. Ver `Behaviors/README.md` na pasta do código.
+**Solução:** Um único scroll vertical na casca do fluxo (ex.: `InstallShellView`); vistas filhas sem segundo `ScrollViewer` redundante onde não for necessário. Comportamentos anexados em `src/BananaSuisa.App/Behaviors/` (`DataGridWheelBehavior` aplicado em `LogsDataGridStyle`; `TextBoxWheelBehavior` em `TextBox` multilinha quando aplicável) encaminham a roda para o `ScrollViewer` da página quando o scroll interno não a absorve. Ver `Behaviors/README.md` na pasta do código.
 
 ## Correção de raiz do projeto (`projectRoot`)
 

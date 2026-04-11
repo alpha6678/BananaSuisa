@@ -1,0 +1,57 @@
+Casos de Falha de Verificação de Download (Recomendações TI):
+
+Os seguintes pacotes não retornaram uma URL de instalador válida ou falharam na validação de acessibilidade HTTP durante o processo de curadoria local. Eles foram omitidos da listagem nativa da aplicação.
+
+1. Wireshark.Wireshark
+2. Nmap.Nmap
+3. dbeaver.dbeaver
+4. Microsoft.AzureStorageExplorer
+5. GNU.Wget
+6. curl.curl
+7. Microsoft.Sysinternals.Procmon
+8. FileZilla.FileZilla
+9. Golang.Go
+10. RubyInstallerTeam.RubyWithDevKit
+11. EclipseAdaptium.Temurin.17.JDK
+12. Apache.Maven
+13. Gradle.Gradle
+14. RStudio.RStudio
+15. pgAdmin.pgAdmin
+16. MongoDB.Compass
+17. Redis.RedisInsight
+18. JanDeDobbeleer.AutoHotkey
+19. CoreyButler.posh-git
+20. GitKraken.GitKraken
+21. neovim.neovim
+22. Slack.Slack
+23. RustDesk.RustDesk
+24. OpenVPN.OpenVPN
+25. Yubico.YubiKeyManager
+26. GIMP.GIMP
+27. Blender.Blender
+
+Lote Adicional (Abril 2026):
+28. Vagrant.Vagrant
+29. Podman.PodmanDesktop
+30. Ansible.Ansible
+31. Sqlectron.Sqlectron
+32. Fiddler.Fiddler
+33. Micro.Micro
+34. Signal.Signal
+35. Telegram.Telegram
+36. PHP.PHP
+37. SmartGit.SmartGit
+38. TortoiseGit.TortoiseGit
+39. 1Password.1Password
+40. Nextcloud.Nextcloud
+41. Cyberduck.Cyberduck
+42. DevToys.DevToys
+43. MobaXterm.MobaXterm
+44. Erlang.Erlang
+45. Elixir.Elixir
+46. minikube.minikube
+47. Amazon.AWSSAMCLI
+48. ngrok.ngrok
+49. BurpSuite.BurpSuiteCommunityEdition
+
+Nota: Alguns pacotes podem não expor a URL de instalação no manifesto principal ou podem rejeitar conexões automatizadas de verificação (HEAD HTTP ou requisições simples).

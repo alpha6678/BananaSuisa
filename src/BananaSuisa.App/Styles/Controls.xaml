@@ -6,6 +6,10 @@
         <ResourceDictionary Source="Colors.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
+    <!-- Dimension Resources -->
+    <Thickness x:Key="WorkspacePageMargin">28,28,28,4</Thickness>
+    <Thickness x:Key="WorkspaceContentMargin">28</Thickness>
+
     <!-- Standard TextBlock Style -->
     <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />

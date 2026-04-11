@@ -45,61 +45,10 @@
                             HorizontalContentAlignment="Stretch"
                             Content="{Binding CurrentView}" />
 
-            <!-- Log de instalação no rodapé (fluxo Instalar): até 2 linhas, reticências sem scroll horizontal; botões por baixo -->
-            <Border Grid.Row="1"
-                    Visibility="{Binding IsInstallMode, Converter={StaticResource BooleanToVisibilityConverter}}"
-                    Background="{StaticResource WidgetBackgroundBrush}"
-                    BorderBrush="{StaticResource SidebarBorderBrush}"
-                    BorderThickness="0,1,0,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0"
-                               Margin="28,8,28,4"
-                               FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               Text="Log de instalação" />
-
-                    <Border Grid.Row="1"
-                            Margin="28,0,28,8"
-                            Background="{StaticResource CardBackgroundBrush}"
-                            BorderBrush="{StaticResource WidgetBorderBrush}"
-                            BorderThickness="1"
-                            Padding="8"
-                            ClipToBounds="True">
-                        <TextBlock FontFamily="Consolas"
-                                   FontSize="11"
-                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                   LineHeight="16"
-                                   MaxHeight="32"
-                                   Text="{Binding InstallActivityLog, Mode=OneWay}"
-                                   TextTrimming="CharacterEllipsis"
-                                   TextWrapping="Wrap"
-                                   ToolTip="{Binding InstallActivityLog, Mode=OneWay}" />
-                    </Border>
-
-                    <StackPanel Grid.Row="2"
-                                Margin="28,0,28,10"
-                                HorizontalAlignment="Right"
-                                Orientation="Vertical">
-                        <Button MinWidth="140"
-                                HorizontalAlignment="Stretch"
-                                Content="Cancelar"
-                                Style="{StaticResource ToolbarActionButtonStyle}"
-                                Command="{Binding CancelInstallCommand}" />
-                        <Button MinWidth="140"
-                                Margin="0,8,0,0"
-                                HorizontalAlignment="Stretch"
-                                Content="Instalar"
-                                Style="{StaticResource ToolbarActionButtonStyle}"
-                                Command="{Binding InstallPendingPackagesCommand}" />
-                    </StackPanel>
-                </Grid>
-            </Border>
+            <!-- Rodapé (fluxo Instalar): log compacto extraído para controlo reutilizável -->
+            <controls:CompactActivityLogStrip Grid.Row="1"
+                                              LogText="{Binding ActivityLog, Mode=OneWay}"
+                                              Visibility="{Binding ShowActivityLogStrip, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
             <!-- Overlay de Carregamento Global -->
             <controls:LoadingOverlay Grid.RowSpan="2" Message="{Binding LoadingMessage}" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}" />

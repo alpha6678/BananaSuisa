@@ -39,7 +39,8 @@ Este e o ponto de entrada para a documentacao do BananaSuisa. Use este arquivo c
 
 | Documento | Foco |
 |-----------|------|
-| [`UI_INSTALAR.md`](UI_INSTALAR.md) | Vista Instalar: pesquisa, fila, cores, botão Instalar e slots do rodapé. |
+| [`UI_SHELL.md`](UI_SHELL.md) | Estrutura partilhada de layout: margens, áreas de log, botões, e controlos base de pesquisa. |
+| [`UI_INSTALAR.md`](UI_INSTALAR.md) | Vista Instalar: pesquisa, grelhas, botões, fila/cores; rodapé da janela só com log. |
 | [`../BananaSuisa_desenvolvimento/docs/ARQUITETURA.md`](../BananaSuisa_desenvolvimento/docs/ARQUITETURA.md) | Ordem de carga, dados e build consolidado. |
 | [`../BananaSuisa_desenvolvimento/docs/FLUXO_INSTALACAO.md`](../BananaSuisa_desenvolvimento/docs/FLUXO_INSTALACAO.md) | Fluxo de instalacao e atualizacao via `winget`. |
 | [`../BananaSuisa_desenvolvimento/docs/SOLUCAO_PROBLEMAS.md`](../BananaSuisa_desenvolvimento/docs/SOLUCAO_PROBLEMAS.md) | Diagnostico rapido de problemas de execucao. |

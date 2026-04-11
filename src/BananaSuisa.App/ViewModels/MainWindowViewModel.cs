@@ -2,8 +2,10 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using BananaSuisa.App.Views;
+using BananaSuisa.Core.Catalog;
 using BananaSuisa.Core.Diagnostics;
 using BananaSuisa.Core.Logging;
 using BananaSuisa.Core.Winget;
@@ -20,7 +22,7 @@ public sealed class MainWindowViewModel : ObservableObject
     private bool _isInstallMode;
     private string _installSubKey = "InstallOverview";
     private object? _installChildView;
-    private string _installActivityLog = string.Empty;
+    private string _activityLog = string.Empty;
     private string _wingetProbeSummary = "Clique em Verificar para analisar o winget nesta maquina.";
     private string _uwpProbeSummary = "Clique em Verificar para analisar App Installer e Loja (quando existir).";
     private string _wingetSearchQuery = string.Empty;
@@ -70,11 +72,19 @@ public sealed class MainWindowViewModel : ObservableObject
         set => SetProperty(ref _installChildView, value);
     }
 
-    public string InstallActivityLog
+    public string ActivityLog
     {
-        get => _installActivityLog;
-        set => SetProperty(ref _installActivityLog, value);
+        get => _activityLog;
+        set
+        {
+            if (SetProperty(ref _activityLog, value))
+            {
+                OnPropertyChanged(nameof(ShowActivityLogStrip));
+            }
+        }
     }
+
+    public bool ShowActivityLogStrip => !string.IsNullOrWhiteSpace(ActivityLog);
 
     public string WingetProbeSummary
     {
@@ -97,6 +107,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<WingetSearchRowViewModel> WingetSearchRows { get; } = new();
 
     public ObservableCollection<WingetCatalogPickRowViewModel> WingetCatalogSearchRows { get; } = new();
+
+    public ObservableCollection<WingetCatalogPickRowViewModel> RecommendedApps { get; } = new();
 
     public bool HasPendingInstalls =>
         _pendingInstall.Keys.Any(id => !_installedIdsForInstallTab.Contains(id));
@@ -148,6 +160,10 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public ICommand CancelInstallCommand { get; }
 
+    public ICommand LoadRecommendationsCommand { get; }
+
+    private readonly IReadOnlyList<CatalogItem> _rawCatalogItems;
+
     private MainWindowViewModel(
         string title,
         string subtitle,
@@ -177,13 +193,15 @@ public sealed class MainWindowViewModel : ObservableObject
         IUwpAppInstallerProvisioningService uwpProvisioning,
         IWingetSearchService wingetSearch,
         IWingetPackageInstallService wingetPackageInstall,
-        IAppJsonLog appLog)
+        IAppJsonLog appLog,
+        IReadOnlyList<CatalogItem> rawCatalogItems)
     {
         _wingetProvisioning = wingetProvisioning;
         _uwpProvisioning = uwpProvisioning;
         _wingetSearch = wingetSearch;
         _wingetPackageInstall = wingetPackageInstall;
         _appLog = appLog;
+        _rawCatalogItems = rawCatalogItems;
 
         Title = title;
         Subtitle = subtitle;
@@ -223,6 +241,7 @@ public sealed class MainWindowViewModel : ObservableObject
             _ => InstallPendingPackagesAsync(),
             _ => HasPendingInstalls && !IsInstallingPackages);
         CancelInstallCommand = new RelayCommand(_ => _installCts?.Cancel(), _ => IsInstallingPackages);
+        LoadRecommendationsCommand = new AsyncRelayCommand(_ => LoadRecommendationsAsync());
 
         CurrentView = new DashboardView { DataContext = this };
     }
@@ -246,6 +265,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
         IsInstallMode = false;
         NavigationSelectedKey = viewName;
+        ActivityLog = string.Empty;
 
         CurrentView = viewName switch
         {
@@ -255,6 +275,11 @@ public sealed class MainWindowViewModel : ObservableObject
             "Settings" => new SettingsView { DataContext = this },
             _ => CurrentView
         };
+
+        if (viewName == "Catalog" && RecommendedApps.Count == 0)
+        {
+            LoadRecommendationsCommand.Execute(null);
+        }
     }
 
     private void ExitInstallMode()
@@ -280,6 +305,7 @@ public sealed class MainWindowViewModel : ObservableObject
         }
 
         InstallSubKey = key;
+        ActivityLog = string.Empty;
         InstallChildView = key switch
         {
             "InstallOverview" => new InstallOverviewView { DataContext = this },
@@ -293,6 +319,10 @@ public sealed class MainWindowViewModel : ObservableObject
         if (key == "InstallRun")
         {
             _ = LoadInstalledWingetPackagesForInstallTabAsync();
+            if (string.IsNullOrWhiteSpace(WingetSearchQuery))
+            {
+                _ = LoadRecommendationsIntoSearchGridAsync();
+            }
         }
         else if (key == "InstallUninstall")
         {
@@ -300,9 +330,64 @@ public sealed class MainWindowViewModel : ObservableObject
         }
     }
 
+    private async Task LoadRecommendationsAsync()
+    {
+        if (RecommendedApps.Count > 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var accessibleApps = ItProfessionalsCatalog.GetRecommendations();
+
+            App.Current.Dispatcher.Invoke(() =>
+            {
+                RecommendedApps.Clear();
+                foreach (var item in accessibleApps)
+                {
+                    RecommendedApps.Add(new WingetCatalogPickRowViewModel(
+                        this,
+                        item.Name,
+                        item.PackageId,
+                        "Latest",
+                        "winget",
+                        item.Category,
+                        false));
+                }
+            });
+        }
+        catch (System.Exception ex)
+        {
+            ActivityLog = $"Erro ao carregar recomendações curadas: {ex.Message}";
+            _appLog.Write(AppLogLevel.Error, "catalog.recommendations", "Erro ao carregar recomendações de TI.", ex);
+        }
+    }
+
+    private async Task LoadRecommendationsIntoSearchGridAsync()
+    {
+        await LoadRecommendationsAsync();
+
+        App.Current.Dispatcher.Invoke(() =>
+        {
+            WingetCatalogSearchRows.Clear();
+            foreach (var app in RecommendedApps)
+            {
+                WingetCatalogSearchRows.Add(new WingetCatalogPickRowViewModel(
+                    this,
+                    app.Name,
+                    app.Id,
+                    app.Version,
+                    app.Source,
+                    app.InstallationOrigin,
+                    _pendingInstall.ContainsKey(app.Id)));
+            }
+        });
+    }
+
     private void AppendInstallLog(string line)
     {
-        InstallActivityLog += $"[{DateTime.Now:HH:mm:ss}] {line}\r\n";
+        ActivityLog += $"[{DateTime.Now:HH:mm:ss}] {line}\r\n";
         _appLog.Write(AppLogLevel.Information, "install.ui", line);
     }
 
@@ -595,6 +680,12 @@ public sealed class MainWindowViewModel : ObservableObject
 
     private async Task SearchWingetCatalogAsync()
     {
+        if (string.IsNullOrWhiteSpace(WingetSearchQuery))
+        {
+            await LoadRecommendationsIntoSearchGridAsync();
+            return;
+        }
+
         IsLoading = true;
         LoadingMessage = "Pesquisando no repositorio winget...";
         try
@@ -820,6 +911,8 @@ public sealed class MainWindowViewModel : ObservableObject
             new BootstrapPathRowViewModel("Winget", wingetPath)
         ];
 
+        IReadOnlyList<CatalogItem> rawCatalogItems = snapshot.CatalogLoadResult?.AllItems ?? [];
+
         return new MainWindowViewModel(
             title: $"BananaSuisa .NET Bootstrap v{snapshot.AppVersion}",
             subtitle: "Primeiro esqueleto WPF com diagnostico de runtime, workspace e busca inicial sobre configuracao e catalogo.",
@@ -849,6 +942,7 @@ public sealed class MainWindowViewModel : ObservableObject
             uwpProvisioning: uwpProvisioning,
             wingetSearch: wingetSearch,
             wingetPackageInstall: wingetPackageInstall,
-            appLog: appLog);
+            appLog: appLog,
+            rawCatalogItems: rawCatalogItems);
     }
 }
