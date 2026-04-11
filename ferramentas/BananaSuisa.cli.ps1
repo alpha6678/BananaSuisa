@@ -202,6 +202,45 @@ function Invoke-FullCheck {
     Invoke-DotNetCommand -Arguments @('test', $script:SolutionPath)
 }
 
+function Invoke-AppPublish {
+    <#
+    Gera pasta de publicacao com executavel autonomo (self-contained win-x64, Release).
+    Saida: artifacts\publish\win-x64\BananaSuisa.App.exe
+    #>
+    Assert-PathExists -Path $script:AppProjectPath -Description 'Projeto da aplicacao'
+
+    $outDir = Join-Path $script:ProjectRoot 'artifacts\publish\win-x64'
+    if (Test-Path -LiteralPath $outDir) {
+        Write-Host "A limpar saida anterior: $outDir" -ForegroundColor DarkYellow
+        Remove-Item -LiteralPath $outDir -Recurse -Force -ErrorAction Stop
+    }
+
+    Stop-BananaSuisaAppIfRunning
+
+    $publishArgs = @(
+        'publish', $script:AppProjectPath,
+        '-c', 'Release',
+        '-r', 'win-x64',
+        '--self-contained', 'true',
+        '-p:PublishReadyToRun=true',
+        '-p:DebugType=None',
+        '-p:DebugSymbols=false',
+        '-o', $outDir
+    ) + $script:RestArguments
+
+    Invoke-DotNetCommand -Arguments $publishArgs
+
+    $exe = Join-Path $outDir 'BananaSuisa.App.exe'
+    if (-not (Test-Path -LiteralPath $exe)) {
+        throw "Publicacao concluida mas o executavel nao foi encontrado: $exe"
+    }
+
+    Write-Host ''
+    Write-Host 'Publicacao concluida.' -ForegroundColor Green
+    Write-Host "  Executavel: $exe" -ForegroundColor Cyan
+    Write-Host "  Pasta:      $outDir" -ForegroundColor Cyan
+}
+
 function Show-BananaSuisaCliHelp {
     Write-Host @'
 BananaSuisa CLI — tarefas de desenvolvimento
@@ -211,6 +250,7 @@ Comandos:
   run, rodar, ui                Sempre verifica/encerra processos residuais deste repo, compila e abre a UI
   test, testar                  Executa dotnet test BananaSuisa.slnx
   check, validar                Executa build + test
+  publish, empacotar, package   Publica a app WPF (Release, win-x64, self-contained) para artifacts\publish\win-x64\
   help                          Esta ajuda
 
 Exemplos:
@@ -218,6 +258,7 @@ Exemplos:
   .\bs.cmd run
   .\bs.cmd test
   .\bs.cmd check
+  .\bs.cmd publish
 
 '@
 }
@@ -234,6 +275,9 @@ switch -Regex ($Command.ToLowerInvariant()) {
     }
     '^(check|validar)$' {
         Invoke-FullCheck
+    }
+    '^(publish|empacotar|package)$' {
+        Invoke-AppPublish
     }
     '^help$|^(\?|-h|--help)$' {
         Assert-NoExtraArguments 'help'

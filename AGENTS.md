@@ -37,6 +37,7 @@ O código-fonte base fica na solução `.slnx` e dentro da pasta `src/`.
 .\bs.cmd run
 .\bs.cmd test
 .\bs.cmd check
+.\bs.cmd publish
 ```
 
 ## Quando usar subagentes

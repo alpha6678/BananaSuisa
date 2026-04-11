@@ -7,7 +7,7 @@
 | [`BananaSuisa.slnx`](BananaSuisa.slnx) | Solution da migração completa para .NET (WPF). |
 | [`src/`](src/) | Projetos `BananaSuisa.App`, `Core`, `Services`, `Infrastructure` e `Shared`. |
 | [`BananaSuisa_recursos/`](BananaSuisa_recursos/) | Modelos (JSON, config) na raiz desta pasta; dados de execução em `BananaSuisa_recursos\BananaSuisa_memoria\`. |
-| [`bs.cmd`](bs.cmd) / [`ferramentas/BananaSuisa.cmd`](ferramentas/BananaSuisa.cmd) | CLI de desenvolvimento: `build`, `run`, `test`, `check`, `help` (ver [`docs/FERRAMENTAS_CLI.md`](docs/FERRAMENTAS_CLI.md)). |
+| [`bs.cmd`](bs.cmd) / [`ferramentas/BananaSuisa.cmd`](ferramentas/BananaSuisa.cmd) | CLI de desenvolvimento: `build`, `run`, `test`, `check`, `publish`, `help` (ver [`docs/FERRAMENTAS_CLI.md`](docs/FERRAMENTAS_CLI.md)). |
 | [`.cursor/mcp.json`](.cursor/mcp.json) | Configuração MCP partilhada do projeto. |
 
 ## Memória (`BananaSuisa_recursos\BananaSuisa_memoria`)
@@ -28,6 +28,7 @@ Comandos simples pela CLI:
 .\bs.cmd run
 .\bs.cmd test
 .\bs.cmd check
+.\bs.cmd publish
 ```
 
 Equivalentes diretos com `dotnet`:
