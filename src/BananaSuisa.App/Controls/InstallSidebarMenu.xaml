@@ -12,21 +12,17 @@
 
         <StackPanel Orientation="Horizontal" Margin="20,24,20,16">
             <Image Source="pack://application:,,,/Assets/BananaSuisa.png" Width="32" Height="32" VerticalAlignment="Center" Margin="0,0,12,0" />
-            <TextBlock Text="Instalar/Remover" Foreground="{StaticResource TextHighlightBrush}" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock Text="Apps" Foreground="{StaticResource TextHighlightBrush}" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" TextWrapping="Wrap" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
-                      Padding="0,0,4,0"
-                      Margin="0,0,0,0">
+                      Padding="0,0,4,0">
         <StackPanel Background="Transparent">
-            <Button Content="← Voltar ao menu" Command="{Binding ExitInstallModeCommand}" Margin="0,0,0,12" Padding="16,12" HorizontalContentAlignment="Left"
-                    Style="{StaticResource SidebarButtonStyle}" Foreground="{StaticResource TextHighlightBrush}" />
-
             <Rectangle Height="1" Margin="12,0,12,12" Fill="{StaticResource SidebarBorderBrush}" />
 
-            <Button Content="Visão geral" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallOverview">
+            <Button Content="Apps · visão geral" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallOverview">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
                         <Style.Triggers>
@@ -39,7 +35,7 @@
                 </Button.Style>
             </Button>
 
-            <Button Margin="0,6,0,0" Content="Instalar" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallRun">
+            <Button Margin="0,6,0,0" Content="Apps · instalar" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallRun">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
                         <Style.Triggers>
@@ -52,7 +48,7 @@
                 </Button.Style>
             </Button>
 
-            <Button Margin="0,6,0,0" Content="Desinstalar" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallUninstall">
+            <Button Margin="0,6,0,0" Content="Apps · desinstalar" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallUninstall">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
                         <Style.Triggers>
@@ -64,38 +60,16 @@
                     </Style>
                 </Button.Style>
             </Button>
-
-            <Button Margin="0,6,0,0" Content="Winget" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallWinget">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding InstallSubKey}" Value="InstallWinget">
-                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
-            <Button Margin="0,6,0,0" Content="UWP / App Installer" Command="{Binding NavigateInstallSubCommand}" CommandParameter="InstallUwp">
-                <Button.Style>
-                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding InstallSubKey}" Value="InstallUwp">
-                                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-            </Button>
         </StackPanel>
         </ScrollViewer>
 
-        <TextBlock Grid.Row="2"
-                   Margin="20,8,20,16"
-                   FontSize="11"
-                   Foreground="{StaticResource TextSecondaryBrush}"
-                   Text="{Binding AppVersionLabel}" />
+        <Button Grid.Row="2"
+                Margin="12,8,12,16"
+                Padding="16,12"
+                HorizontalContentAlignment="Left"
+                Content="← Voltar ao menu"
+                Command="{Binding ExitInstallModeCommand}"
+                Style="{StaticResource SidebarButtonStyle}"
+                Foreground="{StaticResource TextHighlightBrush}" />
     </Grid>
 </UserControl>

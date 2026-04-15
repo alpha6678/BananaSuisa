@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:BananaSuisa.App"
         xmlns:controls="clr-namespace:BananaSuisa.App.Controls"
         xmlns:converters="clr-namespace:BananaSuisa.App.Converters"
-        Title="BananaSuisa .NET"
+        Title="{Binding WindowTitle}"
         Icon="pack://application:,,,/Assets/BananaSuisa.ico"
         WindowState="Maximized"
         Width="1200"

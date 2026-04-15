@@ -7,7 +7,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         
         <StackPanel Orientation="Horizontal" Margin="20,24,20,32">
@@ -32,7 +31,7 @@
                     </Style>
                 </Button.Style>
             </Button>
-            <Button Content="Instalar/Remover" Command="{Binding NavigateCommand}" CommandParameter="Install">
+            <Button Content="Apps" Command="{Binding NavigateCommand}" CommandParameter="Install">
                 <Button.Style>
                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButtonStyle}">
                         <Style.Triggers>
@@ -46,11 +45,5 @@
             </Button>
         </StackPanel>
         </ScrollViewer>
-
-        <TextBlock Grid.Row="2"
-                   Margin="20,8,20,16"
-                   FontSize="11"
-                   Foreground="{StaticResource TextSecondaryBrush}"
-                   Text="{Binding AppVersionLabel}" />
     </Grid>
 </UserControl>

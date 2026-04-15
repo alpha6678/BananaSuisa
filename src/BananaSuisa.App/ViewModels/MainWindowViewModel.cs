@@ -172,6 +172,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public string Title { get; }
     public string Subtitle { get; }
     public string AppVersionLabel { get; }
+    public string WindowTitle { get; }
     public string WingetPath { get; }
     public string GeneratedAt { get; }
 
@@ -214,6 +215,7 @@ public sealed class MainWindowViewModel : ObservableObject
         Title = title;
         Subtitle = subtitle;
         AppVersionLabel = string.IsNullOrWhiteSpace(appVersion) ? "v?" : $"v{appVersion}";
+        WindowTitle = $"BananaSuisa .NET {AppVersionLabel}";
         WingetPath = wingetPath;
         GeneratedAt = generatedAt;
 
@@ -291,8 +293,6 @@ public sealed class MainWindowViewModel : ObservableObject
             "InstallOverview" => new InstallOverviewView { DataContext = this },
             "InstallRun" => new InstallRunView { DataContext = this },
             "InstallUninstall" => new InstallUninstallView { DataContext = this },
-            "InstallWinget" => new WingetProvisionView { DataContext = this },
-            "InstallUwp" => new UwpProvisionView { DataContext = this },
             _ => InstallChildView
         };
 
