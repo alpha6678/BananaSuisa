@@ -3,7 +3,7 @@
 **/obj/
 TestResults/
 
-# Publicacao local (dotnet publish)
+# Publicacao local (dotnet publish + pacotes de release)
 artifacts/
 
 # IDE
@@ -11,11 +11,9 @@ artifacts/
 *.user
 *.suo
 
-# Runtime state
-BananaSuisa_recursos/BananaSuisa_memoria/
-
-# Generated and temporary files
-BananaSuisa.ps1
-BananaSuisa_PRO.ps1
+# Logs e temporarios
 *.log
 *.tmp
+
+# Pasta local de IA (insumo de desenvolvimento, nao versionada)
+IA/

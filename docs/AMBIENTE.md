@@ -1,91 +1,70 @@
 # Ambiente de desenvolvimento
 
-Este documento concentra os requisitos atuais para trabalhar no BananaSuisa e os requisitos previstos para a futura migracao para .NET.
+Requisitos para trabalhar em **Ribanense Soluções**.
 
-## Requisitos obrigatorios hoje
+## Requisitos obrigatórios
 
 | Categoria | Requisito | Notas |
 |-----------|-----------|-------|
-| Sistema operacional | Windows 10 ou Windows 11 | O produto e focado em desktop Windows. |
-| Shell principal | Windows PowerShell 5.1 | O codigo atual usa `#Requires -Version 5.1`. |
-| Permissao | Execucao como administrador para fluxos sensiveis | Necessario para varios cenarios de `winget`, reparo, drivers e scripts de sistema. |
-| Runtime do app | `winget` / App Installer disponivel ou reparavel | O produto depende do ecossistema `Microsoft.DesktopAppInstaller`. |
-| Rede | Acesso a internet para fluxos online | Necessario para metadata, downloads e fontes do `winget`. |
-| Workspace | Pasta da aplicacao com permissao de escrita | O app grava estado em `BananaSuisa_recursos\BananaSuisa_memoria`. |
+| Sistema operacional | Windows 10 ou 11 | Alvo do produto. |
+| .NET SDK | 10.0.x | Alinhado com [`global.json`](../global.json). |
+| Shell | PowerShell 5.1 (Windows) ou PowerShell 7 (`pwsh`) | `Ribanense.cmd` prefere `pwsh` se estiver no PATH. |
+| Git | Qualquer versão moderna | Necessário para tags e releases. |
 
-## Ferramentas recomendadas
+## Requisitos opcionais
 
-| Ferramenta | Obrigatoria | Uso |
-|------------|-------------|-----|
-| Cursor ou VS Code | Nao | Edicao do projeto. |
-| Extensao PowerShell | Nao | Melhor navegacao, syntax highlight e execucao de scripts. |
-| `git` | Nao | Historico e colaboracao. |
-| `pwsh` (PowerShell 7) | Nao | Shell moderno; o wrapper `BananaSuisa.cmd` usa `pwsh` se estiver disponivel. |
-| Node.js 18+ e `npx` | Nao | Necessarios para o Playwright MCP em `.cursor/mcp.json`. |
-| .NET SDK 10.0.x | Nao | Necessario para compilar e evoluir a solution `BananaSuisa.slnx`. |
-| Pester | Nao | Base para testes PowerShell futuros. |
+| Ferramenta | Uso |
+|------------|-----|
+| `gh` (GitHub CLI) | Publicação de releases via `rb.cmd release`. [Instalação](https://cli.github.com/). |
+| `pwsh` | Shell moderno; melhora a execução do CLI. |
+| Visual Studio 2026 / Rider / VS Code | Edição .NET com debugger WPF. |
+| Pester | Testes PowerShell quando aplicáveis. |
 
-## Comandos basicos
+## Comandos básicos
 
 ```bat
-.\bs.cmd help
-.\bs.cmd compilar
-.\bs.cmd run
-.\bs.cmd test
-.\bs.cmd check
+.\rb.cmd help
+.\rb.cmd compilar
+.\rb.cmd run
+.\rb.cmd test
+.\rb.cmd check
 ```
 
-Equivalentes diretos no .NET:
+Equivalentes diretos em `dotnet`:
 
 ```powershell
-dotnet build .\BananaSuisa.slnx
-dotnet run --project .\src\BananaSuisa.App\BananaSuisa.App.csproj
-dotnet test .\BananaSuisa.slnx
+dotnet build .\Ribanense.Solucoes.slnx
+dotnet run --project .\src\Ribanense.Solucoes.Launcher\Ribanense.Solucoes.Launcher.csproj
+dotnet test  .\Ribanense.Solucoes.slnx
 ```
 
-Observacao: nao e necessario alterar a execution policy global do Windows para usar os comandos acima.
+## Pastas geradas em runtime
 
-## Pastas e arquivos importantes
+| Caminho | Conteúdo |
+|---------|----------|
+| `bin/`, `obj/` | Saída de build por projeto; já no `.gitignore`. |
+| `artifacts/publish/<App>/` | Zip + SHA256 + `app.json` de publicações locais. |
+| `%LOCALAPPDATA%\Ribanense Solucoes\apps\<id>\` | Dados do app em runtime (LiteDB `<Nome>.dat`, caches). |
 
-| Caminho | Papel |
-|---------|-------|
-| `BananaSuisa_recursos/` | Modelos, config e arquivos de apoio. |
-| `BananaSuisa_recursos/BananaSuisa_memoria/` | Estado, dados em uso, registros e caches locais. |
-| `ferramentas/` | CLI de desenvolvimento. |
-| `.cursor/mcp.json` | Configuracao MCP compartilhada do workspace. |
-| `BananaSuisa.slnx` | Solution da nova base .NET. |
-| `src/` | Projetos da aplicacao WPF e camadas de suporte. |
+## Setup inicial
 
-## Setup inicial recomendado
+1. Clonar o repositório.
+2. Confirmar `dotnet --version` mostrando 10.x.
+3. `.\rb.cmd compilar` para baixar pacotes NuGet e validar build.
+4. `.\rb.cmd run` para abrir o Launcher.
+5. (Opcional) `gh auth login` se for publicar releases.
 
-1. Abrir a pasta `BananaSuisa` no Cursor ou VS Code.
-2. Confirmar que `dotnet` SDK 10.x está instalado.
-3. Executar `.\bs.cmd compilar`.
-4. Executar `.\bs.cmd test` para validar os testes automatizados da solution.
-5. Se for usar MCP Playwright, confirmar `node` e `npx` no `PATH`.
-6. Reiniciar o Cursor se alterar `.cursor/mcp.json`.
-7. Testar a interface com `.\bs.cmd run` (ou Visual Studio elevado).
+## Problemas comuns
 
-## Requisitos reservados para as proximas fases
+| Sintoma | Ação |
+|---------|------|
+| `.\rb.cmd` não executa | Confirmar diretório correto e PowerShell disponível. |
+| Build falha em `dotnet restore` | Confirmar SDK 10.x e acesso ao `nuget.org`. |
+| Launcher não abre após `rb.cmd run` | Ver `bin/Debug/net10.0-windows/` do projeto Launcher; conferir logs no Event Viewer. |
+| `gh release create` falha | Rodar `gh auth status`; re-autenticar com `gh auth login`. |
 
-Os itens abaixo ainda nao sao obrigatorios para todos os fluxos do projeto, mas entram nas proximas fases da migracao:
-
-- Ferramenta de empacotamento MSI, com preferencia atual por WiX.
-- Estrategia de testes desktop para a UI futura (por exemplo, WinAppDriver ou Appium, conforme a stack escolhida).
-
-## Problemas comuns de setup
-
-| Sintoma | Acao sugerida |
-|---------|---------------|
-| `.\bs.cmd` nao executa | Confirmar se esta na pasta `BananaSuisa` e se `powershell` ou `pwsh` esta disponivel. |
-| `.\bs.cmd compilar` ou `.\bs.cmd test` falha | Confirmar se o `dotnet` SDK 10.x esta instalado e disponivel no `PATH`. |
-| `winget` nao e encontrado | Verificar App Installer, Store e rotinas de reparo documentadas em `actions.ps1` e `SOLUCAO_PROBLEMAS.md`. |
-| `npx` nao e encontrado | Instalar Node.js LTS e reabrir o terminal. |
-| O app nao grava dados | Confirmar permissao de escrita em `BananaSuisa_recursos\BananaSuisa_memoria`. |
-
-## Ver tambem
+## Ver também
 
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md)
 - [`FERRAMENTAS_CLI.md`](FERRAMENTAS_CLI.md)
-- [`FERRAMENTAS_IA.md`](FERRAMENTAS_IA.md)
-- [`../BananaSuisa_desenvolvimento/docs/SOLUCAO_PROBLEMAS.md`](../BananaSuisa_desenvolvimento/docs/SOLUCAO_PROBLEMAS.md)
+- [`ARQUITETURA.md`](ARQUITETURA.md)

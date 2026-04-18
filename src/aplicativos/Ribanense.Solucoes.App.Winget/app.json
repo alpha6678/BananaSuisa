@@ -1,0 +1,12 @@
+{
+  "id": "com.ribanense.winget",
+  "name": "Gestor WinGet",
+  "publicName": "Gestor WinGet",
+  "version": "0.1.0",
+  "minimumLauncherVersion": "1.0.0",
+  "entryExecutable": "Ribanense.Solucoes.App.Winget.exe",
+  "icon": "icon.png",
+  "category": "Pacotes",
+  "requiresElevation": false,
+  "githubTagPrefix": "winget-v"
+}

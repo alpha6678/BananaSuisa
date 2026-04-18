@@ -1,0 +1,22 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!--
+        Constantes de breakpoint usadas junto com WindowBreakpoints
+        (Ribanense.Solucoes.UI.Behaviors.WindowBreakpoints).
+
+        Merge este dicionário em App.xaml para referenciar as larguras
+        em XAML como {StaticResource Breakpoint.Compact} etc.
+    -->
+    <sys:Double x:Key="Breakpoint.Compact">768</sys:Double>
+    <sys:Double x:Key="Breakpoint.Medium">1200</sys:Double>
+    <sys:Double x:Key="Breakpoint.MinWindowWidth">320</sys:Double>
+    <sys:Double x:Key="Breakpoint.MinWindowHeight">240</sys:Double>
+
+    <!-- Paddings e gaps base por densidade (ajustar depois com WPF-UI). -->
+    <Thickness x:Key="Gap.Small">0,4,0,4</Thickness>
+    <Thickness x:Key="Gap.Medium">0,8,0,8</Thickness>
+    <Thickness x:Key="Gap.Large">0,16,0,16</Thickness>
+
+</ResourceDictionary>

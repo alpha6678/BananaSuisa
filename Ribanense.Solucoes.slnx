@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ribanense.Solucoes.Launcher/Ribanense.Solucoes.Launcher.csproj" />
+    <Project Path="src/Ribanense.Solucoes.PluginSDK/Ribanense.Solucoes.PluginSDK.csproj" />
+    <Project Path="src/Ribanense.Solucoes.Infrastructure/Ribanense.Solucoes.Infrastructure.csproj" />
+    <Project Path="src/Ribanense.Solucoes.UI/Ribanense.Solucoes.UI.csproj" />
+  </Folder>
+  <Folder Name="/aplicativos/">
+    <Project Path="src/aplicativos/Ribanense.Solucoes.App.Winget/Ribanense.Solucoes.App.Winget.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ribanense.Solucoes.PluginSDK.Tests/Ribanense.Solucoes.PluginSDK.Tests.csproj" />
+    <Project Path="tests/Ribanense.Solucoes.Infrastructure.Tests/Ribanense.Solucoes.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Ribanense.Solucoes.Launcher.Tests/Ribanense.Solucoes.Launcher.Tests.csproj" />
+    <Project Path="tests/Ribanense.Solucoes.App.Winget.Tests/Ribanense.Solucoes.App.Winget.Tests.csproj" />
+  </Folder>
+</Solution>

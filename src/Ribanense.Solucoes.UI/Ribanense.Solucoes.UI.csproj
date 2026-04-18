@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Ribanense.Solucoes.UI</RootNamespace>
+    <AssemblyName>Ribanense.Solucoes.UI</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ribanense.Solucoes.PluginSDK\Ribanense.Solucoes.PluginSDK.csproj" />
+  </ItemGroup>
+</Project>

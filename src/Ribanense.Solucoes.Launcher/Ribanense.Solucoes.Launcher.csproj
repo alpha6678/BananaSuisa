@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Ribanense.Solucoes.Launcher</RootNamespace>
+    <AssemblyName>Ribanense.Solucoes.Launcher</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ribanense.Solucoes.PluginSDK\Ribanense.Solucoes.PluginSDK.csproj" />
+    <ProjectReference Include="..\Ribanense.Solucoes.Infrastructure\Ribanense.Solucoes.Infrastructure.csproj" />
+    <ProjectReference Include="..\Ribanense.Solucoes.UI\Ribanense.Solucoes.UI.csproj" />
+  </ItemGroup>
+</Project>

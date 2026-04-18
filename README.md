@@ -1,64 +1,56 @@
-# BananaSuisa
+# Ribanense Soluções
 
-## Onde fica cada coisa
+Launcher e catálogo de aplicativos modulares para Windows, inspirado no modelo Adobe Creative Cloud. Cada app é um `.exe` independente, baixado sob demanda via GitHub Releases. Atualizações são granulares por app, sem servidor próprio.
+
+## Mapa do repositório
 
 | Local | Função |
 |-------|--------|
-| [`BananaSuisa.slnx`](BananaSuisa.slnx) | Solution da migração completa para .NET (WPF). |
-| [`src/`](src/) | Projetos `BananaSuisa.App`, `Core`, `Services`, `Infrastructure` e `Shared`. |
-| [`BananaSuisa_recursos/`](BananaSuisa_recursos/) | Modelos (JSON, config) na raiz desta pasta; dados de execução em `BananaSuisa_recursos\BananaSuisa_memoria\`. |
-| [`bs.cmd`](bs.cmd) / [`ferramentas/BananaSuisa.cmd`](ferramentas/BananaSuisa.cmd) | CLI de desenvolvimento: `build`, `run`, `test`, `check`, `publish`, `help` (ver [`docs/FERRAMENTAS_CLI.md`](docs/FERRAMENTAS_CLI.md)). |
-| [`.cursor/mcp.json`](.cursor/mcp.json) | Configuração MCP partilhada do projeto. |
+| [`Ribanense.Solucoes.slnx`](Ribanense.Solucoes.slnx) | Solution .NET do monorepo. |
+| [`src/Ribanense.Solucoes.Launcher/`](src/Ribanense.Solucoes.Launcher/) | App WPF do launcher (catálogo, instalador, atualizador). |
+| [`src/Ribanense.Solucoes.PluginSDK/`](src/Ribanense.Solucoes.PluginSDK/) | Contratos versionados entre launcher e apps. |
+| [`src/Ribanense.Solucoes.Infrastructure/`](src/Ribanense.Solucoes.Infrastructure/) | Implementações de infraestrutura compartilhada (LiteDB, log). |
+| [`src/Ribanense.Solucoes.UI/`](src/Ribanense.Solucoes.UI/) | Estilos, breakpoints responsivos, base MVVM. |
+| `src/aplicativos/` | Cada app do catálogo em subpasta própria (adicionados nas próximas fases). |
+| [`ferramentas/`](ferramentas/) | CLI de desenvolvimento e scripts de release. |
+| [`docs/`](docs/) | Documentação de arquitetura, SDK e processo de release. |
 
-## Memória (`BananaSuisa_recursos\BananaSuisa_memoria`)
-
-Tudo fica **no projeto**, dentro de uma subpasta de recursos — não usa `%LOCALAPPDATA%\BananaSuisa_memoria` para o estado do app (na primeira execução após atualizar, dados antigos podem ser **movidos** para cá).
-
-- **Registros:** `BananaSuisa.json` (log no painel) fica em `...\BananaSuisa_memoria\Registros\`.
-- Outras subpastas: `Dados`, `Perfis`, `ScriptsExtras`, `Temporarios`, `DriversImpressoras`, `PacotesBaixados` (e `PacotesBaixados\WinGet`). Veja `LEIA-ME.txt` dentro de `BananaSuisa_memoria`.
-
-Apagar a pasta `BananaSuisa_memoria` (com o app fechado) redefine o app aos padrões dos modelos em `BananaSuisa_recursos`.
-
-## Build e Execução
-
-Comandos simples pela CLI:
+## Build e execução
 
 ```bat
-.\bs.cmd compilar
-.\bs.cmd run
-.\bs.cmd test
-.\bs.cmd check
-.\bs.cmd publish
+.\rb.cmd compilar
+.\rb.cmd run
+.\rb.cmd test
+.\rb.cmd check
 ```
 
 Equivalentes diretos com `dotnet`:
 
 ```powershell
-dotnet build .\BananaSuisa.slnx
-dotnet run --project .\src\BananaSuisa.App\BananaSuisa.App.csproj
-dotnet test .\BananaSuisa.slnx
+dotnet build .\Ribanense.Solucoes.slnx
+dotnet run --project .\src\Ribanense.Solucoes.Launcher\Ribanense.Solucoes.Launcher.csproj
+dotnet test  .\Ribanense.Solucoes.slnx
 ```
 
-## Documentacao central
+## Publicação de um app do catálogo
 
-- [`docs/INDICE.md`](docs/INDICE.md) — ponto de entrada para toda a documentacao do projeto
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — fluxo de contribuicao, validacao minima e regras praticas
-- [`docs/AMBIENTE.md`](docs/AMBIENTE.md) — requisitos atuais do ambiente e setup inicial
-- [`AGENTS.md`](AGENTS.md) — contexto e regras para agentes de IA neste repositorio
-- [`docs/ROADMAP_MIGRACAO.md`](docs/ROADMAP_MIGRACAO.md) — fases e estrategia da migracao para .NET
-- [`docs/MAPEAMENTO_PS1_PARA_DOTNET.md`](docs/MAPEAMENTO_PS1_PARA_DOTNET.md) — mapa de modulos atuais para a estrutura futura
+```bat
+.\rb.cmd publish Winget -Version 1.0.0
+.\rb.cmd release Winget 1.0.0
+```
 
-## Documentação extra
+O primeiro comando gera `artifacts/publish/Winget/winget-1.0.0-win-x64.zip` + `.sha256` + cópia do `app.json`. O segundo cria a tag `winget-v1.0.0` e publica o GitHub Release com os assets.
 
-- [`docs/FERRAMENTAS_CLI.md`](docs/FERRAMENTAS_CLI.md) — CLI do projeto (`bs.cmd`), winget, git, Node, dotnet
-- [`docs/FERRAMENTAS_IA.md`](docs/FERRAMENTAS_IA.md) — MCPs (Playwright, browser), testes e limitações da UI desktop
-- [`docs/REFERENCIAS_EXTERNAS.md`](docs/REFERENCIAS_EXTERNAS.md) — links oficiais e bibliotecas relevantes
-- [`BananaSuisa_desenvolvimento/docs/ARQUITETURA.md`](BananaSuisa_desenvolvimento/docs/ARQUITETURA.md) — arquitetura atual e ponte para a migracao
-- [`BananaSuisa_desenvolvimento/docs/FLUXO_INSTALACAO.md`](BananaSuisa_desenvolvimento/docs/FLUXO_INSTALACAO.md)
-- [`BananaSuisa_desenvolvimento/docs/SOLUCAO_PROBLEMAS.md`](BananaSuisa_desenvolvimento/docs/SOLUCAO_PROBLEMAS.md)
-- [`docs/MELHORIAS.md`](docs/MELHORIAS.md)
+Detalhes: [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md).
 
-Configuração MCP partilhada do projeto: [`.cursor/mcp.json`](.cursor/mcp.json) — após editar, reinicie o Cursor.
+## Documentação central
+
+- [`docs/INDICE.md`](docs/INDICE.md) — índice completo da documentação.
+- [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — como Launcher, apps, catálogo e GitHub Releases se encaixam.
+- [`docs/PLUGIN_SDK.md`](docs/PLUGIN_SDK.md) — contrato `app.json`, CLI dos apps e variáveis de ambiente.
+- [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) — processo de tag, build, assinatura e publicação.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — fluxo de contribuição.
+- [`AGENTS.md`](AGENTS.md) — regras para agentes de IA no repositório.
 
 ## WinGet (referência upstream)
 

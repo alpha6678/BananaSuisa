@@ -1,0 +1,56 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Winget.Views.SearchView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Winget.ViewModels"
+             d:DataContext="{d:DesignInstance Type=vm:SearchViewModel}"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <DockPanel LastChildFill="True">
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0"
+                     FontSize="14"
+                     Padding="10,6"
+                     VerticalContentAlignment="Center"
+                     Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
+                </TextBox.InputBindings>
+            </TextBox>
+            <Button Grid.Column="1"
+                    Margin="8,0,0,0"
+                    Content="Buscar"
+                    Style="{StaticResource Button.Accent}"
+                    Command="{Binding SearchCommand}" />
+        </Grid>
+
+        <TextBlock DockPanel.Dock="Top"
+                   Margin="0,0,0,8"
+                   Foreground="{StaticResource Brush.TextMuted}"
+                   Text="{Binding StatusMessage}" />
+
+        <DataGrid ItemsSource="{Binding Results}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="140" />
+                <DataGridTextColumn Header="Id"   Binding="{Binding Id}"   Width="2*" MinWidth="200" />
+                <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="Auto" MinWidth="80" />
+                <DataGridTextColumn Header="Origem" Binding="{Binding Source}"  Width="Auto" MinWidth="80" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}"  Width="2*" MinWidth="120" />
+                <DataGridTemplateColumn Header="" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Instalar"
+                                    Style="{StaticResource Button.Accent}"
+                                    Margin="6,2"
+                                    Command="{Binding InstallCommand}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

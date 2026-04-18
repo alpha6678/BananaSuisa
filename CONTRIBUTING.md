@@ -1,52 +1,60 @@
-# Contribuindo com o BananaSuisa
+# Contribuindo com Ribanense Soluções
 
-Este documento define o fluxo minimo para evoluir o BananaSuisa na stack .NET/WPF atual.
+Fluxo mínimo para evoluir o Launcher e os apps do catálogo.
 
-## Fluxo rapido
+## Fluxo rápido
 
-1. Trabalhe nos arquivos C# e XAML dentro de `src/`.
-2. Use `.\bs.cmd compilar`, `.\bs.cmd test` ou `.\bs.cmd check` ao trabalhar na base .NET.
-3. Teste o projeto como administrador (executando o `.exe` gerado ou pelo Visual Studio elevado) quando a mudanca afetar `winget`, reparo, drivers, atualizacoes ou scripts do sistema.
-4. Atualize a documentacao relacionada sempre que alterar comportamento, requisitos, comandos ou estrutura.
+1. Trabalhe em C# e XAML dentro de `src/`.
+2. `.\rb.cmd compilar`, `.\rb.cmd test` ou `.\rb.cmd check` durante o desenvolvimento.
+3. Para mudanças que afetam runtime do Windows (winget, UWP, drivers, UAC), teste como administrador.
+4. Atualize documentação sempre que mudar comportamento, requisitos ou comandos.
 
-## Estrutura do codigo
+## Estrutura do código
 
 | Local | Responsabilidade |
 |-------|------------------|
-| `BananaSuisa_recursos/` | Configs, catalogos base e memoria de execucao (`BananaSuisa_memoria`). |
-| `ferramentas/` | CLI de desenvolvimento. |
-| `src/` | Código fonte .NET (`App`, `Core`, `Services`, `Infrastructure`, `Shared`). |
-| `BananaSuisa.slnx` | Solution base. |
+| `src/Ribanense.Solucoes.Launcher/` | UI do Launcher, serviços de catálogo, instalação, atualização. |
+| `src/Ribanense.Solucoes.PluginSDK/` | Contratos publicados. **Mudança quebra SemVer**: incrementar major quando quebrar. |
+| `src/Ribanense.Solucoes.Infrastructure/` | LiteDB, logging JSON, IO. Sem UI. |
+| `src/Ribanense.Solucoes.UI/` | Temas, breakpoints, controles WPF reutilizáveis, base MVVM. |
+| `src/aplicativos/Ribanense.Solucoes.App.<Nome>/` | Um app autônomo por pasta. |
+| `tests/` | Testes por camada/app. |
+| `ferramentas/` | CLI `Ribanense.cli.ps1` e scripts de publicação. |
 
-## Regras praticas
+## Regras práticas
 
-- Preserve a separacao de camadas do .NET.
-- **UI WPF:** evite `ScrollViewer` aninhados para o mesmo eixo no mesmo conteúdo; para `DataGrid` com estilo `LogsDataGridStyle` e para `TextBox` de log junto à área principal, siga os padrões em `src/BananaSuisa.App/Behaviors/README.md`.
-- Mudancas que afetem paths, memoria ou sincronizacao de dados devem considerar `BananaSuisa_recursos/BananaSuisa_memoria/`.
-- Se tocar em `winget`, App Installer, drivers ou update do Windows, registe claramente o fluxo testado (lembre-se que requer permissão de Administrador).
+- Nome público com acento: **Ribanense Soluções**. Namespaces/paths/tags: **Ribanense.Solucoes** (ASCII).
+- Nenhum `Width`/`Height` em pixels na janela raiz. Use `MinWidth` lógico + breakpoints (Compact <768, Medium <1200, Wide >=1200).
+- Cada app **compila e roda sem o Launcher** (fallback em defaults locais quando `RIBANENSE_APP_DATA` não está setado).
+- Launcher **nunca depende** de um app em tempo de compilação. Comunicação é via `app.json` + CLI (`--version`, `--selfcheck`) + variáveis de ambiente.
+- Preserve separação de camadas: App → SDK/Infrastructure/UI, nunca o inverso.
+- Sem segredos commitados (tokens, chaves). Para o `release.ps1`, use `gh auth login` localmente.
 
-## Validacao minima antes de concluir uma mudanca
+## Validação mínima
 
-1. Executar `.\bs.cmd compilar` e `.\bs.cmd test` ou `.\bs.cmd check`.
-2. Abrir a aplicacao impactada com `.\bs.cmd run` e validar ao menos o fluxo alterado.
-3. Se a mudanca afetar instalacao, remocao, reparo ou catalogo, testar com privilegios elevados.
-4. Revisar os documentos afetados e atualizar links, exemplos e pre-requisitos.
+1. `.\rb.cmd compilar` sem warnings novos.
+2. `.\rb.cmd test` verde.
+3. `.\rb.cmd run` abre o Launcher e a mudança funciona.
+4. Se tocou em instalação/reparo do Windows: testar elevado.
+5. Revisar documentos afetados.
 
-## Como reportar bugs ou regressao
+## Reportar bugs
 
-Inclua sempre que possivel:
+Inclua, quando aplicável:
 
-- Versao do Windows.
-- Se a execucao foi feita como administrador.
-- Comando executado (`.\bs.cmd run`, `.\bs.cmd check`, etc.).
-- Codigo de saida do `winget`, quando existir.
-- Caminho do log: `BananaSuisa_recursos\BananaSuisa_memoria\Registros\BananaSuisa.json`.
-- Passos para reproduzir e resultado esperado x obtido.
+- Versão do Windows.
+- Execução elevada (sim/não).
+- Comando exato usado (`rb.cmd run`, etc.).
+- Código de saída de `winget`, `gh` ou similar quando houver.
+- Caminho do log do app (em `%LOCALAPPDATA%/Ribanense Solucoes/apps/<id>/<Nome>.dat`).
+- Passos para reproduzir, resultado esperado vs obtido.
 
-## Documentacao relacionada
+## Documentação relacionada
 
 - [`docs/INDICE.md`](docs/INDICE.md)
+- [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md)
+- [`docs/PLUGIN_SDK.md`](docs/PLUGIN_SDK.md)
+- [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - [`docs/AMBIENTE.md`](docs/AMBIENTE.md)
 - [`docs/FERRAMENTAS_CLI.md`](docs/FERRAMENTAS_CLI.md)
 - [`docs/FERRAMENTAS_IA.md`](docs/FERRAMENTAS_IA.md)
-- [`BananaSuisa_desenvolvimento/docs/ARQUITETURA.md`](BananaSuisa_desenvolvimento/docs/ARQUITETURA.md)

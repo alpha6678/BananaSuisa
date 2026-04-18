@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "apps": [
+    {
+      "id": "com.ribanense.winget",
+      "name": "Gestor WinGet",
+      "publicName": "Gestor WinGet",
+      "description": "Buscar, instalar, atualizar e remover pacotes via WinGet, com log em tempo real.",
+      "category": "Pacotes",
+      "icon": "https://raw.githubusercontent.com/OWNER/RibanenseSolucoes/main/catalog/icons/winget.png",
+      "githubOwner": "OWNER",
+      "githubRepo": "RibanenseSolucoes",
+      "githubTagPrefix": "winget-v",
+      "minimumLauncherVersion": "1.0.0"
+    }
+  ]
+}
