@@ -1,0 +1,111 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Winget.Views.ModuleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Winget.ViewModels"
+             d:DataContext="{d:DesignInstance Type=vm:ModuleViewModel}"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <DockPanel LastChildFill="True">
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock Text="Modulo WinGet / App Installer"
+                           FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.Text}" />
+                <TextBlock Foreground="{StaticResource Brush.TextMuted}"
+                           Margin="0,2,0,0"
+                           Text="{Binding StatusMessage}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="Verificar"
+                        Style="{StaticResource Button.Base}"
+                        Margin="0,0,6,0"
+                        Command="{Binding InspectCommand}" />
+                <Button Content="Reparar (UAC)"
+                        Style="{StaticResource Button.Base}"
+                        Margin="0,0,6,0"
+                        Command="{Binding ReregisterCommand}" />
+                <Button Content="Baixar versao mais recente (UAC)"
+                        Style="{StaticResource Button.Accent}"
+                        Command="{Binding InstallLatestCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource Brush.LogBg}"
+                MaxHeight="200"
+                Margin="0,12,0,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding LogLines}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"
+                                       FontFamily="Consolas"
+                                       FontSize="12"
+                                       Foreground="{StaticResource Brush.LogText}"
+                                       Margin="12,1" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Margin="0,0,0,8"
+                           Text="{Binding HealthyLabel}"
+                           Foreground="{StaticResource Brush.Text}" />
+
+                <Border Style="{StaticResource Badge.Surface}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Text.BadgeTitle}">
+                            <Run Text="Winget" />
+                            <Run Text=" " />
+                            <Run Text="{Binding WingetState, Mode=OneWay}" Foreground="{StaticResource Brush.TextMuted}" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding WingetLine}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Badge.Surface}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Text.BadgeTitle}">
+                            <Run Text="App Installer" />
+                            <Run Text=" " />
+                            <Run Text="{Binding AppInstallerState, Mode=OneWay}" Foreground="{StaticResource Brush.TextMuted}" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding AppInstallerLine}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Badge.Surface}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Text.BadgeTitle}">
+                            <Run Text="VCLibs" />
+                            <Run Text=" " />
+                            <Run Text="{Binding VcLibsState, Mode=OneWay}" Foreground="{StaticResource Brush.TextMuted}" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding VcLibsLine}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Badge.Surface}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Text.BadgeTitle}">
+                            <Run Text="UI.Xaml 2.8" />
+                            <Run Text=" " />
+                            <Run Text="{Binding UiXamlState, Mode=OneWay}" Foreground="{StaticResource Brush.TextMuted}" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding UiXamlLine}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

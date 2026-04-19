@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Input;
 using Ribanense.Solucoes.App.Winget.Services;
+using Ribanense.Solucoes.App.Winget.Services.Search;
+using Ribanense.Solucoes.App.Winget.Services.Sources;
 using Ribanense.Solucoes.PluginSDK.Logging;
 using Ribanense.Solucoes.UI.Mvvm;
 
@@ -10,7 +12,9 @@ namespace Ribanense.Solucoes.App.Winget.ViewModels;
 public enum AppTab
 {
     Search,
-    Installed
+    Installed,
+    Sources,
+    Module
 }
 
 public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
@@ -20,10 +24,11 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
     private readonly IWingetLocator _locator;
 
     public MainWindowViewModel(
-        IWingetSearchService search,
+        ISearchEnhancer search,
         IWingetListService list,
         IWingetInstallService installer,
         IWingetLocator locator,
+        IWingetSourceService sources,
         IAppJsonLog log)
     {
         _installer = installer;
@@ -32,14 +37,24 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
 
         SearchTab = new SearchViewModel(search, this);
         InstalledTab = new InstalledViewModel(list, this);
+        SourcesTab = new SourcesViewModel(sources, log);
 
         SelectSearchCommand = new RelayCommand(() => CurrentTab = AppTab.Search);
         SelectInstalledCommand = new RelayCommand(() => CurrentTab = AppTab.Installed);
+        SelectSourcesCommand = new RelayCommand(() => CurrentTab = AppTab.Sources);
+        SelectModuleCommand = new RelayCommand(() => CurrentTab = AppTab.Module);
         ClearLogCommand = new RelayCommand(() => LogLines.Clear());
     }
 
     public SearchViewModel SearchTab { get; }
     public InstalledViewModel InstalledTab { get; }
+    public SourcesViewModel SourcesTab { get; }
+
+    /// <summary>
+    /// Aba "Modulo" sera preenchida na Fase B do plano (diagnostico + reparo).
+    /// Por enquanto e um hook opcional injetavel via composition root.
+    /// </summary>
+    public ModuleViewModel? ModuleTab { get; init; }
 
     public ObservableCollection<string> LogLines { get; } = new();
 
@@ -53,12 +68,17 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
             {
                 OnPropertyChanged(nameof(IsSearchActive));
                 OnPropertyChanged(nameof(IsInstalledActive));
+                OnPropertyChanged(nameof(IsSourcesActive));
+                OnPropertyChanged(nameof(IsModuleActive));
+                _ = OnTabActivatedAsync(value);
             }
         }
     }
 
     public bool IsSearchActive => CurrentTab == AppTab.Search;
     public bool IsInstalledActive => CurrentTab == AppTab.Installed;
+    public bool IsSourcesActive => CurrentTab == AppTab.Sources;
+    public bool IsModuleActive => CurrentTab == AppTab.Module;
 
     public string ProductName => "Gestor WinGet";
 
@@ -71,17 +91,45 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
 
     public ICommand SelectSearchCommand { get; }
     public ICommand SelectInstalledCommand { get; }
+    public ICommand SelectSourcesCommand { get; }
+    public ICommand SelectModuleCommand { get; }
     public ICommand ClearLogCommand { get; }
 
     public Task BootstrapAsync()
     {
         string? path = _locator.TryLocate();
         WingetStatus = path is null
-            ? "winget.exe não encontrado. Instale o App Installer pela Microsoft Store."
+            ? "winget.exe nao encontrado. Abra a aba Modulo para diagnosticar/reparar."
             : $"winget: {path}";
 
         AppendLog($"Gestor WinGet iniciado. {WingetStatus}");
         return path is null ? Task.CompletedTask : InstalledTab.RefreshAsync();
+    }
+
+    private async Task OnTabActivatedAsync(AppTab tab)
+    {
+        try
+        {
+            switch (tab)
+            {
+                case AppTab.Sources:
+                    if (SourcesTab.Rows.Count == 0)
+                    {
+                        await SourcesTab.ReloadAsync().ConfigureAwait(true);
+                    }
+                    break;
+                case AppTab.Module:
+                    if (ModuleTab is not null && ModuleTab.Status is null)
+                    {
+                        await ModuleTab.InspectAsync().ConfigureAwait(true);
+                    }
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Write(AppLogLevel.Warning, "tab.activate", $"Falha ao ativar aba {tab}.", ex);
+        }
     }
 
     public Task InstallAsync(PackageRowViewModel row) =>
@@ -108,14 +156,14 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
             var result = await op(row.Id, line => DispatcherAppend(line), CancellationToken.None).ConfigureAwait(true);
             if (result.Success)
             {
-                row.Status = $"{verb} concluído.";
-                AppendLog($"OK — {row.Id} ({verb.ToLowerInvariant()}).");
+                row.Status = $"{verb} concluido.";
+                AppendLog($"OK - {row.Id} ({verb.ToLowerInvariant()}).");
                 _log.Write(AppLogLevel.Information, "winget.op", $"{verb} OK: {row.Id}");
             }
             else
             {
-                row.Status = $"Falhou (código {result.ExitCode}).";
-                AppendLog($"FALHA (exit={result.ExitCode}) — {row.Id}.");
+                row.Status = $"Falhou (codigo {result.ExitCode}).";
+                AppendLog($"FALHA (exit={result.ExitCode}) - {row.Id}.");
                 _log.Write(AppLogLevel.Warning, "winget.op", $"{verb} falhou: {row.Id} exit={result.ExitCode}");
             }
 
@@ -127,8 +175,8 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
         catch (Exception ex)
         {
             row.Status = $"Erro: {ex.Message}";
-            AppendLog($"ERRO — {row.Id}: {ex.Message}");
-            _log.Write(AppLogLevel.Error, "winget.op.exception", $"{verb} {row.Id} lançou exceção.", ex);
+            AppendLog($"ERRO - {row.Id}: {ex.Message}");
+            _log.Write(AppLogLevel.Error, "winget.op.exception", $"{verb} {row.Id} lancou excecao.", ex);
         }
         finally
         {

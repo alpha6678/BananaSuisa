@@ -10,6 +10,11 @@
     <SolidColorBrush x:Key="Brush.AccentHover" Color="#275FC0" />
     <SolidColorBrush x:Key="Brush.AccentDisabled" Color="#B8C8E6" />
     <SolidColorBrush x:Key="Brush.Danger"     Color="#C23B22" />
+    <SolidColorBrush x:Key="Brush.Success"    Color="#27864E" />
+    <SolidColorBrush x:Key="Brush.Warning"    Color="#B5791A" />
+    <SolidColorBrush x:Key="Brush.Success.Bg" Color="#E9F7EE" />
+    <SolidColorBrush x:Key="Brush.Warning.Bg" Color="#FDF5E3" />
+    <SolidColorBrush x:Key="Brush.Danger.Bg"  Color="#FBE9E7" />
     <SolidColorBrush x:Key="Brush.SidebarBg"  Color="#ECECEC" />
     <SolidColorBrush x:Key="Brush.SidebarSelected" Color="#DCDCDC" />
     <SolidColorBrush x:Key="Brush.SidebarHover" Color="#E0E0E0" />
@@ -83,6 +88,36 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <Style x:Key="Badge.Surface" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="14,10" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <Style x:Key="Badge.Success" TargetType="Border" BasedOn="{StaticResource Badge.Surface}">
+        <Setter Property="Background" Value="{StaticResource Brush.Success.Bg}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Success}" />
+    </Style>
+
+    <Style x:Key="Badge.Warning" TargetType="Border" BasedOn="{StaticResource Badge.Surface}">
+        <Setter Property="Background" Value="{StaticResource Brush.Warning.Bg}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Warning}" />
+    </Style>
+
+    <Style x:Key="Badge.Danger" TargetType="Border" BasedOn="{StaticResource Badge.Surface}">
+        <Setter Property="Background" Value="{StaticResource Brush.Danger.Bg}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+    </Style>
+
+    <Style x:Key="Text.BadgeTitle" TargetType="TextBlock">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
     </Style>
 
     <Style TargetType="DataGrid">

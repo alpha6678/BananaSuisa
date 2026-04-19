@@ -1,16 +1,16 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
-using Ribanense.Solucoes.App.Winget.Services;
+using Ribanense.Solucoes.App.Winget.Services.Search;
 using Ribanense.Solucoes.UI.Mvvm;
 
 namespace Ribanense.Solucoes.App.Winget.ViewModels;
 
 public sealed class SearchViewModel : ObservableObject
 {
-    private readonly IWingetSearchService _search;
+    private readonly ISearchEnhancer _search;
     private readonly IPackageRowHost _host;
 
-    public SearchViewModel(IWingetSearchService search, IPackageRowHost host)
+    public SearchViewModel(ISearchEnhancer search, IPackageRowHost host)
     {
         _search = search;
         _host = host;

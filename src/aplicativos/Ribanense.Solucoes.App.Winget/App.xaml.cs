@@ -4,6 +4,9 @@ using System.Windows;
 using System.Windows.Threading;
 using Ribanense.Solucoes.App.Winget.Configuration;
 using Ribanense.Solucoes.App.Winget.Services;
+using Ribanense.Solucoes.App.Winget.Services.Diagnostics;
+using Ribanense.Solucoes.App.Winget.Services.Search;
+using Ribanense.Solucoes.App.Winget.Services.Sources;
 using Ribanense.Solucoes.App.Winget.ViewModels;
 using Ribanense.Solucoes.Infrastructure.Logging;
 using Ribanense.Solucoes.Infrastructure.Vault;
@@ -57,11 +60,25 @@ public partial class App : Application
 
         var locator = new WingetLocator();
         var executor = new WingetExecutor(locator);
-        var search = new WingetSearchService(executor);
+        var rawSearch = new WingetSearchService(executor);
         var list = new WingetListService(executor);
         var installer = new WingetInstallService(executor);
 
-        var viewModel = new MainWindowViewModel(search, list, installer, locator, _logger);
+        var elevated = new ElevatedCommandRunner();
+        var sources = new WingetSourceService(executor, elevated);
+
+        var aliasCatalog = new EmbeddedAppAliasCatalog();
+        var enhancer = new AliasAwareSearchEnhancer(rawSearch, aliasCatalog);
+
+        var powerShell = new PowerShellRunner();
+        var diagnostics = new AppInstallerDiagnostics(locator, executor, powerShell);
+        var repair = new AppInstallerRepair(elevated);
+        var moduleVm = new ModuleViewModel(diagnostics, repair, _logger);
+
+        var viewModel = new MainWindowViewModel(enhancer, list, installer, locator, sources, _logger)
+        {
+            ModuleTab = moduleVm
+        };
         var window = new MainWindow { DataContext = viewModel };
         window.Show();
 
@@ -86,7 +103,7 @@ public partial class App : Application
             if (a == "--version")
             {
                 AttachConsole(ATTACH_PARENT_PROCESS);
-                Console.WriteLine("{\"version\":\"0.1.0\",\"sdk\":\"1.0.0\"}");
+                Console.WriteLine("{\"version\":\"0.2.0\",\"sdk\":\"1.0.0\"}");
                 return 0;
             }
 

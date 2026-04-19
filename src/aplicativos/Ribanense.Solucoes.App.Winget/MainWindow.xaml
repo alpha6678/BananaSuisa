@@ -60,6 +60,16 @@
                              IsChecked="{Binding IsInstalledActive, Mode=OneWay}"
                              Command="{Binding SelectInstalledCommand}"
                              Content="Instalados" />
+                <RadioButton GroupName="Tabs"
+                             Style="{StaticResource Tab.Toggle}"
+                             IsChecked="{Binding IsSourcesActive, Mode=OneWay}"
+                             Command="{Binding SelectSourcesCommand}"
+                             Content="Repositorios" />
+                <RadioButton GroupName="Tabs"
+                             Style="{StaticResource Tab.Toggle}"
+                             IsChecked="{Binding IsModuleActive, Mode=OneWay}"
+                             Command="{Binding SelectModuleCommand}"
+                             Content="Modulo" />
             </StackPanel>
         </Border>
 
@@ -69,6 +79,10 @@
                             Visibility="{Binding IsSearchActive, Converter={StaticResource BoolToVis}}" />
             <ContentControl Content="{Binding InstalledTab}"
                             Visibility="{Binding IsInstalledActive, Converter={StaticResource BoolToVis}}" />
+            <ContentControl Content="{Binding SourcesTab}"
+                            Visibility="{Binding IsSourcesActive, Converter={StaticResource BoolToVis}}" />
+            <ContentControl Content="{Binding ModuleTab}"
+                            Visibility="{Binding IsModuleActive, Converter={StaticResource BoolToVis}}" />
         </Grid>
 
         <!-- Log bar -->

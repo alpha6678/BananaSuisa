@@ -19,6 +19,12 @@
             <DataTemplate DataType="{x:Type vm:InstalledViewModel}">
                 <views:InstalledView />
             </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SourcesViewModel}">
+                <views:SourcesView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ModuleViewModel}">
+                <views:ModuleView />
+            </DataTemplate>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
