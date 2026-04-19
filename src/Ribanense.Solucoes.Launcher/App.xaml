@@ -9,11 +9,86 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Ribanense.Solucoes.Launcher;component/Resources/Theme.xaml" />
                 <ResourceDictionary Source="/Ribanense.Solucoes.UI;component/Styles/Breakpoints.xaml" />
-                <ResourceDictionary Source="/Ribanense.Solucoes.Launcher;component/Views/AppCardTemplate.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <conv:BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
+
+            <DataTemplate DataType="{x:Type vm:AppCardViewModel}">
+                <Border Style="{StaticResource Card.Surface}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Right"
+                                       Style="{StaticResource Text.Badge}"
+                                       Text="{Binding Category}"
+                                       VerticalAlignment="Top" />
+                            <TextBlock Style="{StaticResource Text.Title}"
+                                       Text="{Binding DisplayName}"
+                                       TextWrapping="Wrap" />
+                        </DockPanel>
+
+                        <TextBlock Grid.Row="1"
+                                   Style="{StaticResource Text.Body}"
+                                   Margin="0,6,0,0"
+                                   Text="{Binding Description}"
+                                   TextWrapping="Wrap" />
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                            <TextBlock Style="{StaticResource Text.Muted}" Text="{Binding StatusLabel}" />
+                            <TextBlock Style="{StaticResource Text.Muted}"
+                                       Margin="12,0,0,0"
+                                       Text="{Binding ErrorMessage}"
+                                       Foreground="{StaticResource Brush.Danger}"
+                                       Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
+                        </StackPanel>
+
+                        <Grid Grid.Row="3" Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <ProgressBar Grid.Column="0"
+                                         Height="8"
+                                         VerticalAlignment="Center"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Value="{Binding Progress, Mode=OneWay}"
+                                         IsIndeterminate="False"
+                                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="Abrir"
+                                        Style="{StaticResource Button.Base}"
+                                        Command="{Binding OpenCommand}"
+                                        Visibility="{Binding CanOpen, Converter={StaticResource BoolToVisibility}}"
+                                        Margin="0,0,6,0" />
+                                <Button Content="Atualizar"
+                                        Style="{StaticResource Button.Accent}"
+                                        Command="{Binding UpdateCommand}"
+                                        Visibility="{Binding CanUpdate, Converter={StaticResource BoolToVisibility}}"
+                                        Margin="0,0,6,0" />
+                                <Button Content="Instalar"
+                                        Style="{StaticResource Button.Accent}"
+                                        Command="{Binding InstallCommand}"
+                                        Visibility="{Binding CanInstall, Converter={StaticResource BoolToVisibility}}"
+                                        Margin="0,0,6,0" />
+                                <Button Content="Desinstalar"
+                                        Style="{StaticResource Button.Base}"
+                                        Command="{Binding UninstallCommand}"
+                                        Visibility="{Binding CanUninstall, Converter={StaticResource BoolToVisibility}}" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </DataTemplate>
 
             <DataTemplate DataType="{x:Type vm:CatalogViewModel}">
                 <views:CatalogView />

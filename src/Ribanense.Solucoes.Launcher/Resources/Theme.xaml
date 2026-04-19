@@ -19,8 +19,8 @@
     <SolidColorBrush x:Key="Brush.SidebarHover" Color="#E0E0E0" />
     <SolidColorBrush x:Key="Brush.SidebarSelected" Color="#DCDCDC" />
 
-    <sys:Double x:Key="Radius.Small">4</sys:Double>
-    <sys:Double x:Key="Radius.Medium">8</sys:Double>
+    <CornerRadius x:Key="Radius.Small">4</CornerRadius>
+    <CornerRadius x:Key="Radius.Medium">8</CornerRadius>
 
     <!-- Botão base -->
     <Style x:Key="Button.Base" TargetType="Button">
