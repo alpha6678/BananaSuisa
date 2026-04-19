@@ -11,4 +11,7 @@
     <ProjectReference Include="..\Ribanense.Solucoes.Infrastructure\Ribanense.Solucoes.Infrastructure.csproj" />
     <ProjectReference Include="..\Ribanense.Solucoes.UI\Ribanense.Solucoes.UI.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\catalog\catalog.json" LogicalName="Ribanense.Solucoes.Launcher.catalog.json" />
+  </ItemGroup>
 </Project>

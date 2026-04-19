@@ -16,6 +16,7 @@ public partial class App : Application
     private LiteDbVault? _vault;
     private GitHubClient? _github;
     private AppJsonLogWriter? _logger;
+    private bool _isHandlingUnhandled;
 
     public App()
     {
@@ -36,7 +37,8 @@ public partial class App : Application
         _logger.Write(AppLogLevel.Information, "startup", "Launcher iniciado.");
 
         _github = new GitHubClient();
-        var catalog = new CatalogService(_github, _vault, _logger, LauncherConfig.CatalogUrl);
+        string? bundledCatalog = LoadEmbeddedCatalog(_logger);
+        var catalog = new CatalogService(_github, _vault, _logger, LauncherConfig.CatalogUrl, bundledCatalog);
         var releases = new ReleaseCheckService(_github);
         var registry = new InstalledAppsRegistry();
         var installer = new AppInstallService(_github, registry, _logger);
@@ -66,11 +68,41 @@ public partial class App : Application
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         LogCrash(e.Exception);
-        MessageBox.Show(
-            $"Erro inesperado:\n\n{e.Exception.Message}",
-            "Ribanense Soluções",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
+
+        // Evita cascata: se MessageBox (ou o render subsequente) disparar outra
+        // unhandled exception, marcamos handled e saimos silenciosamente.
+        if (_isHandlingUnhandled)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        _isHandlingUnhandled = true;
+        try
+        {
+            // Adia o MessageBox para fora do ciclo atual do Dispatcher, para nao
+            // bloquear um layout/render em andamento e evitar reentrancia.
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    MessageBox.Show(
+                        $"Erro inesperado:\n\n{e.Exception.Message}",
+                        "Ribanense Soluções",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+                finally
+                {
+                    _isHandlingUnhandled = false;
+                }
+            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+        catch
+        {
+            _isHandlingUnhandled = false;
+        }
+
         e.Handled = true;
     }
 
@@ -92,5 +124,24 @@ public partial class App : Application
             _logger?.Write(AppLogLevel.Critical, "unhandled", ex.Message, ex);
         }
         catch { }
+    }
+
+    private static string? LoadEmbeddedCatalog(IAppJsonLog log)
+    {
+        try
+        {
+            var assembly = typeof(App).Assembly;
+            const string resourceName = "Ribanense.Solucoes.Launcher.catalog.json";
+            using var stream = assembly.GetManifestResourceStream(resourceName);
+            if (stream is null) return null;
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            log.Write(AppLogLevel.Warning, "catalog.embedded",
+                "Falha ao ler catalogo embutido.", ex);
+            return null;
+        }
     }
 }

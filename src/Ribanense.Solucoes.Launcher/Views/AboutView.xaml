@@ -15,12 +15,9 @@
             <Border Style="{StaticResource Card.Surface}" Margin="0,12,0,0">
                 <StackPanel>
                     <TextBlock Text="Ribanense Soluções" Style="{StaticResource Text.Title}" />
-                    <TextBlock Style="{StaticResource Text.Muted}" Margin="0,4,0,0">
-                        <Run Text="Launcher " />
-                        <Run Text="{Binding LauncherVersion, Mode=OneWay}" />
-                        <Run Text=" — SDK " />
-                        <Run Text="{Binding SdkVersion, Mode=OneWay}" />
-                    </TextBlock>
+                    <TextBlock Style="{StaticResource Text.Muted}"
+                               Margin="0,4,0,0"
+                               Text="{Binding VersionsLine, Mode=OneWay}" />
                 </StackPanel>
             </Border>
 
@@ -29,19 +26,26 @@
                     <TextBlock Text="Configuração" Style="{StaticResource Text.Title}" />
 
                     <TextBlock Style="{StaticResource Text.Muted}" Margin="0,8,0,0" Text="Catálogo:" />
-                    <TextBlock Style="{StaticResource Text.Body}" Text="{Binding CatalogUrl, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource Text.Body}"
+                               Text="{Binding CatalogUrl, Mode=OneWay}"
+                               TextWrapping="Wrap" />
 
                     <TextBlock Style="{StaticResource Text.Muted}" Margin="0,8,0,0" Text="Pasta de dados:" />
-                    <TextBlock Style="{StaticResource Text.Body}" Text="{Binding DataRoot, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource Text.Body}"
+                               Text="{Binding DataRoot, Mode=OneWay}"
+                               TextWrapping="Wrap" />
 
                     <TextBlock Style="{StaticResource Text.Muted}" Margin="0,8,0,0" Text="Pasta de aplicativos:" />
-                    <TextBlock Style="{StaticResource Text.Body}" Text="{Binding AplicativosRoot, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource Text.Body}"
+                               Text="{Binding AplicativosRoot, Mode=OneWay}"
+                               TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
-            <TextBlock Style="{StaticResource Text.Muted}" Margin="0,12,0,0">
-                Configurável via variáveis de ambiente: RIBANENSE_CATALOG_URL, RIBANENSE_LAUNCHER_DATA, RIBANENSE_APLICATIVOS_ROOT.
-            </TextBlock>
+            <TextBlock Style="{StaticResource Text.Muted}"
+                       Margin="0,12,0,0"
+                       TextWrapping="Wrap"
+                       Text="Configurável via variáveis de ambiente: RIBANENSE_CATALOG_URL, RIBANENSE_LAUNCHER_DATA, RIBANENSE_APLICATIVOS_ROOT." />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

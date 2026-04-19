@@ -26,12 +26,18 @@ public sealed class CatalogService : ICatalogService
     private readonly IVault _vault;
     private readonly IAppJsonLog _log;
     private readonly string _catalogUrl;
+    private readonly string? _bundledJson;
     private readonly object _lock = new();
 
     private CatalogDocument? _inMemory;
     private DateTime? _inMemoryAt;
 
-    public CatalogService(IGitHubClient github, IVault vault, IAppJsonLog log, string catalogUrl)
+    public CatalogService(
+        IGitHubClient github,
+        IVault vault,
+        IAppJsonLog log,
+        string catalogUrl,
+        string? bundledJson = null)
     {
         _github = github ?? throw new ArgumentNullException(nameof(github));
         _vault = vault ?? throw new ArgumentNullException(nameof(vault));
@@ -39,6 +45,7 @@ public sealed class CatalogService : ICatalogService
         _catalogUrl = string.IsNullOrWhiteSpace(catalogUrl)
             ? throw new ArgumentException("URL obrigatoria.", nameof(catalogUrl))
             : catalogUrl;
+        _bundledJson = string.IsNullOrWhiteSpace(bundledJson) ? null : bundledJson;
     }
 
     public DateTime? LastRefreshedAtUtc
@@ -88,7 +95,35 @@ public sealed class CatalogService : ICatalogService
                 return fromCache.Value.doc;
             }
 
+            var fromBundle = TryLoadBundled();
+            if (fromBundle is not null)
+            {
+                _log.Write(AppLogLevel.Information, "catalog.fallback",
+                    $"Usando catalogo embutido com {fromBundle.Apps.Count} app(s).");
+                lock (_lock)
+                {
+                    _inMemory = fromBundle;
+                    _inMemoryAt = DateTime.UtcNow;
+                }
+                return fromBundle;
+            }
+
             throw;
+        }
+    }
+
+    private CatalogDocument? TryLoadBundled()
+    {
+        if (_bundledJson is null) return null;
+        try
+        {
+            return Parse(_bundledJson);
+        }
+        catch (Exception ex)
+        {
+            _log.Write(AppLogLevel.Warning, "catalog.bundle",
+                "Catalogo embutido invalido; ignorando.", ex);
+            return null;
         }
     }
 
