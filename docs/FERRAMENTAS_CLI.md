@@ -16,27 +16,51 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 
 | Comando | Sinônimos | Ação |
 |---------|-----------|------|
-| `compilar` | `build` | `dotnet build Ribanense.Solucoes.slnx`. |
-| `run` | `rodar` | Compila e abre o Launcher. |
+| `build` | `compilar` | `dotnet build Ribanense.Solucoes.slnx` (encerra processos Ribanense deste repo antes). |
+| `run` `[App]` | `rodar` | Compila e abre o Launcher. Se passar um nome de app (`rb run Winget`), abre o app direto. |
 | `test` | `testar` | `dotnet test Ribanense.Solucoes.slnx`. |
-| `check` | `validar` | `compilar` + `test`. |
-| `publish <App> [-Version <semver>]` | `empacotar` | Gera pacote local do app em `artifacts/publish/<App>/`. |
-| `release <App> <semver>` | — | Cria tag e publica GitHub Release com os assets. |
+| `check` | `validar` | `build` + `test` em sequência. |
+| `clean` | `limpar` | Remove todos os `bin/`, `obj/` e `artifacts/` do repo. Encerra processos Ribanense primeiro. |
+| `list` | `apps`, `ls` | Lista os apps em `src/aplicativos/` com versão do `.csproj` e do `app.json`. |
+| `version` | `versao` | Mostra versões do Launcher, do SDK e de cada app. Alerta quando `csproj` e `app.json` divergem. |
+| `devlink <App>` | `link` | Compila um app e copia para `%LOCALAPPDATA%\Ribanense Soluções\aplicativos\<App>\` para o Launcher reconhecê-lo como "instalado" sem precisar publicar release. |
+| `unlink <App>` | `devunlink` | Remove o devlink de um app. |
+| `publish <App> [-Version <ver>]` | `empacotar` | Gera pacote local do app em `artifacts/publish/<App>/` (zip + sha256 + app.json). |
+| `release <App> <semver>` | — | Publica GitHub Release via `gh` (cria tag, faz upload do zip/sha/app.json). |
 | `help` | `?`, `-h`, `--help` | Ajuda. |
 
 ### Exemplos
 
 ```bat
 cd caminho\para\RibanenseSolucoes
-rb.cmd compilar
+rb.cmd list
 rb.cmd run
+rb.cmd run Winget
 rb.cmd test
 rb.cmd check
-rb.cmd publish Winget -Version 1.0.0
-rb.cmd release Winget 1.0.0
+rb.cmd devlink Winget
+rb.cmd unlink Winget
+rb.cmd version
+rb.cmd clean
+rb.cmd publish Winget -Version 0.1.0
+rb.cmd release Winget 0.1.0
 ```
 
-Código de saída: `0` em sucesso; `1` se o comando for desconhecido.
+### Fluxo de desenvolvimento recomendado
+
+1. `rb list` — ver o que está no repo.
+2. `rb run Winget` — testar o app isolado.
+3. `rb devlink Winget` — empacotar no formato que o Launcher entende.
+4. `rb run` — abrir o Launcher e ver o Winget em "Meus apps".
+5. `rb check` — antes de commitar.
+6. `rb publish Winget -Version 0.2.0` + `rb release Winget 0.2.0` — quando estiver pronto para publicar.
+
+### Dicas
+
+- **Stack trace detalhado**: defina `RIBANENSE_CLI_TRACE=1` para ver o stack trace completo quando um comando falhar.
+- **Código de saída**: `0` em sucesso, `1` em comando desconhecido ou erro capturado; códigos do `dotnet` são propagados se a falha vier dele.
+- **Processos em execução**: `build`, `run`, `clean` e `devlink` tentam encerrar instâncias do Launcher e dos apps Ribanense deste repo antes de operar, para evitar locks em DLLs.
+- **Ajuda auto-gerada**: a saída de `rb help` é construída a partir da tabela de comandos no próprio script; para adicionar um comando novo, basta acrescentar uma entrada em `$script:Commands` e implementar o handler.
 
 ## CLIs externas recomendadas
 
@@ -44,12 +68,13 @@ Código de saída: `0` em sucesso; `1` se o comando for desconhecido.
 |------------|--------|
 | `dotnet` | Build, run e test da solution. |
 | `git` | Tags e histórico do monorepo. |
-| `gh` (GitHub CLI) | Publicação de releases. [cli.github.com](https://cli.github.com/). |
-| `winget` | Runtime de domínio do app Winget (quando existir). [Releases · microsoft/winget-cli](https://github.com/microsoft/winget-cli/releases). |
+| `gh` (GitHub CLI) | Publicação de releases (`rb release` depende disso). [cli.github.com](https://cli.github.com/). |
+| `winget` | Runtime de domínio do app **Gestor WinGet**. [Releases · microsoft/winget-cli](https://github.com/microsoft/winget-cli/releases). |
+| LiteDB Studio | GUI para inspecionar arquivos `.dat` (Launcher.dat, Winget.dat) gerados em `%LOCALAPPDATA%\Ribanense Soluções\`. |
 
 ## Integração com agentes e CI
 
-- **Agentes (Cursor):** preferir `.\rb.cmd compilar`, `.\rb.cmd test` e `.\rb.cmd check` a partir da raiz.
+- **Agentes (Cursor):** preferir `.\rb.cmd compilar`, `.\rb.cmd test` e `.\rb.cmd check` a partir da raiz. Use `rb list` para descobrir apps disponíveis de forma programática.
 - **CI:** `dotnet build .\Ribanense.Solucoes.slnx` e `dotnet test`. Para artefatos, invocar `ferramentas/publish-module.ps1 -App <Nome> -Version <semver>`.
 
 ## Ver também
