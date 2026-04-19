@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using Ribanense.Solucoes.Infrastructure.Logging;
@@ -6,6 +7,7 @@ using Ribanense.Solucoes.Infrastructure.Vault;
 using Ribanense.Solucoes.Launcher.Configuration;
 using Ribanense.Solucoes.Launcher.Services;
 using Ribanense.Solucoes.Launcher.ViewModels;
+using Ribanense.Solucoes.PluginSDK;
 using Ribanense.Solucoes.PluginSDK.Logging;
 using Ribanense.Solucoes.PluginSDK.Vault;
 
@@ -13,10 +15,16 @@ namespace Ribanense.Solucoes.Launcher;
 
 public partial class App : Application
 {
+    private const string LauncherComponent = "Launcher";
+
     private LiteDbVault? _vault;
     private GitHubClient? _github;
     private AppJsonLogWriter? _logger;
     private bool _isHandlingUnhandled;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool AttachConsole(int dwProcessId);
+    private const int ATTACH_PARENT_PROCESS = -1;
 
     public App()
     {
@@ -27,6 +35,16 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Length > 0)
+        {
+            int cliExit = HandleCliArguments(e.Args);
+            if (cliExit >= 0)
+            {
+                Shutdown(cliExit);
+                return;
+            }
+        }
+
         base.OnStartup(e);
 
         Directory.CreateDirectory(LauncherConfig.LauncherDataRoot);
@@ -65,12 +83,60 @@ public partial class App : Application
         base.OnExit(e);
     }
 
+    /// <summary>
+    /// Retorna exit code quando um argumento e' reconhecido como CLI (&gt;= 0),
+    /// ou -1 quando deve continuar para a UI.
+    /// </summary>
+    private static int HandleCliArguments(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            string a = args[i].ToLowerInvariant();
+
+            if (a == "--version")
+            {
+                AttachConsole(ATTACH_PARENT_PROCESS);
+                string ver = AppVersion.ForEntry();
+                Console.WriteLine($"{{\"version\":\"{ver}\",\"sdk\":\"{SdkVersion.Current}\"}}");
+                return 0;
+            }
+
+            if (a == "--selfcheck")
+            {
+                AttachConsole(ATTACH_PARENT_PROCESS);
+                try
+                {
+                    Directory.CreateDirectory(LauncherConfig.LauncherDataRoot);
+                    Directory.CreateDirectory(LauncherConfig.AplicativosRoot);
+                    Console.WriteLine($"data: {LauncherConfig.LauncherDataRoot}");
+                    Console.WriteLine($"aplicativos: {LauncherConfig.AplicativosRoot}");
+                    return 0;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"selfcheck falhou: {ex.ToChainedMessage()}");
+                    return 1;
+                }
+            }
+
+            if (a == "--logs")
+            {
+                AttachConsole(ATTACH_PARENT_PROCESS);
+                int count = 100;
+                if (i + 1 < args.Length && int.TryParse(args[i + 1], out int n) && n > 0)
+                {
+                    count = n;
+                }
+                return LogDumpHelper.DumpToConsole(LauncherConfig.LauncherVaultPath, count);
+            }
+        }
+        return -1;
+    }
+
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         LogCrash(e.Exception);
 
-        // Evita cascata: se MessageBox (ou o render subsequente) disparar outra
-        // unhandled exception, marcamos handled e saimos silenciosamente.
         if (_isHandlingUnhandled)
         {
             e.Handled = true;
@@ -80,14 +146,13 @@ public partial class App : Application
         _isHandlingUnhandled = true;
         try
         {
-            // Adia o MessageBox para fora do ciclo atual do Dispatcher, para nao
-            // bloquear um layout/render em andamento e evitar reentrancia.
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 try
                 {
                     MessageBox.Show(
-                        $"Erro inesperado:\n\n{e.Exception.Message}",
+                        "Erro inesperado:\n\n" + e.Exception.ToChainedMessage()
+                            + "\n\nDetalhes em %LOCALAPPDATA%\\Ribanense Soluções\\crash.log",
                         "Ribanense Soluções",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
@@ -96,7 +161,7 @@ public partial class App : Application
                 {
                     _isHandlingUnhandled = false;
                 }
-            }), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }), DispatcherPriority.ApplicationIdle);
         }
         catch
         {
@@ -119,9 +184,13 @@ public partial class App : Application
 
     private void LogCrash(Exception ex)
     {
+        // 1) arquivo de texto plano (sempre disponivel, sem precisar de ferramentas)
+        CrashLogWriter.Write(LauncherComponent, ex);
+
+        // 2) log estruturado no vault, com a cadeia de Inner Exceptions na mensagem
         try
         {
-            _logger?.Write(AppLogLevel.Critical, "unhandled", ex.Message, ex);
+            _logger?.Write(AppLogLevel.Critical, "unhandled", ex.ToChainedMessage(), ex);
         }
         catch { }
     }

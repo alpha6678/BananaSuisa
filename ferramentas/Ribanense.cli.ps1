@@ -414,6 +414,86 @@ function Invoke-AppRelease {
     Write-Ok "Release '$appName' $version publicado."
 }
 
+function Invoke-Logs {
+    # rb logs                    -> launcher, ultimas 100 entradas
+    # rb logs Winget             -> app Winget, ultimas 100 entradas
+    # rb logs Winget 200         -> app Winget, ultimas 200 entradas
+    # rb logs 50                 -> launcher, ultimas 50 entradas
+    $count = 100
+    $target = 'launcher'
+
+    if ($script:RestArguments.Count -ge 1) {
+        $first = $script:RestArguments[0]
+        $parsedInt = 0
+        if ([int]::TryParse($first, [ref] $parsedInt) -and $parsedInt -gt 0) {
+            $count = $parsedInt
+        } else {
+            $target = $first
+            if ($script:RestArguments.Count -ge 2) {
+                if ([int]::TryParse($script:RestArguments[1], [ref] $parsedInt) -and $parsedInt -gt 0) {
+                    $count = $parsedInt
+                }
+            }
+        }
+    }
+
+    if ($target -ieq 'launcher') {
+        Assert-PathExists -Path $script:LauncherProjectPath -Description 'Projeto do Launcher'
+        Write-Info "Compilando Launcher (se necessario) para ler $count ultima(s) entrada(s)..."
+        Invoke-DotNet -Arguments @('build', $script:LauncherProjectPath, '-v', 'quiet', '--nologo')
+        $exePath = Join-Path $script:ProjectRoot 'src\Ribanense.Solucoes.Launcher\bin\Debug\net10.0-windows\Ribanense.Solucoes.Launcher.exe'
+        Assert-PathExists -Path $exePath -Description 'Executavel do Launcher'
+        Write-Host ""
+        & $exePath --logs $count
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        return
+    }
+
+    $projPath = Get-AppProjectPath -AppName $target
+    Write-Info "Compilando '$target' (se necessario) para ler $count ultima(s) entrada(s)..."
+    Invoke-DotNet -Arguments @('build', $projPath, '-v', 'quiet', '--nologo')
+    $exePath = Get-AppOutputExe -AppName $target
+    Assert-PathExists -Path $exePath -Description "Executavel do app '$target'"
+    Write-Host ""
+    & $exePath --logs $count
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+function Invoke-CrashLog {
+    $crashPath = Join-Path $script:LauncherDataRoot 'crash.log'
+    $oldPath = Join-Path $script:LauncherDataRoot 'crash.old.log'
+
+    $anything = $false
+    if (Test-Path -LiteralPath $oldPath) {
+        Write-Info "--- crash.old.log ---"
+        Get-Content -LiteralPath $oldPath -Tail 200
+        $anything = $true
+        Write-Host ""
+    }
+    if (Test-Path -LiteralPath $crashPath) {
+        Write-Info "--- crash.log ($crashPath) ---"
+        Get-Content -LiteralPath $crashPath -Tail 200
+        $anything = $true
+    }
+    if (-not $anything) {
+        Write-Ok "Sem crashes registrados (esperado em primeiro uso)."
+        Write-Muted "Caminho monitorado: $crashPath"
+    }
+}
+
+function Invoke-CrashLogClear {
+    $crashPath = Join-Path $script:LauncherDataRoot 'crash.log'
+    $oldPath = Join-Path $script:LauncherDataRoot 'crash.old.log'
+    $removed = 0
+    foreach ($p in @($crashPath, $oldPath)) {
+        if (Test-Path -LiteralPath $p) {
+            Remove-Item -LiteralPath $p -Force
+            $removed++
+        }
+    }
+    Write-Ok "Crash logs limpos ($removed arquivo(s) removido(s))."
+}
+
 # ---------- Tabela de comandos ----------
 
 $script:Commands = @(
@@ -426,9 +506,12 @@ $script:Commands = @(
     [pscustomobject]@{ Verb = 'version'; Aliases = @('versao');            Handler = 'Invoke-ShowVersions';  Usage = 'rb version';                         Help = 'Mostra versoes de Launcher, SDK e cada app (alerta se csproj e app.json divergem).' },
     [pscustomobject]@{ Verb = 'devlink'; Aliases = @('link');              Handler = 'Invoke-DevLink';       Usage = 'rb devlink <App>';                   Help = 'Compila um app e copia para %LOCALAPPDATA%\Ribanense Solucoes\aplicativos\ para o Launcher ver como instalado.' },
     [pscustomobject]@{ Verb = 'unlink';  Aliases = @('devunlink');         Handler = 'Invoke-DevUnlink';     Usage = 'rb unlink <App>';                    Help = 'Remove o devlink de um app.' },
-    [pscustomobject]@{ Verb = 'publish'; Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';    Usage = 'rb publish <App> [-Version <ver>]';  Help = 'Empacota um app em zip + sha256 + copia do app.json.' },
-    [pscustomobject]@{ Verb = 'release'; Aliases = @();                    Handler = 'Invoke-AppRelease';    Usage = 'rb release <App> <semver>';          Help = 'Cria tag git e publica GitHub Release (requer gh CLI).' },
-    [pscustomobject]@{ Verb = 'help';    Aliases = @('?', '-h', '--help'); Handler = 'Show-RibananseCliHelp'; Usage = 'rb help';                           Help = 'Esta ajuda.' }
+    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App> [-Version <ver>]'; Help = 'Empacota um app em zip + sha256 + copia do app.json.' },
+    [pscustomobject]@{ Verb = 'release';      Aliases = @();                    Handler = 'Invoke-AppRelease';     Usage = 'rb release <App> <semver>';         Help = 'Cria tag git e publica GitHub Release (requer gh CLI).' },
+    [pscustomobject]@{ Verb = 'logs';         Aliases = @('log');               Handler = 'Invoke-Logs';           Usage = 'rb logs [App] [N]';                 Help = 'Imprime as ultimas N (default 100) entradas do vault (Launcher ou app). Usa copia temporaria, nao conflita com processo rodando.' },
+    [pscustomobject]@{ Verb = 'crashlog';     Aliases = @('crash');             Handler = 'Invoke-CrashLog';       Usage = 'rb crashlog';                       Help = 'Mostra o crash.log (texto plano) com as ultimas 200 linhas. Inclui crash.old.log rotacionado se existir.' },
+    [pscustomobject]@{ Verb = 'crashlog-clear';Aliases= @('crash-clear');       Handler = 'Invoke-CrashLogClear';  Usage = 'rb crashlog-clear';                 Help = 'Remove crash.log e crash.old.log.' },
+    [pscustomobject]@{ Verb = 'help';         Aliases = @('?', '-h', '--help'); Handler = 'Show-RibananseCliHelp'; Usage = 'rb help';                           Help = 'Esta ajuda.' }
 )
 
 function Show-RibananseCliHelp {
@@ -451,6 +534,9 @@ function Show-RibananseCliHelp {
     Write-Host "  .\rb.cmd run Winget"
     Write-Host "  .\rb.cmd devlink Winget"
     Write-Host "  .\rb.cmd check"
+    Write-Host "  .\rb.cmd logs                    # launcher, ultimas 100"
+    Write-Host "  .\rb.cmd logs Winget 50          # app Winget, ultimas 50"
+    Write-Host "  .\rb.cmd crashlog                # texto plano do crash.log"
     Write-Host "  .\rb.cmd publish Winget -Version 0.1.0"
     Write-Host "  .\rb.cmd release Winget 0.1.0"
     Write-Host ""

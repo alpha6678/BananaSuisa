@@ -36,14 +36,18 @@ public sealed class LiteDbVault : IVault
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
-        _db = new LiteDatabase($"Filename={path};Connection=direct");
-        ConfigureMapper();
+        // Mapper LOCAL: evita mutação concorrente do BsonMapper.Global,
+        // que é compartilhado por todo o processo e provoca race conditions
+        // em cenários multi-instância (testes paralelos, Launcher + utilitário, etc.).
+        var mapper = new BsonMapper();
+        ConfigureMapper(mapper);
+
+        _db = new LiteDatabase($"Filename={path};Connection=direct", mapper);
         EnsureSeeded();
     }
 
-    private static void ConfigureMapper()
+    private static void ConfigureMapper(BsonMapper mapper)
     {
-        var mapper = BsonMapper.Global;
         mapper.Entity<VaultMetadata>().Id(x => x.Id);
         mapper.Entity<VaultAuditEntry>().Id(x => x.Id);
         mapper.Entity<SettingEntry>().Id(x => x.Key);

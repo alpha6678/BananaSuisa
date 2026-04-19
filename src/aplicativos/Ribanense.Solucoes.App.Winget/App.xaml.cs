@@ -14,10 +14,12 @@ namespace Ribanense.Solucoes.App.Winget;
 public partial class App : Application
 {
     private const string MutexName = @"Global\Ribanense.com.ribanense.winget";
+    private const string AppComponent = "App.Winget";
 
     private LiteDbVault? _vault;
     private AppJsonLogWriter? _logger;
     private Mutex? _singleInstanceMutex;
+    private bool _isHandlingUnhandled;
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool AttachConsole(int dwProcessId);
@@ -45,8 +47,7 @@ public partial class App : Application
 
         base.OnStartup(e);
 
-        // Single-instance + mutex que o Launcher observa
-        _singleInstanceMutex = new Mutex(initiallyOwned: false, MutexName, out bool createdNew);
+        _singleInstanceMutex = new Mutex(initiallyOwned: false, MutexName, out _);
         try { _singleInstanceMutex.WaitOne(0, false); } catch (AbandonedMutexException) { }
 
         var paths = WingetAppConfig.Resolve();
@@ -76,32 +77,42 @@ public partial class App : Application
         base.OnExit(e);
     }
 
-    /// <summary>
-    /// Retorna o código de saída quando o argumento é reconhecido como CLI (≥ 0),
-    /// ou -1 quando a aplicação deve continuar abrindo a UI.
-    /// </summary>
     private static int HandleCliArguments(string[] args)
     {
-        foreach (string raw in args)
+        for (int i = 0; i < args.Length; i++)
         {
-            string a = raw.ToLowerInvariant();
+            string a = args[i].ToLowerInvariant();
+
             if (a == "--version")
             {
                 AttachConsole(ATTACH_PARENT_PROCESS);
                 Console.WriteLine("{\"version\":\"0.1.0\",\"sdk\":\"1.0.0\"}");
                 return 0;
             }
+
             if (a == "--selfcheck")
             {
                 AttachConsole(ATTACH_PARENT_PROCESS);
                 string? path = new WingetLocator().TryLocate();
                 if (path is null)
                 {
-                    Console.Error.WriteLine("winget.exe não encontrado.");
+                    Console.Error.WriteLine("winget.exe nao encontrado.");
                     return 1;
                 }
                 Console.WriteLine($"winget: {path}");
                 return 0;
+            }
+
+            if (a == "--logs")
+            {
+                AttachConsole(ATTACH_PARENT_PROCESS);
+                int count = 100;
+                if (i + 1 < args.Length && int.TryParse(args[i + 1], out int n) && n > 0)
+                {
+                    count = n;
+                }
+                var paths = WingetAppConfig.Resolve();
+                return LogDumpHelper.DumpToConsole(paths.VaultPath, count);
             }
         }
         return -1;
@@ -110,11 +121,38 @@ public partial class App : Application
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         LogCrash(e.Exception);
-        MessageBox.Show(
-            $"Erro inesperado:\n\n{e.Exception.Message}",
-            "Gestor WinGet",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
+
+        if (_isHandlingUnhandled)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        _isHandlingUnhandled = true;
+        try
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    MessageBox.Show(
+                        "Erro inesperado:\n\n" + e.Exception.ToChainedMessage()
+                            + "\n\nDetalhes em %LOCALAPPDATA%\\Ribanense Soluções\\crash.log",
+                        "Gestor WinGet",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+                finally
+                {
+                    _isHandlingUnhandled = false;
+                }
+            }), DispatcherPriority.ApplicationIdle);
+        }
+        catch
+        {
+            _isHandlingUnhandled = false;
+        }
+
         e.Handled = true;
     }
 
@@ -131,6 +169,11 @@ public partial class App : Application
 
     private void LogCrash(Exception ex)
     {
-        try { _logger?.Write(AppLogLevel.Critical, "unhandled", ex.Message, ex); } catch { }
+        CrashLogWriter.Write(AppComponent, ex);
+        try
+        {
+            _logger?.Write(AppLogLevel.Critical, "unhandled", ex.ToChainedMessage(), ex);
+        }
+        catch { }
     }
 }

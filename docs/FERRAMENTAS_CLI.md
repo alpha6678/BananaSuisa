@@ -27,6 +27,9 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
 | `publish <App> [-Version <ver>]` | `empacotar` | Gera pacote local do app em `artifacts/publish/<App>/` (zip + sha256 + app.json). |
 | `release <App> <semver>` | — | Publica GitHub Release via `gh` (cria tag, faz upload do zip/sha/app.json). |
+| `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
+| `crashlog` | `crash` | Mostra as últimas 200 linhas do `crash.log` (texto plano). Inclui `crash.old.log` rotacionado se existir. |
+| `crashlog-clear` | `crash-clear` | Remove `crash.log` e `crash.old.log`. |
 | `help` | `?`, `-h`, `--help` | Ajuda. |
 
 ### Exemplos
@@ -61,6 +64,30 @@ rb.cmd release Winget 0.1.0
 - **Código de saída**: `0` em sucesso, `1` em comando desconhecido ou erro capturado; códigos do `dotnet` são propagados se a falha vier dele.
 - **Processos em execução**: `build`, `run`, `clean` e `devlink` tentam encerrar instâncias do Launcher e dos apps Ribanense deste repo antes de operar, para evitar locks em DLLs.
 - **Ajuda auto-gerada**: a saída de `rb help` é construída a partir da tabela de comandos no próprio script; para adicionar um comando novo, basta acrescentar uma entrada em `$script:Commands` e implementar o handler.
+
+## Logs e troubleshooting em runtime
+
+Cada app Ribanense grava logs em duas camadas paralelas (ambas acessíveis via CLI):
+
+| Camada | Onde | Lido por | Conteúdo |
+|---|---|---|---|
+| Vault estruturado (LiteDB) | `%LOCALAPPDATA%\Ribanense Soluções\Launcher.dat` e `apps\<id>\<Nome>.dat` | `rb logs [App] [N]` | Metadados, settings, logs categorizados (startup, install.done, unhandled, etc.), trilha de auditoria. |
+| Crash log (texto plano) | `%LOCALAPPDATA%\Ribanense Soluções\crash.log` | `rb crashlog` | Apenas unhandled exceptions, em texto UTF-8, com rotação ao atingir 1 MB (vira `crash.old.log`). Nunca bloqueia, nunca falha. |
+
+Para investigar um erro visível na UI:
+
+1. `rb crashlog` — mostra exceções não tratadas recentes, incluindo toda a cadeia de `InnerException` e stack trace.
+2. `rb logs` — contexto estruturado antes do erro (últimas operações, status, etc.). Passa `App` como primeiro arg para inspecionar um app específico (`rb logs Winget`).
+3. `rb crashlog-clear` — reseta para começar uma sessão de teste do zero.
+
+Os próprios `.exe` expõem as mesmas informações via CLI, úteis no Launcher ou em scripts:
+
+```bat
+Ribanense.Solucoes.Launcher.exe --version       # {"version":"x.y.z","sdk":"x.y.z"}
+Ribanense.Solucoes.Launcher.exe --selfcheck     # valida paths, exit 0/1
+Ribanense.Solucoes.Launcher.exe --logs 50       # últimas 50 entradas
+Ribanense.Solucoes.App.Winget.exe --logs 200    # idem para o app
+```
 
 ## CLIs externas recomendadas
 
