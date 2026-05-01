@@ -1,0 +1,30 @@
+<Application x:Class="Ribanense.Solucoes.App.Chocolatey.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:Ribanense.Solucoes.App.Chocolatey.Converters"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Chocolatey.ViewModels"
+             xmlns:views="clr-namespace:Ribanense.Solucoes.App.Chocolatey.Views">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Ribanense.Solucoes.App.Chocolatey;component/Resources/Theme.xaml" />
+                <ResourceDictionary Source="/Ribanense.Solucoes.UI;component/Styles/Breakpoints.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+
+            <DataTemplate DataType="{x:Type vm:SearchViewModel}">
+                <views:SearchView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:InstalledViewModel}">
+                <views:InstalledView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SourcesViewModel}">
+                <views:SourcesView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ModuleViewModel}">
+                <views:ModuleView />
+            </DataTemplate>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using Ribanense.Solucoes.App.Winget.Services.Diagnostics;
 using Ribanense.Solucoes.PluginSDK.Logging;
+using Ribanense.Solucoes.UI;
 using Ribanense.Solucoes.UI.Mvvm;
 
 namespace Ribanense.Solucoes.App.Winget.ViewModels;
@@ -22,6 +23,7 @@ public class ModuleViewModel : ObservableObject
         _inspectCommand = new AsyncRelayCommand(_ => InspectAsync(), _ => !IsBusy);
         _reregisterCommand = new AsyncRelayCommand(_ => ReregisterAsync(), _ => !IsBusy);
         _installLatestCommand = new AsyncRelayCommand(_ => InstallLatestAsync(), _ => !IsBusy);
+        _copyLogCommand = new RelayCommand(() => LogLinesClipboard.CopyOrWarn(LogLines, "Gestor WinGet"));
     }
 
     public ObservableCollection<string> LogLines { get; } = new();
@@ -96,10 +98,12 @@ public class ModuleViewModel : ObservableObject
     private readonly ICommand _inspectCommand;
     private readonly ICommand _reregisterCommand;
     private readonly ICommand _installLatestCommand;
+    private readonly ICommand _copyLogCommand;
 
     public virtual ICommand? InspectCommand => _inspectCommand;
     public virtual ICommand? ReregisterCommand => _reregisterCommand;
     public virtual ICommand? InstallLatestCommand => _installLatestCommand;
+    public virtual ICommand? CopyLogCommand => _copyLogCommand;
 
     public virtual async Task InspectAsync()
     {

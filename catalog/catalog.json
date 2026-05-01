@@ -12,6 +12,18 @@
       "githubRepo": "RibanenseSolucoes",
       "githubTagPrefix": "winget-v",
       "minimumLauncherVersion": "1.0.0"
+    },
+    {
+      "id": "com.ribanense.chocolatey",
+      "name": "Gestor Chocolatey",
+      "publicName": "Gestor Chocolatey",
+      "description": "Buscar, instalar, atualizar e remover pacotes via Chocolatey, com log em tempo real.",
+      "category": "Pacotes",
+      "icon": "https://raw.githubusercontent.com/OWNER/RibanenseSolucoes/main/catalog/icons/chocolatey.png",
+      "githubOwner": "OWNER",
+      "githubRepo": "RibanenseSolucoes",
+      "githubTagPrefix": "chocolatey-v",
+      "minimumLauncherVersion": "1.0.0"
     }
   ]
 }

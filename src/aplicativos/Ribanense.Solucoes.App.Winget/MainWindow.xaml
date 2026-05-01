@@ -102,11 +102,17 @@
                                Foreground="{StaticResource Brush.LogText}"
                                VerticalAlignment="Center"
                                Margin="12,6" />
-                    <Button Grid.Column="1"
-                            Content="Limpar"
-                            Style="{StaticResource Button.Base}"
-                            Margin="6"
-                            Command="{Binding ClearLogCommand}" />
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal">
+                        <Button Content="Copiar"
+                                Style="{StaticResource Button.Base}"
+                                Margin="6"
+                                Command="{Binding CopyLogCommand}" />
+                        <Button Content="Limpar"
+                                Style="{StaticResource Button.Base}"
+                                Margin="6"
+                                Command="{Binding ClearLogCommand}" />
+                    </StackPanel>
                 </Grid>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto"

@@ -3,9 +3,17 @@ using System.Text.RegularExpressions;
 namespace Ribanense.Solucoes.App.Winget.Services;
 
 /// <summary>
-/// Parser do formato tabular que o winget gera em <c>search</c>, <c>list</c> e <c>upgrade</c>.
-/// A saída típica tem cabeçalho + linha de separadores "---" seguidos das linhas de dados.
-/// As larguras das colunas são inferidas a partir da linha de separadores.
+/// Parser do formato tabular que o winget gera em <c>search</c>, <c>list</c>,
+/// <c>upgrade</c> e <c>source list</c>.
+///
+/// Formato esperado: uma linha de cabecalho com colunas separadas por 2 ou mais
+/// espacos, seguida de uma linha de dashes (separada por espacos nas versoes
+/// antigas, contigua nas versoes 1.11+), seguida das linhas de dados.
+///
+/// O parser deduz as colunas a partir das posicoes das palavras do cabecalho
+/// (cada palavra ou grupo de palavras separado por 2+ espacos vira uma coluna).
+/// Isto funciona em ambos os formatos de dash line, inclusive quando colunas
+/// extras como "Correspondencia" aparecem na versao atual do winget.
 /// </summary>
 public static class WingetTableParser
 {
@@ -13,12 +21,13 @@ public static class WingetTableParser
 
     public sealed record Table(IReadOnlyList<string> Headers, IReadOnlyList<Row> Rows);
 
-    private static readonly Regex DashRun = new(@"-{2,}", RegexOptions.Compiled);
+    // Match: uma ou mais palavras separadas por UM espaco, terminando antes de
+    // 2+ espacos ou do fim da linha. Captura "Trust Level" como uma entrada
+    // unica, mas separa "Nome  Id" em duas.
+    private static readonly Regex HeaderColumnRegex = new(
+        @"\S+(?:\s\S+)*?(?=\s{2,}|$)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    /// <summary>
-    /// Recebe a saída completa do winget e devolve a tabela. Retorna <c>null</c>
-    /// se não for possível identificar cabeçalho e separadores.
-    /// </summary>
     public static Table? Parse(string output)
     {
         if (string.IsNullOrWhiteSpace(output)) return null;
@@ -40,10 +49,10 @@ public static class WingetTableParser
 
         if (headerIdx < 0) return null;
 
-        var columns = GetColumnRanges(allLines[dashIdx]);
+        string headerLine = allLines[headerIdx];
+        var columns = GetColumnRangesFromHeader(headerLine);
         if (columns.Count == 0) return null;
 
-        string headerLine = allLines[headerIdx];
         var headers = columns.Select(c => Slice(headerLine, c).Trim()).ToList();
 
         var rows = new List<Row>();
@@ -68,21 +77,29 @@ public static class WingetTableParser
             && trimmed.Contains('-');
     }
 
-    private static List<(int Start, int Length)> GetColumnRanges(string dashLine)
+    /// <summary>
+    /// Deriva as ranges das colunas a partir das posicoes das palavras no
+    /// cabecalho. Cada palavra (ou grupo separado por apenas 1 espaco) vira
+    /// uma coluna. A fronteira entre colunas e a posicao onde surge 2+ espacos
+    /// consecutivos.
+    /// </summary>
+    internal static List<(int Start, int Length)> GetColumnRangesFromHeader(string headerLine)
     {
         var ranges = new List<(int Start, int Length)>();
-        foreach (Match m in DashRun.Matches(dashLine))
+        if (string.IsNullOrWhiteSpace(headerLine)) return ranges;
+
+        foreach (Match m in HeaderColumnRegex.Matches(headerLine))
         {
             ranges.Add((m.Index, m.Length));
         }
 
-        // Estende cada coluna até o começo da próxima (para capturar valores mais longos que o cabeçalho).
+        // Cada coluna estende-se ate o inicio da proxima (para capturar valores
+        // mais longos que o cabecalho).
         for (int i = 0; i < ranges.Count - 1; i++)
         {
             int gapEnd = ranges[i + 1].Start;
             ranges[i] = (ranges[i].Start, gapEnd - ranges[i].Start);
         }
-        // A última coluna estende até o fim da linha (ajustado no Slice).
         if (ranges.Count > 0)
         {
             var last = ranges[^1];

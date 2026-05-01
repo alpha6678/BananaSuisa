@@ -4,6 +4,7 @@ using System.Windows.Input;
 using Ribanense.Solucoes.App.Winget.Services.Sources;
 using Ribanense.Solucoes.App.Winget.Views.Dialogs;
 using Ribanense.Solucoes.PluginSDK.Logging;
+using Ribanense.Solucoes.UI;
 using Ribanense.Solucoes.UI.Mvvm;
 
 namespace Ribanense.Solucoes.App.Winget.ViewModels;
@@ -22,6 +23,7 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         RefreshAllSourcesCommand = new AsyncRelayCommand(_ => UpdateAllAsync(), _ => !IsBusy);
         ResetAllCommand = new AsyncRelayCommand(_ => ResetAllAsync(), _ => !IsBusy);
         AddNewCommand = new AsyncRelayCommand(_ => AddNewAsync(), _ => !IsBusy);
+        CopyLogCommand = new RelayCommand(() => LogLinesClipboard.CopyOrWarn(LogLines, "Gestor WinGet"));
     }
 
     public ObservableCollection<SourceRowViewModel> Rows { get; } = new();
@@ -45,6 +47,7 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
     public ICommand RefreshAllSourcesCommand { get; }
     public ICommand ResetAllCommand { get; }
     public ICommand AddNewCommand { get; }
+    public ICommand CopyLogCommand { get; }
 
     public async Task ReloadAsync()
     {

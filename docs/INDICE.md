@@ -24,6 +24,7 @@ Ponto de entrada da documentação do **Ribanense Soluções**. Use como mapa an
 | Documento | Foco |
 |-----------|------|
 | [`FERRAMENTAS_CLI.md`](FERRAMENTAS_CLI.md) | `rb.cmd` e ferramentas externas usadas. |
+| [`APP_CHOCOLATEY.md`](APP_CHOCOLATEY.md) | App Gestor Chocolatey, comandos `choco` usados, parsing e riscos. |
 | [`FERRAMENTAS_IA.md`](FERRAMENTAS_IA.md) | MCP/IA aplicados ao desenvolvimento deste repositório. |
 | [`REFERENCIAS_EXTERNAS.md`](REFERENCIAS_EXTERNAS.md) | Links para specs, bibliotecas e documentação canônica. |
 

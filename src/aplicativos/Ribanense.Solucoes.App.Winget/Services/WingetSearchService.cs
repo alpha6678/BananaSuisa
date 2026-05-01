@@ -42,6 +42,9 @@ public sealed class WingetSearchService : IWingetSearchService
         int idIdx = ColumnIndex(table.Headers, ["Id", "ID"]);
         int verIdx = ColumnIndex(table.Headers, ["Version", "Versão", "Versao"]);
         int srcIdx = ColumnIndex(table.Headers, ["Source", "Origem", "Fonte"]);
+        // Coluna "Match"/"Correspondencia" nos resultados recentes do winget.
+        // Nao precisa ser extraida, mas se existir desloca a coluna Source.
+        _ = ColumnIndex(table.Headers, ["Match", "Correspondência", "Correspondencia"]);
 
         if (nameIdx < 0 || idIdx < 0 || verIdx < 0) return Array.Empty<WingetPackage>();
 

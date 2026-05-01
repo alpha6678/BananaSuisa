@@ -5,6 +5,7 @@ using Ribanense.Solucoes.App.Winget.Services;
 using Ribanense.Solucoes.App.Winget.Services.Search;
 using Ribanense.Solucoes.App.Winget.Services.Sources;
 using Ribanense.Solucoes.PluginSDK.Logging;
+using Ribanense.Solucoes.UI;
 using Ribanense.Solucoes.UI.Mvvm;
 
 namespace Ribanense.Solucoes.App.Winget.ViewModels;
@@ -44,6 +45,7 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
         SelectSourcesCommand = new RelayCommand(() => CurrentTab = AppTab.Sources);
         SelectModuleCommand = new RelayCommand(() => CurrentTab = AppTab.Module);
         ClearLogCommand = new RelayCommand(() => LogLines.Clear());
+        CopyLogCommand = new RelayCommand(() => LogLinesClipboard.CopyOrWarn(LogLines, ProductName));
     }
 
     public SearchViewModel SearchTab { get; }
@@ -94,6 +96,7 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
     public ICommand SelectSourcesCommand { get; }
     public ICommand SelectModuleCommand { get; }
     public ICommand ClearLogCommand { get; }
+    public ICommand CopyLogCommand { get; }
 
     public Task BootstrapAsync()
     {

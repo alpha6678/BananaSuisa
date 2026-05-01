@@ -97,6 +97,7 @@ Ribanense.Solucoes.App.Winget.exe --logs 200    # idem para o app
 | `git` | Tags e histórico do monorepo. |
 | `gh` (GitHub CLI) | Publicação de releases (`rb release` depende disso). [cli.github.com](https://cli.github.com/). |
 | `winget` | Runtime de domínio do app **Gestor WinGet**. [Releases · microsoft/winget-cli](https://github.com/microsoft/winget-cli/releases). |
+| `choco` | Runtime de domínio do app **Gestor Chocolatey**. [Chocolatey CLI](https://docs.chocolatey.org/en-us/choco/commands/). |
 | LiteDB Studio | GUI para inspecionar arquivos `.dat` (Launcher.dat, Winget.dat) gerados em `%LOCALAPPDATA%\Ribanense Soluções\`. |
 
 ## Integração com agentes e CI

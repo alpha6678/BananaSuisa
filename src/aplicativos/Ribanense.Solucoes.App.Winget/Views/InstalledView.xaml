@@ -29,20 +29,28 @@
                 <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="Auto" MinWidth="80" />
                 <DataGridTextColumn Header="Disponível" Binding="{Binding AvailableVersion}" Width="Auto" MinWidth="80" />
                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="2*" MinWidth="120" />
-                <DataGridTemplateColumn Header="" Width="Auto">
+                <DataGridTemplateColumn Header="" Width="98" MinWidth="98" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <Button Content="Atualizar"
-                                        Style="{StaticResource Button.Accent}"
-                                        Margin="6,2,4,2"
-                                        Command="{Binding UpgradeCommand}"
-                                        Visibility="{Binding CanUpgrade, Converter={StaticResource BoolToVis}}" />
-                                <Button Content="Remover"
-                                        Style="{StaticResource Button.Danger}"
-                                        Margin="4,2,6,2"
-                                        Command="{Binding UninstallCommand}" />
-                            </StackPanel>
+                            <Button Content="Atualizar"
+                                    Width="88"
+                                    HorizontalAlignment="Center"
+                                    Style="{StaticResource Button.Accent}"
+                                    Margin="5,2"
+                                    Command="{Binding UpgradeCommand}"
+                                    Visibility="{Binding CanUpgrade, Converter={StaticResource BoolToVis}, ConverterParameter=Hidden}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="" Width="98" MinWidth="98" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Remover"
+                                    Width="88"
+                                    HorizontalAlignment="Center"
+                                    Style="{StaticResource Button.Danger}"
+                                    Margin="5,2"
+                                    Command="{Binding UninstallCommand}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
