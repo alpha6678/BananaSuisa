@@ -79,6 +79,10 @@ try {
     & git tag $tag
     if ($LASTEXITCODE -ne 0) { throw "git tag falhou." }
 
+    Write-Host "Enviando tag para origin..." -ForegroundColor Cyan
+    & git push origin $tag
+    if ($LASTEXITCODE -ne 0) { throw "git push origin $tag falhou; release abortado." }
+
     $releaseTitle = if ($isLauncher) {
         "Ribanense Soluções Launcher $Version"
     } else {
@@ -96,12 +100,6 @@ try {
 
     & gh @ghArgs
     if ($LASTEXITCODE -ne 0) { throw "gh release create falhou." }
-
-    Write-Host "Enviando tag para origin..." -ForegroundColor Cyan
-    & git push origin $tag
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "git push origin $tag falhou; confira rede ou upstream. O release no GitHub pode ja existir."
-    }
 
     Write-Host ""
     Write-Host "Release $tag publicado." -ForegroundColor Green
