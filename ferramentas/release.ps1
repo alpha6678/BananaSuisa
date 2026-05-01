@@ -39,7 +39,13 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "git nao encontrado no PATH."
 }
 
-if (-not $TagPrefix) { $TagPrefix = "$($App.ToLowerInvariant())-v" }
+if (-not $TagPrefix) {
+    if ($App -ieq 'Launcher') {
+        $TagPrefix = 'launcher-v'
+    } else {
+        $TagPrefix = "$($App.ToLowerInvariant())-v"
+    }
+}
 $tag = "$TagPrefix$Version"
 
 Push-Location $ProjectRoot
@@ -49,12 +55,20 @@ try {
         throw "Tag '$tag' ja existe. Remova (git tag -d $tag) ou use outra versao."
     }
 
-    & "$ScriptRoot\publish-module.ps1" -App $App -Version $Version
-    if ($LASTEXITCODE -ne 0) { throw "publish-module.ps1 falhou." }
+    $isLauncher = $App -ieq 'Launcher'
+    if ($isLauncher) {
+        & "$ScriptRoot\publish-launcher.ps1" -Version $Version
+    } else {
+        & "$ScriptRoot\publish-module.ps1" -App $App -Version $Version
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw $(if ($isLauncher) { 'publish-launcher.ps1 falhou.' } else { 'publish-module.ps1 falhou.' })
+    }
 
     $outDir = Join-Path $ProjectRoot "artifacts\publish\$App"
     $lowerApp = $App.ToLowerInvariant()
-    $zipPath = Join-Path $outDir "$lowerApp-$Version-win-x64.zip"
+    $zipBaseName = if ($isLauncher) { "launcher-$Version-win-x64.zip" } else { "$lowerApp-$Version-win-x64.zip" }
+    $zipPath = Join-Path $outDir $zipBaseName
     $shaPath = "$zipPath.sha256"
     $manifestPath = Join-Path $outDir 'app.json'
 
@@ -65,12 +79,29 @@ try {
     & git tag $tag
     if ($LASTEXITCODE -ne 0) { throw "git tag falhou." }
 
-    Write-Host "Publicando release $tag..." -ForegroundColor Cyan
-    $args = @('release', 'create', $tag, $zipPath, $shaPath, '--title', "$App $Version", '--notes', "Release automatizado de $App $Version.")
-    if (Test-Path -LiteralPath $manifestPath) { $args += $manifestPath }
+    $releaseTitle = if ($isLauncher) {
+        "Ribanense Soluções Launcher $Version"
+    } else {
+        "$App $Version"
+    }
+    $releaseNotes = if ($isLauncher) {
+        "Release automatizado do Launcher $Version."
+    } else {
+        "Release automatizado de $App $Version."
+    }
 
-    & gh @args
+    Write-Host "Publicando release $tag..." -ForegroundColor Cyan
+    $ghArgs = @('release', 'create', $tag, $zipPath, $shaPath, '--title', $releaseTitle, '--notes', $releaseNotes)
+    if (-not $isLauncher -and (Test-Path -LiteralPath $manifestPath)) { $ghArgs += $manifestPath }
+
+    & gh @ghArgs
     if ($LASTEXITCODE -ne 0) { throw "gh release create falhou." }
+
+    Write-Host "Enviando tag para origin..." -ForegroundColor Cyan
+    & git push origin $tag
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "git push origin $tag falhou; confira rede ou upstream. O release no GitHub pode ja existir."
+    }
 
     Write-Host ""
     Write-Host "Release $tag publicado." -ForegroundColor Green

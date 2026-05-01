@@ -10,6 +10,7 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | [`ferramentas/Ribanense.cmd`](../ferramentas/Ribanense.cmd) | Usa `pwsh` se existir no PATH; senão `powershell` 5.1. |
 | [`ferramentas/Ribanense.cli.ps1`](../ferramentas/Ribanense.cli.ps1) | Script PowerShell com os subcomandos; pode ser invocado diretamente. |
 | [`ferramentas/publish-module.ps1`](../ferramentas/publish-module.ps1) | Empacota um app em zip + SHA256 + `app.json`. |
+| [`ferramentas/publish-launcher.ps1`](../ferramentas/publish-launcher.ps1) | Empacota o Launcher em zip + SHA256 (versão de `Directory.Build.props` se omitir `-Version`). |
 | [`ferramentas/release.ps1`](../ferramentas/release.ps1) | Publica release no GitHub via `gh`. |
 
 ### Comandos
@@ -25,8 +26,8 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `version` | `versao` | Mostra versões do Launcher, do SDK e de cada app. Alerta quando `csproj` e `app.json` divergem. |
 | `devlink <App>` | `link` | Compila um app e copia para `%LOCALAPPDATA%\Ribanense Soluções\aplicativos\<App>\` para o Launcher reconhecê-lo como "instalado" sem precisar publicar release. |
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
-| `publish <App> [-Version <ver>]` | `empacotar` | Gera pacote local do app em `artifacts/publish/<App>/` (zip + sha256 + app.json). |
-| `release <App> <semver>` | — | Publica GitHub Release via `gh` (cria tag, faz upload do zip/sha/app.json). |
+| `publish <App ou Launcher> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (app: zip + sha256 + app.json; Launcher: zip + sha256). |
+| `release <App ou Launcher> <semver>` | — | Publica GitHub Release via `gh` (tag + assets). Launcher usa prefixo de tag `launcher-v`. |
 | `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
 | `crashlog` | `crash` | Mostra as últimas 200 linhas do `crash.log` (texto plano). Inclui `crash.old.log` rotacionado se existir. |
 | `crashlog-clear` | `crash-clear` | Remove `crash.log` e `crash.old.log`. |

@@ -382,30 +382,40 @@ function Invoke-DevUnlink {
 
 function Invoke-AppPublish {
     if ($script:RestArguments.Count -lt 1) {
-        throw "Uso: rb publish <App> [-Version <ver>]. Exemplo: rb publish Winget -Version 0.1.0"
+        throw "Uso: rb publish <App|Launcher> [-Version <ver>]. Exemplos: rb publish Winget -Version 0.2.0 ; rb publish Launcher -Version 0.1.0"
     }
-    $appName = $script:RestArguments[0]
-    # Garante que o app existe antes de chamar o script
-    Get-AppProjectPath -AppName $appName | Out-Null
-
-    $publishScript = Join-Path $script:CliRoot 'publish-module.ps1'
-    Assert-PathExists -Path $publishScript -Description 'publish-module.ps1'
+    $targetName = $script:RestArguments[0]
     $remaining = @()
     if ($script:RestArguments.Count -gt 1) {
         $remaining = $script:RestArguments[1..($script:RestArguments.Count - 1)]
     }
-    & $publishScript -App $appName @remaining
+
+    if ($targetName -ieq 'Launcher') {
+        $publishScript = Join-Path $script:CliRoot 'publish-launcher.ps1'
+        Assert-PathExists -Path $publishScript -Description 'publish-launcher.ps1'
+        & $publishScript @remaining
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Write-Ok "Pacote do Launcher gerado em artifacts\publish\Launcher\."
+        return
+    }
+
+    Get-AppProjectPath -AppName $targetName | Out-Null
+    $publishScript = Join-Path $script:CliRoot 'publish-module.ps1'
+    Assert-PathExists -Path $publishScript -Description 'publish-module.ps1'
+    & $publishScript -App $targetName @remaining
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    Write-Ok "Pacote de '$appName' gerado em artifacts\publish\$appName\."
+    Write-Ok "Pacote de '$targetName' gerado em artifacts\publish\$targetName\."
 }
 
 function Invoke-AppRelease {
     if ($script:RestArguments.Count -lt 2) {
-        throw "Uso: rb release <App> <semver>. Exemplo: rb release Winget 0.1.0"
+        throw "Uso: rb release <App|Launcher> <semver>. Exemplos: rb release Winget 0.2.0 ; rb release Launcher 0.1.0"
     }
     $appName = $script:RestArguments[0]
     $version = $script:RestArguments[1]
-    Get-AppProjectPath -AppName $appName | Out-Null
+    if ($appName -ine 'Launcher') {
+        Get-AppProjectPath -AppName $appName | Out-Null
+    }
 
     $releaseScript = Join-Path $script:CliRoot 'release.ps1'
     Assert-PathExists -Path $releaseScript -Description 'release.ps1'
@@ -506,8 +516,8 @@ $script:Commands = @(
     [pscustomobject]@{ Verb = 'version'; Aliases = @('versao');            Handler = 'Invoke-ShowVersions';  Usage = 'rb version';                         Help = 'Mostra versoes de Launcher, SDK e cada app (alerta se csproj e app.json divergem).' },
     [pscustomobject]@{ Verb = 'devlink'; Aliases = @('link');              Handler = 'Invoke-DevLink';       Usage = 'rb devlink <App>';                   Help = 'Compila um app e copia para %LOCALAPPDATA%\Ribanense Solucoes\aplicativos\ para o Launcher ver como instalado.' },
     [pscustomobject]@{ Verb = 'unlink';  Aliases = @('devunlink');         Handler = 'Invoke-DevUnlink';     Usage = 'rb unlink <App>';                    Help = 'Remove o devlink de um app.' },
-    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App> [-Version <ver>]'; Help = 'Empacota um app em zip + sha256 + copia do app.json.' },
-    [pscustomobject]@{ Verb = 'release';      Aliases = @();                    Handler = 'Invoke-AppRelease';     Usage = 'rb release <App> <semver>';         Help = 'Cria tag git e publica GitHub Release (requer gh CLI).' },
+    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher> [-Version <ver>]'; Help = 'Empacota um app (zip + sha256 + app.json) ou o Launcher (zip + sha256) em artifacts\publish\.' },
+    [pscustomobject]@{ Verb = 'release';      Aliases = @();                    Handler = 'Invoke-AppRelease';     Usage = 'rb release <App|Launcher> <semver>';   Help = 'Cria tag git e publica GitHub Release (requer gh CLI).' },
     [pscustomobject]@{ Verb = 'logs';         Aliases = @('log');               Handler = 'Invoke-Logs';           Usage = 'rb logs [App] [N]';                 Help = 'Imprime as ultimas N (default 100) entradas do vault (Launcher ou app). Usa copia temporaria, nao conflita com processo rodando.' },
     [pscustomobject]@{ Verb = 'crashlog';     Aliases = @('crash');             Handler = 'Invoke-CrashLog';       Usage = 'rb crashlog';                       Help = 'Mostra o crash.log (texto plano) com as ultimas 200 linhas. Inclui crash.old.log rotacionado se existir.' },
     [pscustomobject]@{ Verb = 'crashlog-clear';Aliases= @('crash-clear');       Handler = 'Invoke-CrashLogClear';  Usage = 'rb crashlog-clear';                 Help = 'Remove crash.log e crash.old.log.' },
@@ -537,8 +547,10 @@ function Show-RibananseCliHelp {
     Write-Host "  .\rb.cmd logs                    # launcher, ultimas 100"
     Write-Host "  .\rb.cmd logs Winget 50          # app Winget, ultimas 50"
     Write-Host "  .\rb.cmd crashlog                # texto plano do crash.log"
-    Write-Host "  .\rb.cmd publish Winget -Version 0.1.0"
-    Write-Host "  .\rb.cmd release Winget 0.1.0"
+    Write-Host "  .\rb.cmd publish Winget -Version 0.2.0"
+    Write-Host "  .\rb.cmd publish Launcher -Version 0.1.0"
+    Write-Host "  .\rb.cmd release Winget 0.2.0"
+    Write-Host "  .\rb.cmd release Launcher 0.1.0"
     Write-Host ""
 }
 
