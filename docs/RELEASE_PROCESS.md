@@ -33,6 +33,28 @@ flowchart TB
 4. **Release no GitHub**: `rb.cmd release <Nome> <x.y.z>`. Requer `gh auth status` OK.
 5. **Atualização do `catalog.json`** (apenas na primeira versão de um app novo): editar `catalog/catalog.json` declarando `id`, `githubTagPrefix`, ícone, etc., e commitar.
 
+## Fluxo automático para múltiplos apps (`publish all`)
+
+Quando houver várias mudanças de apps e você quiser publicar em lote:
+
+```bat
+rb.cmd publish all --dry-run
+rb.cmd publish all -Yes
+```
+
+O `publish all`:
+
+1. Busca tags (`git fetch --tags`) e detecta apps alterados desde a última tag de cada prefixo (`<slug>-v` ou `app.json.githubTagPrefix`).
+2. Calcula próxima versão com bump patch (`x.y.z -> x.y.(z+1)`).
+3. Atualiza versões no `.csproj` e no `app.json`.
+4. Executa `rb.cmd check`.
+5. Publica release no GitHub para cada app necessário (tags + assets).
+
+Observações:
+
+- Use `--dry-run` para inspecionar o plano sem alterar arquivos.
+- Por padrão há confirmação interativa; `-Yes` confirma automaticamente.
+
 ## Formato dos assets
 
 | Asset | Conteúdo |

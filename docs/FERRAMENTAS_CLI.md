@@ -30,6 +30,7 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `devlink <App>` | `link` | Compila um app e copia para `%LOCALAPPDATA%\Ribanense Soluções\aplicativos\<App>\` para o Launcher reconhecê-lo como "instalado" sem precisar publicar release. |
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
 | `publish <App ou Launcher> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (app: zip + sha256 + app.json; Launcher: zip + sha256). |
+| `publish all [-Yes] [--dry-run]` | — | Detecta apps alterados desde a última tag de cada app, faz bump patch automático (`csproj` + `app.json`), roda `rb check` e publica releases no GitHub. |
 | `release <App ou Launcher> <semver>` | — | Publica GitHub Release via `gh` (tag + assets). Launcher usa prefixo de tag `launcher-v`. |
 | `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
 | `crashlog` | `crash` | Mostra as últimas 200 linhas do `crash.log` (texto plano). Inclui `crash.old.log` rotacionado se existir. |
@@ -42,7 +43,7 @@ Além dos comandos legados (`rb run Winget`, `rb publish Winget ...`), o `rb` ac
 
 | Grupo | Uso base | Exemplos |
 |---|---|---|
-| `app` (`module`) | `rb app <acao> <App> [args]` | `rb app run winget`, `rb app publish-run chocolatey`, `rb app release winget 0.2.0` |
+| `app` (`module`) | `rb app <acao> <App> [args]` | `rb app run winget`, `rb app publish-run chocolatey`, `rb app release winget 0.2.0`, `rb app publish all --dry-run` |
 | `launcher` | `rb launcher <acao> [args]` | `rb launcher run`, `rb launcher publish-run`, `rb launcher release 0.1.0` |
 | `solution` (`sln`, `repo`) | `rb solution <acao> [args]` | `rb solution build`, `rb solution test`, `rb sln list`, `rb solution version` |
 
@@ -75,6 +76,8 @@ rb.cmd version
 rb.cmd clean
 rb.cmd publish Winget -Version 0.1.0
 rb.cmd release Winget 0.1.0
+rb.cmd publish all --dry-run
+rb.cmd publish all -Yes
 ```
 
 Depois de `rb.cmd install`, abra um novo terminal e use normalmente sem prefixo:
@@ -93,7 +96,8 @@ rb solution check
 4. `rb run` — abrir o Launcher e ver o Winget em "Meus apps".
 5. `rb publish-run Winget` — validar o binário Release (igual ao zip de release) antes de publicar.
 6. `rb check` — antes de commitar.
-7. `rb publish Winget -Version 0.2.0` + `rb release Winget 0.2.0` — quando estiver pronto para publicar.
+7. `rb publish Winget -Version 0.2.0` + `rb release Winget 0.2.0` — publicação manual por app.
+8. `rb publish all --dry-run` / `rb publish all -Yes` — publicação automática dos apps necessários.
 
 ### Dicas
 

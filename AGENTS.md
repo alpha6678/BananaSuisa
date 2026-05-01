@@ -49,6 +49,7 @@ Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows
 .\rb.cmd check
 .\rb.cmd publish Winget -Version 1.0.0
 .\rb.cmd release Winget 1.0.0
+.\rb.cmd publish all --dry-run
 ```
 
 ## Quando usar subagentes

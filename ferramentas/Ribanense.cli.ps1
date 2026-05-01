@@ -144,12 +144,14 @@ function Get-AllAppProjects {
         $manifestPath = Join-Path $dir.FullName 'app.json'
         $manifestVersion = $null
         $publicName = $null
+        $githubTagPrefix = $null
         if (Test-Path -LiteralPath $manifestPath) {
             try {
                 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue
                 if ($manifest) {
                     $manifestVersion = $manifest.version
                     $publicName = if ($manifest.publicName) { $manifest.publicName } else { $manifest.name }
+                    $githubTagPrefix = $manifest.githubTagPrefix
                 }
             } catch { }
         }
@@ -160,7 +162,9 @@ function Get-AllAppProjects {
             ProjectPath     = $csproj
             CsprojVersion   = $version
             ManifestVersion = $manifestVersion
+            ManifestPath    = $manifestPath
             PublicName      = $publicName
+            GithubTagPrefix = $githubTagPrefix
             HasManifest     = (Test-Path -LiteralPath $manifestPath)
             Directory       = $dir.FullName
         }
@@ -210,6 +214,275 @@ function Resolve-AppShortName {
     }
 
     throw "App '$AppInput' nao encontrado em src\aplicativos\. Use 'rb list' para ver apps disponiveis."
+}
+
+function Test-SimpleSemVer {
+    param([Parameter(Mandatory)] [string] $Version)
+    return [regex]::IsMatch($Version.Trim(), '^\d+\.\d+\.\d+$')
+}
+
+function Get-NextPatchVersion {
+    param([Parameter(Mandatory)] [string] $Version)
+    if (-not (Test-SimpleSemVer -Version $Version)) {
+        throw "Versao '$Version' fora do formato suportado para bump automatico (esperado: major.minor.patch)."
+    }
+    $parts = $Version.Split('.')
+    $major = [int] $parts[0]
+    $minor = [int] $parts[1]
+    $patch = [int] $parts[2] + 1
+    return "$major.$minor.$patch"
+}
+
+function Get-AssemblyVersionFromSemVer {
+    param([Parameter(Mandatory)] [string] $Version)
+    if (-not (Test-SimpleSemVer -Version $Version)) {
+        throw "Versao '$Version' invalida para AssemblyVersion."
+    }
+    return "$Version.0"
+}
+
+function Get-AppTagPrefix {
+    param([Parameter(Mandatory)] $App)
+    if ($App.GithubTagPrefix -and -not [string]::IsNullOrWhiteSpace($App.GithubTagPrefix)) {
+        return $App.GithubTagPrefix.Trim()
+    }
+    return "$($App.ShortName.ToLowerInvariant())-v"
+}
+
+function Get-LatestTagForPrefix {
+    param([Parameter(Mandatory)] [string] $TagPrefix)
+
+    $tagFilter = "$TagPrefix*"
+    Push-Location $script:ProjectRoot
+    try {
+        $rawTags = @(& git tag --list $tagFilter)
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao listar tags para prefixo '$TagPrefix'."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+
+    $parsed = @()
+    foreach ($tag in $rawTags) {
+        if ([string]::IsNullOrWhiteSpace($tag)) { continue }
+        if (-not $tag.StartsWith($TagPrefix, [System.StringComparison]::Ordinal)) { continue }
+        $version = $tag.Substring($TagPrefix.Length)
+        if (-not (Test-SimpleSemVer -Version $version)) { continue }
+        $parts = $version.Split('.')
+        $parsed += [pscustomobject]@{
+            Tag    = $tag
+            Major  = [int] $parts[0]
+            Minor  = [int] $parts[1]
+            Patch  = [int] $parts[2]
+            SemVer = $version
+        }
+    }
+
+    if ($parsed.Count -eq 0) { return $null }
+
+    return ($parsed |
+        Sort-Object -Property @{ Expression = { $_.Major }; Descending = $true },
+                              @{ Expression = { $_.Minor }; Descending = $true },
+                              @{ Expression = { $_.Patch }; Descending = $true } |
+        Select-Object -First 1).Tag
+}
+
+function Get-ChangedFilesSinceTag {
+    param([Parameter(Mandatory)] [string] $Tag)
+
+    Push-Location $script:ProjectRoot
+    try {
+        $files = @(& git diff --name-only "$Tag..HEAD")
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao ler arquivos alterados desde '$Tag'."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+    return @(
+        foreach ($f in $files) {
+            $t = $f.Trim()
+            if (-not [string]::IsNullOrWhiteSpace($t)) {
+                $t.Replace('\', '/')
+            }
+        }
+    )
+}
+
+function Get-AppRelevantPathPrefixes {
+    param([Parameter(Mandatory)] [string] $AppShortName)
+    return @(
+        "src/aplicativos/Ribanense.Solucoes.App.$AppShortName/",
+        "tests/Ribanense.Solucoes.App.$AppShortName.Tests/",
+        "src/Ribanense.Solucoes.PluginSDK/",
+        "src/Ribanense.Solucoes.Infrastructure/",
+        "src/Ribanense.Solucoes.UI/"
+    )
+}
+
+function Select-FilesByPrefixes {
+    param(
+        [Parameter(Mandatory)] [string[]] $Files,
+        [Parameter(Mandatory)] [string[]] $Prefixes
+    )
+    $matched = @()
+    foreach ($file in $Files) {
+        $normalized = $file.Replace('\', '/')
+        foreach ($prefix in $Prefixes) {
+            if ($normalized.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $matched += $normalized
+                break
+            }
+        }
+    }
+    return @($matched | Select-Object -Unique)
+}
+
+function Get-AppVersionState {
+    param([Parameter(Mandatory)] $App)
+
+    [xml] $csprojXml = Get-Content -LiteralPath $App.ProjectPath -Raw
+    $versionNode = $csprojXml.SelectSingleNode('//PropertyGroup/Version')
+    $assemblyNode = $csprojXml.SelectSingleNode('//PropertyGroup/AssemblyVersion')
+    $fileNode = $csprojXml.SelectSingleNode('//PropertyGroup/FileVersion')
+
+    $csprojVersion = if ($versionNode) { $versionNode.InnerText.Trim() } else { $null }
+
+    $manifestVersion = $null
+    if ($App.HasManifest -and (Test-Path -LiteralPath $App.ManifestPath)) {
+        $manifest = Get-Content -LiteralPath $App.ManifestPath -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($manifest) { $manifestVersion = $manifest.version }
+    }
+
+    return [pscustomobject]@{
+        CsprojVersion      = $csprojVersion
+        ManifestVersion    = $manifestVersion
+        HasAssemblyVersion = ($null -ne $assemblyNode)
+        HasFileVersion     = ($null -ne $fileNode)
+    }
+}
+
+function Set-FirstXmlTagValue {
+    param(
+        [Parameter(Mandatory)] [string] $Content,
+        [Parameter(Mandatory)] [string] $TagName,
+        [Parameter(Mandatory)] [string] $NewValue
+    )
+
+    $pattern = "(?s)(<$TagName>)([^<]*)(</$TagName>)"
+    if (-not [regex]::IsMatch($Content, $pattern)) {
+        throw "Tag <$TagName> nao encontrada para atualizacao."
+    }
+    return [regex]::Replace(
+        $Content,
+        $pattern,
+        { param($m) "$($m.Groups[1].Value)$NewValue$($m.Groups[3].Value)" },
+        1
+    )
+}
+
+function Set-AppVersion {
+    param(
+        [Parameter(Mandatory)] $App,
+        [Parameter(Mandatory)] [string] $Version
+    )
+
+    if (-not (Test-SimpleSemVer -Version $Version)) {
+        throw "Versao '$Version' invalida para atualizacao automatica."
+    }
+
+    $versionState = Get-AppVersionState -App $App
+    if (-not $versionState.CsprojVersion) {
+        throw "Nao foi possivel ler <Version> no projeto '$($App.ProjectPath)'."
+    }
+    if (-not $App.HasManifest) {
+        throw "App '$($App.ShortName)' sem app.json. Fluxo publish all exige manifesto."
+    }
+    if ($versionState.ManifestVersion -ne $versionState.CsprojVersion) {
+        throw "Divergencia de versao em '$($App.ShortName)': csproj=$($versionState.CsprojVersion) app.json=$($versionState.ManifestVersion)."
+    }
+
+    $assemblyVersion = Get-AssemblyVersionFromSemVer -Version $Version
+
+    $csprojContent = Get-Content -LiteralPath $App.ProjectPath -Raw
+    $csprojContent = Set-FirstXmlTagValue -Content $csprojContent -TagName 'Version' -NewValue $Version
+    if ($versionState.HasAssemblyVersion) {
+        $csprojContent = Set-FirstXmlTagValue -Content $csprojContent -TagName 'AssemblyVersion' -NewValue $assemblyVersion
+    }
+    if ($versionState.HasFileVersion) {
+        $csprojContent = Set-FirstXmlTagValue -Content $csprojContent -TagName 'FileVersion' -NewValue $assemblyVersion
+    }
+    Set-Content -LiteralPath $App.ProjectPath -Value $csprojContent -Encoding UTF8
+
+    $manifestContent = Get-Content -LiteralPath $App.ManifestPath -Raw
+    $manifestPattern = '("version"\s*:\s*")[^"]+(")'
+    if (-not [regex]::IsMatch($manifestContent, $manifestPattern)) {
+        throw "Campo 'version' nao encontrado em '$($App.ManifestPath)'."
+    }
+    $manifestContent = [regex]::Replace(
+        $manifestContent,
+        $manifestPattern,
+        { param($m) "$($m.Groups[1].Value)$Version$($m.Groups[2].Value)" },
+        1
+    )
+    Set-Content -LiteralPath $App.ManifestPath -Value $manifestContent -Encoding UTF8
+}
+
+function Get-PublishAllCandidates {
+    param([Parameter(Mandatory)] [object[]] $Apps)
+
+    $plan = @()
+    foreach ($app in $Apps) {
+        $tagPrefix = Get-AppTagPrefix -App $app
+        $latestTag = Get-LatestTagForPrefix -TagPrefix $tagPrefix
+
+        $include = $false
+        $matchedFiles = @()
+        $reason = ''
+
+        if ([string]::IsNullOrWhiteSpace($latestTag)) {
+            $include = $true
+            $reason = 'sem tag anterior para o prefixo'
+        } else {
+            $changedFiles = Get-ChangedFilesSinceTag -Tag $latestTag
+            $prefixes = Get-AppRelevantPathPrefixes -AppShortName $app.ShortName
+            $matchedFiles = Select-FilesByPrefixes -Files $changedFiles -Prefixes $prefixes
+            if ($matchedFiles.Count -gt 0) {
+                $include = $true
+                $reason = "arquivos alterados desde $latestTag"
+            }
+        }
+
+        if (-not $include) { continue }
+
+        $versionState = Get-AppVersionState -App $app
+        if (-not $versionState.CsprojVersion) {
+            throw "Versao do csproj nao encontrada para app '$($app.ShortName)'."
+        }
+        if (-not (Test-SimpleSemVer -Version $versionState.CsprojVersion)) {
+            throw "App '$($app.ShortName)' com versao '$($versionState.CsprojVersion)' fora do formato major.minor.patch."
+        }
+        if ($app.HasManifest -and ($versionState.ManifestVersion -ne $versionState.CsprojVersion)) {
+            throw "App '$($app.ShortName)' com versoes divergentes (csproj=$($versionState.CsprojVersion), app.json=$($versionState.ManifestVersion))."
+        }
+
+        $next = Get-NextPatchVersion -Version $versionState.CsprojVersion
+        $plan += [pscustomobject]@{
+            App         = $app
+            Current     = $versionState.CsprojVersion
+            Next        = $next
+            TagPrefix   = $tagPrefix
+            Tag         = "$tagPrefix$next"
+            LatestTag   = $latestTag
+            Reason      = $reason
+            ChangedHint = @($matchedFiles | Select-Object -First 5)
+        }
+    }
+
+    return $plan
 }
 
 function Get-LauncherVersion {
@@ -473,12 +746,17 @@ function Invoke-DevUnlink {
 
 function Invoke-AppPublish {
     if ($script:RestArguments.Count -lt 1) {
-        throw "Uso: rb publish <App|Launcher> [-Version <ver>]. Exemplos: rb publish Winget -Version 0.2.0 ; rb publish Launcher -Version 0.1.0"
+        throw "Uso: rb publish <App|Launcher|all> [-Version <ver>] [-Yes] [--dry-run]. Exemplos: rb publish Winget -Version 0.2.0 ; rb publish Launcher -Version 0.1.0 ; rb publish all -Yes"
     }
     $targetName = $script:RestArguments[0]
     $remaining = @()
     if ($script:RestArguments.Count -gt 1) {
         $remaining = $script:RestArguments[1..($script:RestArguments.Count - 1)]
+    }
+
+    if ($targetName -ieq 'all') {
+        Invoke-PublishAll -Arguments $remaining
+        return
     }
 
     if ($targetName -ieq 'Launcher') {
@@ -496,6 +774,122 @@ function Invoke-AppPublish {
     & $publishScript -App $targetName @remaining
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     Write-Ok "Pacote de '$targetName' gerado em artifacts\publish\$targetName\."
+}
+
+function Invoke-PublishAll {
+    param([string[]] $Arguments = @())
+
+    $autoYes = $false
+    $dryRun = $false
+
+    foreach ($arg in $Arguments) {
+        $key = $arg.ToLowerInvariant()
+        switch ($key) {
+            '-yes'      { $autoYes = $true; continue }
+            '--yes'     { $autoYes = $true; continue }
+            '/yes'      { $autoYes = $true; continue }
+            '-y'        { $autoYes = $true; continue }
+            '--dry-run' { $dryRun = $true; continue }
+            '--whatif'  { $dryRun = $true; continue }
+            '-whatif'   { $dryRun = $true; continue }
+            default {
+                throw "Argumento desconhecido em publish all: '$arg'. Use -Yes e/ou --dry-run."
+            }
+        }
+    }
+
+    Assert-CommandAvailable 'git'
+    Assert-CommandAvailable 'gh'
+
+    Write-Info "Atualizando tags locais (git fetch --tags)..."
+    Push-Location $script:ProjectRoot
+    try {
+        & git fetch --tags
+        if ($LASTEXITCODE -ne 0) { throw "git fetch --tags falhou." }
+    }
+    finally {
+        Pop-Location
+    }
+
+    & gh auth status *> $null
+    if ($LASTEXITCODE -ne 0) {
+        throw "gh auth status falhou. Execute 'gh auth login' antes do publish all."
+    }
+
+    Push-Location $script:ProjectRoot
+    try {
+        $dirtyBefore = @(& git status --porcelain)
+        if ($dirtyBefore.Count -gt 0) {
+            Write-Warn2 "Working tree ja possui alteracoes locais antes do publish all."
+            foreach ($line in ($dirtyBefore | Select-Object -First 20)) {
+                Write-Muted $line
+            }
+        }
+
+        $apps = @(Get-AllAppProjects)
+        if ($apps.Count -eq 0) {
+            Write-Warn2 "Nenhum app encontrado para publicar."
+            return
+        }
+
+        $plan = @(Get-PublishAllCandidates -Apps $apps)
+        if ($plan.Count -eq 0) {
+            Write-Ok "Nenhum app precisa de release novo (sem mudancas relevantes desde as ultimas tags)."
+            return
+        }
+
+        Write-Step "Plano publish all"
+        foreach ($item in $plan) {
+            Write-Host ("{0,-14} {1} -> {2}  tag={3}" -f $item.App.ShortName, $item.Current, $item.Next, $item.Tag)
+            Write-Muted ("motivo: {0}" -f $item.Reason)
+            if ($item.ChangedHint.Count -gt 0) {
+                foreach ($f in $item.ChangedHint) {
+                    Write-Muted (" - " + $f)
+                }
+            }
+        }
+
+        if ($dryRun) {
+            Write-Host ""
+            Write-Ok "Dry-run: nenhuma versao foi alterada e nenhum release foi publicado."
+            return
+        }
+
+        if (-not $autoYes) {
+            Write-Host ""
+            $answer = Read-Host "Continuar e publicar os apps acima? [s/N]"
+            if ($answer -notin @('s', 'S', 'sim', 'SIM', 'y', 'Y', 'yes', 'YES')) {
+                Write-Warn2 "Operacao cancelada pelo usuario."
+                return
+            }
+        }
+
+        Write-Step "Atualizando versoes (patch)"
+        foreach ($item in $plan) {
+            Set-AppVersion -App $item.App -Version $item.Next
+            Write-Ok "$($item.App.ShortName): $($item.Current) -> $($item.Next)"
+        }
+
+        Write-Step "Validacao"
+        Invoke-FullCheck
+
+        Write-Step "Publicacao no GitHub"
+        $releaseScript = Join-Path $script:CliRoot 'release.ps1'
+        Assert-PathExists -Path $releaseScript -Description 'release.ps1'
+        foreach ($item in $plan) {
+            Write-Info "Publicando $($item.App.ShortName) v$($item.Next)..."
+            & $releaseScript -App $item.App.ShortName -Version $item.Next
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+
+        Write-Step "Resumo"
+        foreach ($item in $plan) {
+            Write-Ok ("{0} publicado: {1} ({2})" -f $item.App.ShortName, $item.Next, $item.Tag)
+        }
+    }
+    finally {
+        Pop-Location
+    }
 }
 
 function Invoke-AppRelease {
@@ -629,7 +1023,7 @@ $script:Commands = @(
     [pscustomobject]@{ Verb = 'version'; Aliases = @('versao');            Handler = 'Invoke-ShowVersions';  Usage = 'rb version';                         Help = 'Mostra versoes de Launcher, SDK e cada app (alerta se csproj e app.json divergem).' },
     [pscustomobject]@{ Verb = 'devlink'; Aliases = @('link');              Handler = 'Invoke-DevLink';       Usage = 'rb devlink <App>';                   Help = 'Compila um app e copia para %LOCALAPPDATA%\Ribanense Solucoes\aplicativos\ para o Launcher ver como instalado.' },
     [pscustomobject]@{ Verb = 'unlink';  Aliases = @('devunlink');         Handler = 'Invoke-DevUnlink';     Usage = 'rb unlink <App>';                    Help = 'Remove o devlink de um app.' },
-    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher> [-Version <ver>]'; Help = 'Empacota um app (zip + sha256 + app.json) ou o Launcher (zip + sha256) em artifacts\publish\.' },
+    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher|all> [...]'; Help = 'Empacota App/Launcher ou executa publish all (bump patch + check + releases dos apps alterados).' },
     [pscustomobject]@{ Verb = 'release';      Aliases = @();                    Handler = 'Invoke-AppRelease';     Usage = 'rb release <App|Launcher> <semver>';   Help = 'Cria tag git e publica GitHub Release (requer gh CLI).' },
     [pscustomobject]@{ Verb = 'logs';         Aliases = @('log');               Handler = 'Invoke-Logs';           Usage = 'rb logs [App] [N]';                 Help = 'Imprime as ultimas N (default 100) entradas do vault (Launcher ou app). Usa copia temporaria, nao conflita com processo rodando.' },
     [pscustomobject]@{ Verb = 'crashlog';     Aliases = @('crash');             Handler = 'Invoke-CrashLog';       Usage = 'rb crashlog';                       Help = 'Mostra o crash.log (texto plano) com as ultimas 200 linhas. Inclui crash.old.log rotacionado se existir.' },
@@ -679,6 +1073,8 @@ function Show-GroupHelp {
             Write-Host "  .\rb.cmd app run winget"
             Write-Host "  .\rb.cmd app publish-run chocolatey"
             Write-Host "  .\rb.cmd app publish winget -Version 0.2.0"
+            Write-Host "  .\rb.cmd app publish all --dry-run"
+            Write-Host "  .\rb.cmd app publish all -Yes"
             Write-Host "  .\rb.cmd app release winget 0.2.0"
             Write-Host "  .\rb.cmd app logs winget 50"
         }
@@ -768,6 +1164,8 @@ function Show-RibananseCliHelp {
     Write-Host "  .\rb.cmd crashlog                # texto plano do crash.log"
     Write-Host "  .\rb.cmd publish Winget -Version 0.2.0"
     Write-Host "  .\rb.cmd publish Launcher -Version 0.1.0"
+    Write-Host "  .\rb.cmd publish all --dry-run"
+    Write-Host "  .\rb.cmd publish all -Yes"
     Write-Host "  .\rb.cmd release Winget 0.2.0"
     Write-Host "  .\rb.cmd release Launcher 0.1.0"
     Write-Host ""
@@ -819,9 +1217,9 @@ function TryInvoke-GroupedCommand {
     }
 
     $actionInput = $script:RestArguments[0].ToLowerInvariant()
-    $args = @()
+    $actionArgs = @()
     if ($script:RestArguments.Count -gt 1) {
-        $args = $script:RestArguments[1..($script:RestArguments.Count - 1)]
+        $actionArgs = $script:RestArguments[1..($script:RestArguments.Count - 1)]
     }
 
     switch ($group) {
@@ -840,47 +1238,58 @@ function TryInvoke-GroupedCommand {
                 throw "Acao desconhecida para grupo app: '$actionInput'. Use 'rb help app'."
             }
 
-            if ($args.Count -lt 1) {
+            if ($actionArgs.Count -lt 1) {
                 throw "Uso: rb app $action <App> [...]. Exemplo: rb app run winget"
             }
-            $appName = Resolve-AppShortName -AppInput $args[0]
             $tail = @()
-            if ($args.Count -gt 1) {
-                $tail = $args[1..($args.Count - 1)]
+            if ($actionArgs.Count -gt 1) {
+                $tail = $actionArgs[1..($actionArgs.Count - 1)]
             }
 
             switch ($action) {
                 'run' {
+                    $appName = Resolve-AppShortName -AppInput $actionArgs[0]
                     $script:RestArguments = @($appName)
                     Invoke-AppRun
                     return $true
                 }
                 'publish-run' {
+                    $appName = Resolve-AppShortName -AppInput $actionArgs[0]
                     $script:RestArguments = @($appName)
                     Invoke-PublishRun
                     return $true
                 }
                 'publish' {
+                    if ($actionArgs[0].ToLowerInvariant() -eq 'all') {
+                        $script:RestArguments = @('all') + $tail
+                        Invoke-AppPublish
+                        return $true
+                    }
+                    $appName = Resolve-AppShortName -AppInput $actionArgs[0]
                     $script:RestArguments = @($appName) + $tail
                     Invoke-AppPublish
                     return $true
                 }
                 'release' {
+                    $appName = Resolve-AppShortName -AppInput $actionArgs[0]
                     $script:RestArguments = @($appName) + $tail
                     Invoke-AppRelease
                     return $true
                 }
                 'devlink' {
+                    $appName = Resolve-AppShortName -AppInput $actionArgs[0]
                     $script:RestArguments = @($appName)
                     Invoke-DevLink
                     return $true
                 }
                 'unlink' {
+                    $appName = Resolve-AppShortName -AppInput $actionArgs[0]
                     $script:RestArguments = @($appName)
                     Invoke-DevUnlink
                     return $true
                 }
                 'logs' {
+                    $appName = Resolve-AppShortName -AppInput $actionArgs[0]
                     $script:RestArguments = @($appName) + $tail
                     Invoke-Logs
                     return $true
@@ -912,17 +1321,17 @@ function TryInvoke-GroupedCommand {
                     return $true
                 }
                 'publish' {
-                    $script:RestArguments = @('Launcher') + $args
+                    $script:RestArguments = @('Launcher') + $actionArgs
                     Invoke-AppPublish
                     return $true
                 }
                 'release' {
-                    $script:RestArguments = @('Launcher') + $args
+                    $script:RestArguments = @('Launcher') + $actionArgs
                     Invoke-AppRelease
                     return $true
                 }
                 'logs' {
-                    $script:RestArguments = $args
+                    $script:RestArguments = $actionArgs
                     Invoke-Logs
                     return $true
                 }
@@ -942,7 +1351,7 @@ function TryInvoke-GroupedCommand {
                 throw "Acao desconhecida para grupo solution: '$actionInput'. Use 'rb help solution'."
             }
 
-            $script:RestArguments = $args
+            $script:RestArguments = $actionArgs
             switch ($action) {
                 'build'   { Invoke-SolutionBuild; return $true }
                 'test'    { Invoke-SolutionTests; return $true }
