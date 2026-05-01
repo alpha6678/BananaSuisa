@@ -12,7 +12,7 @@ public static class LauncherConfig
     public const string LauncherAppId = "com.ribanense.launcher";
     public const string LauncherTagPrefix = "launcher-v";
     public const string DefaultCatalogUrl =
-        "https://raw.githubusercontent.com/OWNER/RibanenseSolucoes/main/catalog/catalog.json";
+        "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/catalog.json";
 
     public const string ProductFolderName = "Ribanense Soluções";
 

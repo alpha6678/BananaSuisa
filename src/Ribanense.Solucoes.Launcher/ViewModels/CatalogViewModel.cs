@@ -92,7 +92,14 @@ public sealed class CatalogViewModel : PageViewModel
                 CancellationToken.None).ConfigureAwait(true);
 
             card.LatestRelease = release;
-            card.Status = _releases.CompareVersions(card.Installed?.Version, release?.Version);
+            if (release is null)
+            {
+                card.Status = UpdateStatus.ReleaseNotFound;
+            }
+            else
+            {
+                card.Status = _releases.CompareVersions(card.Installed?.Version, release.Version);
+            }
         }
         catch (Exception ex)
         {

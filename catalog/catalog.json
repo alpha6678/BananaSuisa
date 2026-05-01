@@ -7,11 +7,11 @@
       "publicName": "Gestor WinGet",
       "description": "Buscar, instalar, atualizar e remover pacotes via WinGet, com log em tempo real.",
       "category": "Pacotes",
-      "icon": "https://raw.githubusercontent.com/OWNER/RibanenseSolucoes/main/catalog/icons/winget.png",
-      "githubOwner": "OWNER",
-      "githubRepo": "RibanenseSolucoes",
+      "icon": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/icons/winget.png",
+      "githubOwner": "desenvolvimentoLocatelli",
+      "githubRepo": "BananaSuisa",
       "githubTagPrefix": "winget-v",
-      "minimumLauncherVersion": "1.0.0"
+      "minimumLauncherVersion": "0.1.0"
     },
     {
       "id": "com.ribanense.chocolatey",
@@ -19,11 +19,11 @@
       "publicName": "Gestor Chocolatey",
       "description": "Buscar, instalar, atualizar e remover pacotes via Chocolatey, com log em tempo real.",
       "category": "Pacotes",
-      "icon": "https://raw.githubusercontent.com/OWNER/RibanenseSolucoes/main/catalog/icons/chocolatey.png",
-      "githubOwner": "OWNER",
-      "githubRepo": "RibanenseSolucoes",
+      "icon": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/icons/chocolatey.png",
+      "githubOwner": "desenvolvimentoLocatelli",
+      "githubRepo": "BananaSuisa",
       "githubTagPrefix": "chocolatey-v",
-      "minimumLauncherVersion": "1.0.0"
+      "minimumLauncherVersion": "0.1.0"
     }
   ]
 }
