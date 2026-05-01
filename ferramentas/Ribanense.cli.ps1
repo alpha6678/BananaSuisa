@@ -178,6 +178,40 @@ function Get-SdkVersion {
     return '0.0.0'
 }
 
+function Resolve-AppShortName {
+    param([Parameter(Mandatory)] [string] $AppInput)
+
+    if ([string]::IsNullOrWhiteSpace($AppInput)) {
+        throw "Nome do app vazio. Use 'rb list' para ver apps disponiveis."
+    }
+
+    $apps = @(Get-AllAppProjects)
+    if ($apps.Count -eq 0) {
+        throw "Nenhum app encontrado em src\aplicativos\."
+    }
+
+    $token = $AppInput.Trim()
+    $exact = @($apps | Where-Object { $_.ShortName.Equals($token, [System.StringComparison]::OrdinalIgnoreCase) })
+    if ($exact.Count -eq 1) {
+        return $exact[0].ShortName
+    }
+
+    $starts = @($apps | Where-Object { $_.ShortName.StartsWith($token, [System.StringComparison]::OrdinalIgnoreCase) })
+    if ($starts.Count -eq 1) {
+        Write-Muted "Assumindo app '$($starts[0].ShortName)' para '$AppInput'."
+        return $starts[0].ShortName
+    }
+
+    $contains = @($apps | Where-Object { $_.ShortName.IndexOf($token, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 })
+    $suggestions = @($exact + $starts + $contains | Select-Object -ExpandProperty ShortName -Unique)
+
+    if ($suggestions.Count -gt 0) {
+        throw "App '$AppInput' nao encontrado. Quis dizer: $($suggestions -join ', ')? Use 'rb list'."
+    }
+
+    throw "App '$AppInput' nao encontrado em src\aplicativos\. Use 'rb list' para ver apps disponiveis."
+}
+
 function Get-LauncherVersion {
     $buildProps = Join-Path $script:ProjectRoot 'Directory.Build.props'
     if (Test-Path -LiteralPath $buildProps) {
@@ -224,6 +258,63 @@ function Invoke-LauncherRun {
     $exePath = Join-Path $script:ProjectRoot 'src\Ribanense.Solucoes.Launcher\bin\Debug\net10.0-windows\Ribanense.Solucoes.Launcher.exe'
     Assert-PathExists -Path $exePath -Description 'Executavel do Launcher'
     Write-Ok "Abrindo Launcher..."
+    Start-Process -FilePath $exePath
+}
+
+function Invoke-PublishRun {
+    $isLauncher = $script:RestArguments.Count -lt 1 -or ($script:RestArguments[0] -ieq 'Launcher')
+    [string] $appShortName = $null
+    if (-not $isLauncher) {
+        $appShortName = $script:RestArguments[0]
+        Get-AppProjectPath -AppName $appShortName | Out-Null
+    }
+
+    $slotName = if ($isLauncher) { 'Launcher' } else { $appShortName }
+    $publishRoot = Join-Path $script:ProjectRoot 'artifacts\publish-run'
+    $outDir = Join-Path $publishRoot "$slotName\out"
+
+    if (Test-Path -LiteralPath $outDir) {
+        Remove-Item -LiteralPath $outDir -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+    $projPath = if ($isLauncher) {
+        $script:LauncherProjectPath
+    } else {
+        Get-AppProjectPath -AppName $appShortName
+    }
+
+    if ($isLauncher) {
+        Stop-RibananseProcesses -NameFilters @('Ribanense.Solucoes.Launcher')
+    } else {
+        Stop-RibananseProcesses -NameFilters @("Ribanense.Solucoes.App.$appShortName")
+    }
+
+    Write-Info "dotnet publish Release win-x64 ($slotName) -> artifacts\publish-run\$slotName\out ..."
+    Push-Location $script:ProjectRoot
+    try {
+        & dotnet publish $projPath `
+            -c Release `
+            -r win-x64 `
+            --no-self-contained `
+            -p:PublishReadyToRun=true `
+            -o $outDir
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
+    finally {
+        Pop-Location
+    }
+
+    $exeName = if ($isLauncher) {
+        'Ribanense.Solucoes.Launcher.exe'
+    } else {
+        "Ribanense.Solucoes.App.$appShortName.exe"
+    }
+    $exePath = Join-Path $outDir $exeName
+    Assert-PathExists -Path $exePath -Description "Executavel publicado ($slotName)"
+
+    Write-Muted "Mesmo perfil de rb publish (sem zip). Pasta: $outDir"
+    Write-Ok "Abrindo build Release publicado..."
     Start-Process -FilePath $exePath
 }
 
@@ -504,11 +595,33 @@ function Invoke-CrashLogClear {
     Write-Ok "Crash logs limpos ($removed arquivo(s) removido(s))."
 }
 
+function Invoke-InstallRbCommand {
+    $scope = 'User'
+    if ($script:RestArguments.Count -ge 1) {
+        $candidate = $script:RestArguments[0].ToLowerInvariant()
+        switch ($candidate) {
+            'user'    { $scope = 'User' }
+            'session' { $scope = 'Session' }
+            default   { throw "Uso: rb install [user|session]. Exemplo: rb install session" }
+        }
+    }
+
+    $installScript = Join-Path $script:CliRoot 'install-rb-command.ps1'
+    Assert-PathExists -Path $installScript -Description 'install-rb-command.ps1'
+
+    & $installScript -Scope $scope
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    Write-Ok "Instalacao do comando global 'rb' concluida (scope: $scope)."
+}
+
 # ---------- Tabela de comandos ----------
 
 $script:Commands = @(
+    [pscustomobject]@{ Verb = 'install'; Aliases = @('setup');             Handler = 'Invoke-InstallRbCommand'; Usage = 'rb install [user|session]';           Help = 'Instala o comando global rb (sem .\). user = persistente; session = apenas terminal atual.' },
     [pscustomobject]@{ Verb = 'build';   Aliases = @('compilar');          Handler = 'Invoke-SolutionBuild'; Usage = 'rb build [args]';                    Help = 'Compila a solution inteira.' },
-    [pscustomobject]@{ Verb = 'run';     Aliases = @('rodar');             Handler = 'Invoke-AppRun';        Usage = 'rb run [App]';                       Help = 'Compila e abre o Launcher (ou o app informado). Ex: rb run Winget' },
+    [pscustomobject]@{ Verb = 'run';     Aliases = @('rodar');             Handler = 'Invoke-AppRun';        Usage = 'rb run [App]';                       Help = 'Compila Debug e abre o Launcher ou o app (fluxo dev rapido).' },
+    [pscustomobject]@{ Verb = 'publish-run'; Aliases = @('prun');          Handler = 'Invoke-PublishRun';   Usage = 'rb publish-run [App|Launcher]';    Help = 'Publica Release win-x64 (igual ao pacote de release) em artifacts\publish-run e abre o .exe para testar antes de rb release.' },
     [pscustomobject]@{ Verb = 'test';    Aliases = @('testar');            Handler = 'Invoke-SolutionTests'; Usage = 'rb test [args]';                     Help = 'Executa dotnet test.' },
     [pscustomobject]@{ Verb = 'check';   Aliases = @('validar');           Handler = 'Invoke-FullCheck';     Usage = 'rb check';                           Help = 'Build + test em sequencia.' },
     [pscustomobject]@{ Verb = 'clean';   Aliases = @('limpar');            Handler = 'Invoke-Clean';         Usage = 'rb clean';                           Help = 'Remove bin/, obj/, artifacts/ e encerra processos Ribanense do repo.' },
@@ -524,10 +637,112 @@ $script:Commands = @(
     [pscustomobject]@{ Verb = 'help';         Aliases = @('?', '-h', '--help'); Handler = 'Show-RibananseCliHelp'; Usage = 'rb help';                           Help = 'Esta ajuda.' }
 )
 
+function Normalize-GroupToken {
+    param([Parameter(Mandatory)] [string] $Token)
+    $group = $Token.ToLowerInvariant()
+    switch ($group) {
+        'app'      { return 'app' }
+        'module'   { return 'app' }
+        'launcher' { return 'launcher' }
+        'solution' { return 'solution' }
+        'sln'      { return 'solution' }
+        'repo'     { return 'solution' }
+        default    { return $null }
+    }
+}
+
+function Show-GroupHelp {
+    param([Parameter(Mandatory)] [string] $GroupName)
+
+    $group = Normalize-GroupToken -Token $GroupName
+    if ($null -eq $group) {
+        throw "Grupo desconhecido: '$GroupName'. Use: app, launcher, solution."
+    }
+
+    Write-Host ""
+    switch ($group) {
+        'app' {
+            Write-Host "Grupo: app" -ForegroundColor Cyan
+            Write-Host "-----------" -ForegroundColor DarkCyan
+            Write-Host "Uso base: rb app <acao> <App> [args]"
+            Write-Host ""
+            Write-Host "Acoes:" -ForegroundColor Gray
+            Write-Host "  run | executar | abrir"
+            Write-Host "  publish-run | prun"
+            Write-Host "  publish | empacotar | pack"
+            Write-Host "  release | soltar"
+            Write-Host "  devlink | link"
+            Write-Host "  unlink | devunlink"
+            Write-Host "  logs | log"
+            Write-Host ""
+            Write-Host "Exemplos:" -ForegroundColor Gray
+            Write-Host "  .\rb.cmd app run winget"
+            Write-Host "  .\rb.cmd app publish-run chocolatey"
+            Write-Host "  .\rb.cmd app publish winget -Version 0.2.0"
+            Write-Host "  .\rb.cmd app release winget 0.2.0"
+            Write-Host "  .\rb.cmd app logs winget 50"
+        }
+        'launcher' {
+            Write-Host "Grupo: launcher" -ForegroundColor Cyan
+            Write-Host "----------------" -ForegroundColor DarkCyan
+            Write-Host "Uso base: rb launcher <acao> [args]"
+            Write-Host ""
+            Write-Host "Acoes:" -ForegroundColor Gray
+            Write-Host "  run | executar | abrir"
+            Write-Host "  publish-run | prun"
+            Write-Host "  publish | empacotar | pack"
+            Write-Host "  release | soltar"
+            Write-Host "  logs | log"
+            Write-Host ""
+            Write-Host "Exemplos:" -ForegroundColor Gray
+            Write-Host "  .\rb.cmd launcher run"
+            Write-Host "  .\rb.cmd launcher publish-run"
+            Write-Host "  .\rb.cmd launcher publish -Version 0.1.0"
+            Write-Host "  .\rb.cmd launcher release 0.1.0"
+            Write-Host "  .\rb.cmd launcher logs 100"
+        }
+        'solution' {
+            Write-Host "Grupo: solution" -ForegroundColor Cyan
+            Write-Host "----------------" -ForegroundColor DarkCyan
+            Write-Host "Uso base: rb solution <acao> [args]"
+            Write-Host ""
+            Write-Host "Acoes:" -ForegroundColor Gray
+            Write-Host "  build | compilar"
+            Write-Host "  test | testar"
+            Write-Host "  check | validar"
+            Write-Host "  clean | limpar"
+            Write-Host "  list | apps | ls"
+            Write-Host "  version | versao"
+            Write-Host ""
+            Write-Host "Exemplos:" -ForegroundColor Gray
+            Write-Host "  .\rb.cmd solution build"
+            Write-Host "  .\rb.cmd solution test"
+            Write-Host "  .\rb.cmd solution check"
+            Write-Host "  .\rb.cmd solution clean"
+            Write-Host "  .\rb.cmd solution list"
+        }
+    }
+    Write-Host ""
+}
+
 function Show-RibananseCliHelp {
+    if ($script:RestArguments.Count -ge 1) {
+        $group = Normalize-GroupToken -Token $script:RestArguments[0]
+        if ($null -ne $group) {
+            Show-GroupHelp -GroupName $group
+            return
+        }
+    }
+
     Write-Host ""
     Write-Host "Ribanense Solucoes — CLI de desenvolvimento" -ForegroundColor Cyan
     Write-Host "============================================" -ForegroundColor DarkCyan
+    Write-Host ""
+    Write-Host "Sintaxe por dominio (estilo pc):" -ForegroundColor Gray
+    Write-Host "  rb app <acao> <App> [args]"
+    Write-Host "  rb launcher <acao> [args]"
+    Write-Host "  rb solution <acao> [args]"
+    Write-Host "  rb help app|launcher|solution"
     Write-Host ""
     Write-Host "Comandos:" -ForegroundColor Gray
     foreach ($c in $script:Commands) {
@@ -539,9 +754,13 @@ function Show-RibananseCliHelp {
     }
     Write-Host ""
     Write-Host "Exemplos:" -ForegroundColor Gray
+    Write-Host "  .\rb.cmd install                # instala rb global no PATH do usuario"
+    Write-Host "  .\rb.cmd install session        # instala so na sessao atual"
     Write-Host "  .\rb.cmd list"
     Write-Host "  .\rb.cmd run"
     Write-Host "  .\rb.cmd run Winget"
+    Write-Host "  .\rb.cmd publish-run"
+    Write-Host "  .\rb.cmd publish-run Winget"
     Write-Host "  .\rb.cmd devlink Winget"
     Write-Host "  .\rb.cmd check"
     Write-Host "  .\rb.cmd logs                    # launcher, ultimas 100"
@@ -586,9 +805,165 @@ function Show-CommandSuggestions {
     }
 }
 
+function TryInvoke-GroupedCommand {
+    param([Parameter(Mandatory)] [string] $GroupToken)
+
+    $group = Normalize-GroupToken -Token $GroupToken
+    if ($null -eq $group) {
+        return $false
+    }
+
+    if ($script:RestArguments.Count -lt 1 -or $script:RestArguments[0].ToLowerInvariant() -in @('help', '?', '-h', '--help')) {
+        Show-GroupHelp -GroupName $group
+        return $true
+    }
+
+    $actionInput = $script:RestArguments[0].ToLowerInvariant()
+    $args = @()
+    if ($script:RestArguments.Count -gt 1) {
+        $args = $script:RestArguments[1..($script:RestArguments.Count - 1)]
+    }
+
+    switch ($group) {
+        'app' {
+            $action = switch ($actionInput) {
+                { $_ -in @('run', 'rodar', 'executar', 'abrir') } { 'run'; break }
+                { $_ -in @('publish-run', 'prun') }                { 'publish-run'; break }
+                { $_ -in @('publish', 'empacotar', 'pack') }       { 'publish'; break }
+                { $_ -in @('release', 'soltar') }                  { 'release'; break }
+                { $_ -in @('devlink', 'link') }                    { 'devlink'; break }
+                { $_ -in @('unlink', 'devunlink') }                { 'unlink'; break }
+                { $_ -in @('logs', 'log') }                        { 'logs'; break }
+                default { $null }
+            }
+            if ($null -eq $action) {
+                throw "Acao desconhecida para grupo app: '$actionInput'. Use 'rb help app'."
+            }
+
+            if ($args.Count -lt 1) {
+                throw "Uso: rb app $action <App> [...]. Exemplo: rb app run winget"
+            }
+            $appName = Resolve-AppShortName -AppInput $args[0]
+            $tail = @()
+            if ($args.Count -gt 1) {
+                $tail = $args[1..($args.Count - 1)]
+            }
+
+            switch ($action) {
+                'run' {
+                    $script:RestArguments = @($appName)
+                    Invoke-AppRun
+                    return $true
+                }
+                'publish-run' {
+                    $script:RestArguments = @($appName)
+                    Invoke-PublishRun
+                    return $true
+                }
+                'publish' {
+                    $script:RestArguments = @($appName) + $tail
+                    Invoke-AppPublish
+                    return $true
+                }
+                'release' {
+                    $script:RestArguments = @($appName) + $tail
+                    Invoke-AppRelease
+                    return $true
+                }
+                'devlink' {
+                    $script:RestArguments = @($appName)
+                    Invoke-DevLink
+                    return $true
+                }
+                'unlink' {
+                    $script:RestArguments = @($appName)
+                    Invoke-DevUnlink
+                    return $true
+                }
+                'logs' {
+                    $script:RestArguments = @($appName) + $tail
+                    Invoke-Logs
+                    return $true
+                }
+            }
+        }
+        'launcher' {
+            $action = switch ($actionInput) {
+                { $_ -in @('run', 'rodar', 'executar', 'abrir') } { 'run'; break }
+                { $_ -in @('publish-run', 'prun') }                { 'publish-run'; break }
+                { $_ -in @('publish', 'empacotar', 'pack') }       { 'publish'; break }
+                { $_ -in @('release', 'soltar') }                  { 'release'; break }
+                { $_ -in @('logs', 'log') }                        { 'logs'; break }
+                default { $null }
+            }
+            if ($null -eq $action) {
+                throw "Acao desconhecida para grupo launcher: '$actionInput'. Use 'rb help launcher'."
+            }
+
+            switch ($action) {
+                'run' {
+                    $script:RestArguments = @()
+                    Invoke-LauncherRun
+                    return $true
+                }
+                'publish-run' {
+                    $script:RestArguments = @('Launcher')
+                    Invoke-PublishRun
+                    return $true
+                }
+                'publish' {
+                    $script:RestArguments = @('Launcher') + $args
+                    Invoke-AppPublish
+                    return $true
+                }
+                'release' {
+                    $script:RestArguments = @('Launcher') + $args
+                    Invoke-AppRelease
+                    return $true
+                }
+                'logs' {
+                    $script:RestArguments = $args
+                    Invoke-Logs
+                    return $true
+                }
+            }
+        }
+        'solution' {
+            $action = switch ($actionInput) {
+                { $_ -in @('build', 'compilar') } { 'build'; break }
+                { $_ -in @('test', 'testar') }    { 'test'; break }
+                { $_ -in @('check', 'validar') }  { 'check'; break }
+                { $_ -in @('clean', 'limpar') }   { 'clean'; break }
+                { $_ -in @('list', 'apps', 'ls') } { 'list'; break }
+                { $_ -in @('version', 'versao') } { 'version'; break }
+                default { $null }
+            }
+            if ($null -eq $action) {
+                throw "Acao desconhecida para grupo solution: '$actionInput'. Use 'rb help solution'."
+            }
+
+            $script:RestArguments = $args
+            switch ($action) {
+                'build'   { Invoke-SolutionBuild; return $true }
+                'test'    { Invoke-SolutionTests; return $true }
+                'check'   { Invoke-FullCheck; return $true }
+                'clean'   { Invoke-Clean; return $true }
+                'list'    { Invoke-ListApps; return $true }
+                'version' { Invoke-ShowVersions; return $true }
+            }
+        }
+    }
+
+    return $false
+}
+
 # ---------- Dispatch ----------
 
 try {
+    if (TryInvoke-GroupedCommand -GroupToken $Command) {
+        exit 0
+    }
+
     $match = Find-MatchingCommand -VerbOrAlias $Command
     if ($null -eq $match) {
         Write-Err "Comando desconhecido: '$Command'"

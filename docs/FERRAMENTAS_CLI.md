@@ -9,6 +9,7 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | [`rb.cmd`](../rb.cmd) | Atalho na raiz; delega para `ferramentas/Ribanense.cmd`. |
 | [`ferramentas/Ribanense.cmd`](../ferramentas/Ribanense.cmd) | Usa `pwsh` se existir no PATH; senão `powershell` 5.1. |
 | [`ferramentas/Ribanense.cli.ps1`](../ferramentas/Ribanense.cli.ps1) | Script PowerShell com os subcomandos; pode ser invocado diretamente. |
+| [`ferramentas/install-rb-command.ps1`](../ferramentas/install-rb-command.ps1) | Instala o comando global `rb` no PATH do usuário (uso sem `.\`). |
 | [`ferramentas/publish-module.ps1`](../ferramentas/publish-module.ps1) | Empacota um app em zip + SHA256 + `app.json`. |
 | [`ferramentas/publish-launcher.ps1`](../ferramentas/publish-launcher.ps1) | Empacota o Launcher em zip + SHA256 (versão de `Directory.Build.props` se omitir `-Version`). |
 | [`ferramentas/release.ps1`](../ferramentas/release.ps1) | Publica release no GitHub via `gh`. |
@@ -17,8 +18,10 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 
 | Comando | Sinônimos | Ação |
 |---------|-----------|------|
+| `install [user\|session]` | `setup` | Instala o comando global `rb` no PATH. `user` (default) persiste; `session` vale só no terminal atual. |
 | `build` | `compilar` | `dotnet build Ribanense.Solucoes.slnx` (encerra processos Ribanense deste repo antes). |
-| `run` `[App]` | `rodar` | Compila e abre o Launcher. Se passar um nome de app (`rb run Winget`), abre o app direto. |
+| `run` `[App]` | `rodar` | Compila **Debug** e abre o Launcher ou o app (`rb run Winget`). Fluxo rápido no dia a dia. |
+| `publish-run` `[App ou Launcher]` | `prun` | `dotnet publish` **Release** `win-x64` (mesmo perfil de `rb publish`), saída em `artifacts/publish-run/<nome>/out`, e abre o `.exe` para validar antes de `rb release`. |
 | `test` | `testar` | `dotnet test Ribanense.Solucoes.slnx`. |
 | `check` | `validar` | `build` + `test` em sequência. |
 | `clean` | `limpar` | Remove todos os `bin/`, `obj/` e `artifacts/` do repo. Encerra processos Ribanense primeiro. |
@@ -33,13 +36,37 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `crashlog-clear` | `crash-clear` | Remove `crash.log` e `crash.old.log`. |
 | `help` | `?`, `-h`, `--help` | Ajuda. |
 
+### Sintaxe por domínio (estilo pc)
+
+Além dos comandos legados (`rb run Winget`, `rb publish Winget ...`), o `rb` aceita uma sintaxe por domínio:
+
+| Grupo | Uso base | Exemplos |
+|---|---|---|
+| `app` (`module`) | `rb app <acao> <App> [args]` | `rb app run winget`, `rb app publish-run chocolatey`, `rb app release winget 0.2.0` |
+| `launcher` | `rb launcher <acao> [args]` | `rb launcher run`, `rb launcher publish-run`, `rb launcher release 0.1.0` |
+| `solution` (`sln`, `repo`) | `rb solution <acao> [args]` | `rb solution build`, `rb solution test`, `rb sln list`, `rb solution version` |
+
+Ajuda por grupo:
+
+- `rb help app`
+- `rb help launcher`
+- `rb help solution`
+- `rb app help` (equivalente)
+
 ### Exemplos
 
 ```bat
 cd caminho\para\RibanenseSolucoes
+rb.cmd install
+rb help
 rb.cmd list
 rb.cmd run
 rb.cmd run Winget
+rb.cmd app run winget
+rb.cmd launcher run
+rb.cmd solution check
+rb.cmd publish-run
+rb.cmd publish-run Winget
 rb.cmd test
 rb.cmd check
 rb.cmd devlink Winget
@@ -50,14 +77,23 @@ rb.cmd publish Winget -Version 0.1.0
 rb.cmd release Winget 0.1.0
 ```
 
+Depois de `rb.cmd install`, abra um novo terminal e use normalmente sem prefixo:
+
+```bat
+rb help
+rb app run winget
+rb solution check
+```
+
 ### Fluxo de desenvolvimento recomendado
 
 1. `rb list` — ver o que está no repo.
 2. `rb run Winget` — testar o app isolado.
 3. `rb devlink Winget` — empacotar no formato que o Launcher entende.
 4. `rb run` — abrir o Launcher e ver o Winget em "Meus apps".
-5. `rb check` — antes de commitar.
-6. `rb publish Winget -Version 0.2.0` + `rb release Winget 0.2.0` — quando estiver pronto para publicar.
+5. `rb publish-run Winget` — validar o binário Release (igual ao zip de release) antes de publicar.
+6. `rb check` — antes de commitar.
+7. `rb publish Winget -Version 0.2.0` + `rb release Winget 0.2.0` — quando estiver pronto para publicar.
 
 ### Dicas
 
