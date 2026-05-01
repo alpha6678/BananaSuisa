@@ -65,16 +65,19 @@ $ps1ShimPath = Join-Path $BinDir 'rb.ps1'
 
 $cmdShim = @(
     '@echo off'
-    'call "' + $rbCmdPath + '" %*'
+    'setlocal'
+    'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0rb.ps1" %*'
+    'endlocal'
     ''
 ) -join "`r`n"
 Set-Content -LiteralPath $cmdShimPath -Value $cmdShim -Encoding Ascii
 
+$escapedRbCmdPath = $rbCmdPath.Replace("'", "''")
 $ps1Shim = @(
-    '& "' + $rbCmdPath + '" @args'
+    "& '$escapedRbCmdPath' @args"
     ''
 ) -join "`r`n"
-Set-Content -LiteralPath $ps1ShimPath -Value $ps1Shim -Encoding UTF8
+Set-Content -LiteralPath $ps1ShimPath -Value $ps1Shim -Encoding Unicode
 
 Write-Host "[OK] Shim criado: $cmdShimPath" -ForegroundColor Green
 Write-Host "[OK] Shim criado: $ps1ShimPath" -ForegroundColor Green
@@ -102,6 +105,7 @@ if ($Scope -eq 'User') {
     Write-Host "Abra um novo terminal para usar: rb help" -ForegroundColor Yellow
 } else {
     Write-Host ""
-    Write-Host "PATH atualizado apenas na sessao atual." -ForegroundColor Cyan
-    Write-Host "Comando disponivel agora: rb help" -ForegroundColor Green
+    Write-Host "Escopo Session nao persiste automaticamente no terminal pai quando chamado via rb.cmd." -ForegroundColor Cyan
+    Write-Host "Para usar agora neste terminal, execute:" -ForegroundColor Yellow
+    Write-Host "  `$env:PATH = ""$BinDir;`$env:PATH""" -ForegroundColor Yellow
 }
