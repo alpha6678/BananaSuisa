@@ -17,7 +17,7 @@ public class ElevatedCommandRunnerTests
         var runner = new ElevatedCommandRunner(launcher, () => "test001");
 
         var progress = new List<string>();
-        var prog = new Progress<string>(line => progress.Add(line));
+        var prog = new SynchronousProgress(progress);
 
         var result = await runner.RunScriptAsync("Write-Host 'ola'", prog, CancellationToken.None);
 
@@ -106,4 +106,13 @@ public class ElevatedCommandRunnerTests
         // aspas simples duplicadas dentro da string PowerShell
         Assert.Contains("user''s", wrapper);
     }
+}
+
+internal sealed class SynchronousProgress : IProgress<string>
+{
+    private readonly List<string> _lines;
+
+    public SynchronousProgress(List<string> lines) => _lines = lines;
+
+    public void Report(string value) => _lines.Add(value);
 }

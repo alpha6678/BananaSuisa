@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using Ribanense.Solucoes.Infrastructure.Logging;
@@ -20,6 +21,7 @@ public partial class App : Application
     private LiteDbVault? _vault;
     private GitHubClient? _github;
     private AppJsonLogWriter? _logger;
+    private Mutex? _singleInstanceMutex;
     private bool _isHandlingUnhandled;
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -47,10 +49,27 @@ public partial class App : Application
 
         base.OnStartup(e);
 
+        string launcherMutexName = AppProcessDetector.MutexNameFor(LauncherConfig.LauncherAppId);
+        _singleInstanceMutex = new Mutex(initiallyOwned: true, launcherMutexName, out bool createdNew);
+        if (!createdNew)
+        {
+            MessageBox.Show(
+                "O Launcher já está em execução (ou outro processo está usando os mesmos dados).\n\n" +
+                "Feche a outra janela do Ribanense Soluções ou encerre o processo \"Ribanense.Solucoes.Launcher\" no Gerenciador de tarefas e tente de novo.\n\n" +
+                "Se o Windows Defender acabou de analisar o aplicativo, aguarde alguns segundos antes de abrir novamente.",
+                "Ribanense Soluções",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            try { _singleInstanceMutex.Dispose(); } catch { }
+            _singleInstanceMutex = null;
+            Shutdown(0);
+            return;
+        }
+
         Directory.CreateDirectory(LauncherConfig.LauncherDataRoot);
         Directory.CreateDirectory(LauncherConfig.AplicativosRoot);
 
-        _vault = new LiteDbVault(LauncherConfig.LauncherVaultPath);
+        _vault = LiteDbVault.OpenWithRetry(LauncherConfig.LauncherVaultPath);
         _logger = new AppJsonLogWriter(_vault);
         _logger.Write(AppLogLevel.Information, "startup", "Launcher iniciado.");
 
@@ -80,6 +99,11 @@ public partial class App : Application
 
         _github?.Dispose();
         _vault?.Dispose();
+
+        try { _singleInstanceMutex?.ReleaseMutex(); } catch { }
+        try { _singleInstanceMutex?.Dispose(); } catch { }
+        _singleInstanceMutex = null;
+
         base.OnExit(e);
     }
 

@@ -1,4 +1,6 @@
+using System.IO;
 using System.Text.Json;
+using System.Threading;
 using LiteDB;
 using Ribanense.Solucoes.PluginSDK.Logging;
 using Ribanense.Solucoes.PluginSDK.Vault;
@@ -44,6 +46,43 @@ public sealed class LiteDbVault : IVault
 
         _db = new LiteDatabase($"Filename={path};Connection=direct", mapper);
         EnsureSeeded();
+    }
+
+    /// <summary>
+    /// Abre o vault com retentativas curtas para cenários em que o arquivo ainda
+    /// está bloqueado (ex.: antivírus após download, cópia em andamento).
+    /// </summary>
+    public static LiteDbVault OpenWithRetry(
+        string path,
+        int maxAttempts = 12,
+        int initialDelayMs = 120)
+    {
+        if (maxAttempts < 1) throw new ArgumentOutOfRangeException(nameof(maxAttempts));
+
+        Exception? last = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                return new LiteDbVault(path);
+            }
+            catch (IOException ex)
+            {
+                last = ex;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                last = ex;
+            }
+
+            if (attempt == maxAttempts)
+                break;
+
+            int delayMs = Math.Min(initialDelayMs * attempt, 2000);
+            Thread.Sleep(delayMs);
+        }
+
+        throw last ?? new IOException($"Falha ao abrir vault: {path}");
     }
 
     private static void ConfigureMapper(BsonMapper mapper)
