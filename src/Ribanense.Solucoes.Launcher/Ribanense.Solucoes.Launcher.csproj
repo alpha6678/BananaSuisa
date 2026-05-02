@@ -5,7 +5,11 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>Ribanense.Solucoes.Launcher</RootNamespace>
     <AssemblyName>Ribanense.Solucoes.Launcher</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="Assets\app-256.png" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Ribanense.Solucoes.PluginSDK\Ribanense.Solucoes.PluginSDK.csproj" />
     <ProjectReference Include="..\Ribanense.Solucoes.Infrastructure\Ribanense.Solucoes.Infrastructure.csproj" />

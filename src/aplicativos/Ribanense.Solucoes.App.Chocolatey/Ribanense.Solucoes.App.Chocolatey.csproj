@@ -19,6 +19,9 @@
     <None Update="app.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Ribanense.Solucoes.App.Chocolatey.Tests" />

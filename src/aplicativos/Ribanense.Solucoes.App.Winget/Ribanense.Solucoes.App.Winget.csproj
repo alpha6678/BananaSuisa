@@ -19,6 +19,9 @@
     <None Update="app.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\aliases.json" LogicalName="Ribanense.Solucoes.App.Winget.aliases.json" />
