@@ -34,9 +34,11 @@ public sealed class ChocolateyInstallService : IChocolateyInstallService
             verb,
             packageId,
             "-y",
-            "--no-progress"
+            "--no-progress",
+            "--accept-license"
         };
 
-        return _executor.RunAsync(args, onStdout: onLine, onStderr: onLine, ct: ct);
+        // Operações de instalação, desinstalação e upgrade geralmente requerem admin
+        return _executor.RunAsync(args, onStdout: onLine, onStderr: onLine, requireAdmin: true, ct: ct);
     }
 }

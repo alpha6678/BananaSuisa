@@ -15,9 +15,11 @@ public sealed class ChocolateyListService : IChocolateyListService
     {
         var installedTask = _executor.RunAsync(
             ["list", "--local-only", "--limit-output"],
+            requireAdmin: false,
             ct: ct);
         var outdatedTask = _executor.RunAsync(
             ["outdated", "--limit-output"],
+            requireAdmin: false,
             ct: ct);
 
         await Task.WhenAll(installedTask, outdatedTask).ConfigureAwait(false);

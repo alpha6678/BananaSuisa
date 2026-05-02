@@ -22,7 +22,7 @@ public sealed class ChocolateySearchService : IChocolateySearchService
             "--limit-output"
         };
 
-        var result = await _executor.RunAsync(args, ct: ct).ConfigureAwait(false);
+        var result = await _executor.RunAsync(args, requireAdmin: false, ct: ct).ConfigureAwait(false);
         if (!result.Success && string.IsNullOrWhiteSpace(result.Stdout))
         {
             return Array.Empty<ChocolateyPackage>();

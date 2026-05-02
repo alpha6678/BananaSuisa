@@ -12,6 +12,7 @@
             </ResourceDictionary.MergedDictionaries>
 
             <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+            <conv:LogLinesToStringConverter x:Key="LogLinesToStringConverter" />
 
             <DataTemplate DataType="{x:Type vm:SearchViewModel}">
                 <views:SearchView />

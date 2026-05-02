@@ -25,7 +25,7 @@ public sealed class ChocolateyDiagnostics : IChocolateyDiagnostics
 
         try
         {
-            var result = await _executor.RunAsync(["--version"], ct: ct).ConfigureAwait(false);
+            var result = await _executor.RunAsync(["--version"], requireAdmin: false, ct: ct).ConfigureAwait(false);
             string version = FirstNonEmptyLine(result.Stdout);
             if (result.Success && !string.IsNullOrWhiteSpace(version))
             {

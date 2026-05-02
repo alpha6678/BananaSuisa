@@ -28,7 +28,7 @@ public class ChocolateyInstallServiceTests
                 break;
         }
 
-        Assert.Equal([verb, "git", "-y", "--no-progress"], executor.Calls[0]);
+        Assert.Equal([verb, "git", "-y", "--no-progress", "--accept-license"], executor.Calls[0]);
     }
 
     [Fact]

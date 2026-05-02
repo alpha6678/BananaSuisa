@@ -17,6 +17,7 @@ public sealed class ChocolateyExecutor : IChocolateyExecutor
         IEnumerable<string> args,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null,
+        bool requireAdmin = false,
         CancellationToken ct = default)
     {
         string? exe = _locator.TryLocate();
@@ -28,13 +29,19 @@ public sealed class ChocolateyExecutor : IChocolateyExecutor
 
         var psi = new ProcessStartInfo(exe)
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
+            RedirectStandardOutput = !requireAdmin,
+            RedirectStandardError = !requireAdmin,
+            UseShellExecute = requireAdmin,
+            CreateNoWindow = !requireAdmin,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
+
+        if (requireAdmin)
+        {
+            psi.Verb = "runas";
+        }
+
         foreach (string a in args) psi.ArgumentList.Add(a);
 
         using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
@@ -42,22 +49,37 @@ public sealed class ChocolateyExecutor : IChocolateyExecutor
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
 
-        process.OutputDataReceived += (_, e) =>
+        if (!requireAdmin)
         {
-            if (e.Data is null) return;
-            stdout.AppendLine(e.Data);
-            onStdout?.Invoke(e.Data);
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is null) return;
-            stderr.AppendLine(e.Data);
-            onStderr?.Invoke(e.Data);
-        };
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data is null) return;
+                stdout.AppendLine(e.Data);
+                onStdout?.Invoke(e.Data);
+            };
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data is null) return;
+                stderr.AppendLine(e.Data);
+                onStderr?.Invoke(e.Data);
+            };
+        }
 
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        try
+        {
+            process.Start();
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (requireAdmin && ex.NativeErrorCode == 1223)
+        {
+            // O usuário cancelou o prompt do UAC
+            return new ChocolateyRunResult(-1, "", "Operação cancelada pelo usuário (UAC).");
+        }
+
+        if (!requireAdmin)
+        {
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+        }
 
         try
         {
@@ -67,6 +89,11 @@ public sealed class ChocolateyExecutor : IChocolateyExecutor
         {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
             throw;
+        }
+
+        if (requireAdmin)
+        {
+            return new ChocolateyRunResult(process.ExitCode, "Executado como administrador (logs via console).", "");
         }
 
         return new ChocolateyRunResult(process.ExitCode, stdout.ToString(), stderr.ToString());

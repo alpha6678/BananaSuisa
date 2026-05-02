@@ -13,7 +13,7 @@ public sealed class ChocolateySourceService : IChocolateySourceService
 
     public async Task<IReadOnlyList<ChocolateySource>> ListAsync(CancellationToken ct)
     {
-        var result = await _executor.RunAsync(["source", "list", "--limit-output"], ct: ct)
+        var result = await _executor.RunAsync(["source", "list", "--limit-output"], requireAdmin: false, ct: ct)
             .ConfigureAwait(false);
         return ParseListOutput(result.Stdout);
     }
@@ -30,7 +30,7 @@ public sealed class ChocolateySourceService : IChocolateySourceService
             name
         };
 
-        return _executor.RunAsync(args, onStdout: onLine, onStderr: onLine, ct: ct);
+        return _executor.RunAsync(args, onStdout: onLine, onStderr: onLine, requireAdmin: true, ct: ct);
     }
 
     internal static IReadOnlyList<ChocolateySource> ParseListOutput(string stdout)

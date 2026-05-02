@@ -12,5 +12,6 @@ public interface IChocolateyExecutor
         IEnumerable<string> args,
         Action<string>? onStdout = null,
         Action<string>? onStderr = null,
+        bool requireAdmin = false,
         CancellationToken ct = default);
 }
