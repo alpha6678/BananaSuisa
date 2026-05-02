@@ -3,7 +3,7 @@
   "name": "Gestor Chocolatey",
   "publicName": "Gestor Chocolatey",
   "version": "0.1.0",
-  "minimumLauncherVersion": "1.0.0",
+  "minimumLauncherVersion": "0.1.0",
   "entryExecutable": "Ribanense.Solucoes.App.Chocolatey.exe",
   "icon": "icon.png",
   "category": "Pacotes",

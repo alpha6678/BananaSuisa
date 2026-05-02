@@ -12,7 +12,7 @@ public class AppVersionTests
         var assembly = typeof(AppVersion).Assembly;
         string version = AppVersion.ForAssembly(assembly);
 
-        // Directory.Build.props define Version como 0.1.0 no repo.
+        // Directory.Build.props define Version SemVer no repo (ex.: 0.1.1).
         Assert.False(string.IsNullOrWhiteSpace(version));
         Assert.Matches(@"^\d+\.\d+\.\d+$", version);
     }

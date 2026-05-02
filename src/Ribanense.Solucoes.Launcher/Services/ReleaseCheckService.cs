@@ -39,6 +39,7 @@ public sealed class ReleaseCheckService : IReleaseCheckService
         foreach (var r in items)
         {
             if (r.Draft) continue;
+            if (string.IsNullOrWhiteSpace(r.TagName)) continue;
             if (!r.TagName.StartsWith(tagPrefix, StringComparison.Ordinal)) continue;
 
             string version = r.TagName.Substring(tagPrefix.Length);
