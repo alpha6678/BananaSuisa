@@ -9,6 +9,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Ribanense.Solucoes.App.Winget;component/Resources/Theme.xaml" />
                 <ResourceDictionary Source="/Ribanense.Solucoes.UI;component/Styles/Breakpoints.xaml" />
+                <ResourceDictionary Source="/Ribanense.Solucoes.UI;component/Styles/DataGrid.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <conv:BoolToVisibilityConverter x:Key="BoolToVis" />

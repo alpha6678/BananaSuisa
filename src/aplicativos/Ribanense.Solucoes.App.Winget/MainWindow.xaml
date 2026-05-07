@@ -10,8 +10,6 @@
         Title="Gestor WinGet — Ribanense Soluções"
         MinWidth="{StaticResource Breakpoint.MinWindowWidth}"
         MinHeight="{StaticResource Breakpoint.MinWindowHeight}"
-        Width="1200"
-        Height="780"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Brush.Background}"
         b:WindowBreakpoints.Enabled="True">

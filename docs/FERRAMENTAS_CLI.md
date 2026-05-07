@@ -30,7 +30,7 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `devlink <App>` | `link` | Compila um app e copia para `%LOCALAPPDATA%\Ribanense Soluções\aplicativos\<App>\` para o Launcher reconhecê-lo como "instalado" sem precisar publicar release. |
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
 | `publish <App ou Launcher> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (app: zip + sha256 + app.json; Launcher: zip + sha256). |
-| `publish all [-Yes] [--dry-run]` | — | Detecta apps alterados desde a última tag de cada app, faz bump patch automático (`csproj` + `app.json`), roda `rb check` e publica releases no GitHub. |
+| `publish all [-Yes] [--dry-run]` | — | Detecta **apps** e o **Launcher** alterados desde a última tag de cada prefixo (`<slug>-v` / `launcher-v`), faz bump patch automático (`csproj` + `app.json` para apps; `Directory.Build.props` para o Launcher), roda `rb check` e publica releases no GitHub. |
 | `release <App ou Launcher> <semver>` | — | Publica GitHub Release via `gh` (tag + assets). Launcher usa prefixo de tag `launcher-v`. |
 | `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
 | `crashlog` | `crash` | Mostra as últimas 200 linhas do `crash.log` (texto plano). Inclui `crash.old.log` rotacionado se existir. |

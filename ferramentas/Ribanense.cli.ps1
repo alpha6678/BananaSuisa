@@ -323,6 +323,18 @@ function Get-AppRelevantPathPrefixes {
     )
 }
 
+function Get-LauncherRelevantPathPrefixes {
+    return @(
+        "src/Ribanense.Solucoes.Launcher/",
+        "tests/Ribanense.Solucoes.Launcher.Tests/",
+        "catalog/",
+        "src/Ribanense.Solucoes.PluginSDK/",
+        "src/Ribanense.Solucoes.Infrastructure/",
+        "src/Ribanense.Solucoes.UI/",
+        "Directory.Build.props"
+    )
+}
+
 function Select-FilesByPrefixes {
     param(
         [Parameter(Mandatory)] [string[]] $Files,
@@ -431,6 +443,62 @@ function Set-AppVersion {
     Set-Content -LiteralPath $App.ManifestPath -Value $manifestContent -Encoding UTF8
 }
 
+function Get-LauncherVersionState {
+    $buildProps = Join-Path $script:ProjectRoot "Directory.Build.props"
+    if (-not (Test-Path -LiteralPath $buildProps)) {
+        return [pscustomobject]@{
+            BuildPropsPath     = $buildProps
+            CsprojVersion      = $null
+            HasAssemblyVersion = $false
+            HasFileVersion     = $false
+        }
+    }
+    try {
+        [xml] $xml = Get-Content -LiteralPath $buildProps -Raw
+        $verNode = $xml.SelectSingleNode("//PropertyGroup/Version")
+        $asmNode = $xml.SelectSingleNode("//PropertyGroup/AssemblyVersion")
+        $fileNode = $xml.SelectSingleNode("//PropertyGroup/FileVersion")
+        return [pscustomobject]@{
+            BuildPropsPath     = $buildProps
+            CsprojVersion      = if ($verNode) { $verNode.InnerText.Trim() } else { $null }
+            HasAssemblyVersion = ($null -ne $asmNode)
+            HasFileVersion     = ($null -ne $fileNode)
+        }
+    } catch {
+        return [pscustomobject]@{
+            BuildPropsPath     = $buildProps
+            CsprojVersion      = $null
+            HasAssemblyVersion = $false
+            HasFileVersion     = $false
+        }
+    }
+}
+
+function Set-LauncherVersion {
+    param([Parameter(Mandatory)] [string] $Version)
+
+    if (-not (Test-SimpleSemVer -Version $Version)) {
+        throw "Versao '$Version' invalida para atualizacao automatica (Launcher / Directory.Build.props)."
+    }
+
+    $versionState = Get-LauncherVersionState
+    if (-not $versionState.CsprojVersion) {
+        throw "Nao foi possivel ler <Version> em Directory.Build.props."
+    }
+
+    $assemblyVersion = Get-AssemblyVersionFromSemVer -Version $Version
+    $buildProps = $versionState.BuildPropsPath
+    $content = Get-Content -LiteralPath $buildProps -Raw
+    $content = Set-FirstXmlTagValue -Content $content -TagName "Version" -NewValue $Version
+    if ($versionState.HasAssemblyVersion) {
+        $content = Set-FirstXmlTagValue -Content $content -TagName "AssemblyVersion" -NewValue $assemblyVersion
+    }
+    if ($versionState.HasFileVersion) {
+        $content = Set-FirstXmlTagValue -Content $content -TagName "FileVersion" -NewValue $assemblyVersion
+    }
+    Set-Content -LiteralPath $buildProps -Value $content -Encoding UTF8
+}
+
 function Get-PublishAllCandidates {
     param([Parameter(Mandatory)] [object[]] $Apps)
 
@@ -485,16 +553,62 @@ function Get-PublishAllCandidates {
     return $plan
 }
 
-function Get-LauncherVersion {
-    $buildProps = Join-Path $script:ProjectRoot 'Directory.Build.props'
-    if (Test-Path -LiteralPath $buildProps) {
-        try {
-            [xml] $xml = Get-Content -LiteralPath $buildProps -Raw
-            $node = $xml.SelectSingleNode('//PropertyGroup/Version')
-            if ($node) { return $node.InnerText.Trim() }
-        } catch { }
+function Get-PublishAllLauncherPlanItem {
+    if (-not (Test-Path -LiteralPath $script:LauncherProjectPath)) {
+        return $null
     }
-    return '0.0.0'
+
+    $versionState = Get-LauncherVersionState
+    if (-not $versionState.CsprojVersion) {
+        throw "Versao do Launcher nao encontrada em Directory.Build.props."
+    }
+    if (-not (Test-SimpleSemVer -Version $versionState.CsprojVersion)) {
+        throw "Launcher com versao '$($versionState.CsprojVersion)' fora do formato major.minor.patch (ajuste Directory.Build.props)."
+    }
+
+    $tagPrefix = "launcher-v"
+    $latestTag = Get-LatestTagForPrefix -TagPrefix $tagPrefix
+
+    $include = $false
+    $matchedFiles = @()
+    $reason = ""
+
+    if ([string]::IsNullOrWhiteSpace($latestTag)) {
+        $include = $true
+        $reason = "sem tag anterior para o prefixo"
+    } else {
+        $changedFiles = Get-ChangedFilesSinceTag -Tag $latestTag
+        $prefixes = Get-LauncherRelevantPathPrefixes
+        $matchedFiles = Select-FilesByPrefixes -Files $changedFiles -Prefixes $prefixes
+        if ($matchedFiles.Count -gt 0) {
+            $include = $true
+            $reason = "arquivos alterados desde $latestTag"
+        }
+    }
+
+    if (-not $include) { return $null }
+
+    $next = Get-NextPatchVersion -Version $versionState.CsprojVersion
+    $launcherStub = [pscustomobject]@{ ShortName = "Launcher" }
+
+    return [pscustomobject]@{
+        App         = $launcherStub
+        Current     = $versionState.CsprojVersion
+        Next        = $next
+        TagPrefix   = $tagPrefix
+        Tag         = "$tagPrefix$next"
+        LatestTag   = $latestTag
+        Reason      = $reason
+        ChangedHint = @($matchedFiles | Select-Object -First 5)
+    }
+}
+
+function Get-LauncherVersion {
+    $state = Get-LauncherVersionState
+    if (-not $state.CsprojVersion) {
+        return "0.0.0"
+    }
+    return $state.CsprojVersion
 }
 
 # ---------- Comandos ----------
@@ -827,15 +941,22 @@ function Invoke-PublishAll {
         }
 
         $apps = @(Get-AllAppProjects)
-        if ($apps.Count -eq 0) {
-            Write-Warn2 "Nenhum app encontrado para publicar."
+        $plan = @(Get-PublishAllCandidates -Apps $apps)
+        $launcherPlan = Get-PublishAllLauncherPlanItem
+        if ($launcherPlan) {
+            $plan += $launcherPlan
+        }
+
+        if ($plan.Count -eq 0) {
+            if ($apps.Count -eq 0) {
+                Write-Warn2 "Nenhum app encontrado em src\aplicativos\."
+            }
+            Write-Ok "Nenhum release necessario: nenhuma mudanca relevante desde as ultimas tags (apps e Launcher)."
             return
         }
 
-        $plan = @(Get-PublishAllCandidates -Apps $apps)
-        if ($plan.Count -eq 0) {
-            Write-Ok "Nenhum app precisa de release novo (sem mudancas relevantes desde as ultimas tags)."
-            return
+        if ($apps.Count -eq 0) {
+            Write-Warn2 "Nenhum app modular em src\aplicativos\; o plano considera apenas o Launcher (se aplicavel)."
         }
 
         Write-Step "Plano publish all"
@@ -857,7 +978,7 @@ function Invoke-PublishAll {
 
         if (-not $autoYes) {
             Write-Host ""
-            $answer = Read-Host "Continuar e publicar os apps acima? [s/N]"
+            $answer = Read-Host "Continuar e publicar os itens acima (apps e/ou Launcher)? [s/N]"
             if ($answer -notin @('s', 'S', 'sim', 'SIM', 'y', 'Y', 'yes', 'YES')) {
                 Write-Warn2 "Operacao cancelada pelo usuario."
                 return
@@ -866,7 +987,11 @@ function Invoke-PublishAll {
 
         Write-Step "Atualizando versoes (patch)"
         foreach ($item in $plan) {
-            Set-AppVersion -App $item.App -Version $item.Next
+            if ($item.App.ShortName -eq "Launcher") {
+                Set-LauncherVersion -Version $item.Next
+            } else {
+                Set-AppVersion -App $item.App -Version $item.Next
+            }
             Write-Ok "$($item.App.ShortName): $($item.Current) -> $($item.Next)"
         }
 
@@ -1023,7 +1148,7 @@ $script:Commands = @(
     [pscustomobject]@{ Verb = 'version'; Aliases = @('versao');            Handler = 'Invoke-ShowVersions';  Usage = 'rb version';                         Help = 'Mostra versoes de Launcher, SDK e cada app (alerta se csproj e app.json divergem).' },
     [pscustomobject]@{ Verb = 'devlink'; Aliases = @('link');              Handler = 'Invoke-DevLink';       Usage = 'rb devlink <App>';                   Help = 'Compila um app e copia para %LOCALAPPDATA%\Ribanense Solucoes\aplicativos\ para o Launcher ver como instalado.' },
     [pscustomobject]@{ Verb = 'unlink';  Aliases = @('devunlink');         Handler = 'Invoke-DevUnlink';     Usage = 'rb unlink <App>';                    Help = 'Remove o devlink de um app.' },
-    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher|all> [...]'; Help = 'Empacota App/Launcher ou executa publish all (bump patch + check + releases dos apps alterados).' },
+    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher|all> [...]'; Help = 'Empacota App/Launcher ou executa publish all (bump patch + check + releases do Launcher e/ou apps com mudancas desde a ultima tag).' },
     [pscustomobject]@{ Verb = 'release';      Aliases = @();                    Handler = 'Invoke-AppRelease';     Usage = 'rb release <App|Launcher> <semver>';   Help = 'Cria tag git e publica GitHub Release (requer gh CLI).' },
     [pscustomobject]@{ Verb = 'logs';         Aliases = @('log');               Handler = 'Invoke-Logs';           Usage = 'rb logs [App] [N]';                 Help = 'Imprime as ultimas N (default 100) entradas do vault (Launcher ou app). Usa copia temporaria, nao conflita com processo rodando.' },
     [pscustomobject]@{ Verb = 'crashlog';     Aliases = @('crash');             Handler = 'Invoke-CrashLog';       Usage = 'rb crashlog';                       Help = 'Mostra o crash.log (texto plano) com as ultimas 200 linhas. Inclui crash.old.log rotacionado se existir.' },

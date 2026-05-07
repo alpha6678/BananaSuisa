@@ -44,11 +44,11 @@ rb.cmd publish all -Yes
 
 O `publish all`:
 
-1. Busca tags (`git fetch --tags`) e detecta apps alterados desde a última tag de cada prefixo (`<slug>-v` ou `app.json.githubTagPrefix`).
+1. Busca tags (`git fetch --tags`) e detecta **cada app** e o **Launcher** alterados desde a última tag do prefixo correspondente (`<slug>-v` ou `app.json.githubTagPrefix`; Launcher usa `launcher-v`).
 2. Calcula próxima versão com bump patch (`x.y.z -> x.y.(z+1)`).
-3. Atualiza versões no `.csproj` e no `app.json`.
+3. Atualiza versões: nos `.csproj` e `app.json` de cada app afetado; no **`Directory.Build.props`** quando o Launcher entra no plano.
 4. Executa `rb.cmd check`.
-5. Publica release no GitHub para cada app necessário (tags + assets).
+5. Publica release no GitHub para cada app e/ou o Launcher necessário (tags + assets).
 
 Observações:
 

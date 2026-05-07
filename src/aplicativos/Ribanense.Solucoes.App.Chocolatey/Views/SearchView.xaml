@@ -11,6 +11,32 @@
         <ui:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
     </UserControl.Resources>
     <DockPanel LastChildFill="True">
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0"
+                     FontSize="14"
+                     Padding="10,6"
+                     VerticalContentAlignment="Center"
+                     Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
+                </TextBox.InputBindings>
+            </TextBox>
+            <Button Grid.Column="1"
+                    Margin="8,0,0,0"
+                    Content="Buscar"
+                    Style="{StaticResource Button.Accent}"
+                    Command="{Binding SearchCommand}" />
+        </Grid>
+
+        <TextBlock DockPanel.Dock="Top"
+                   Margin="0,0,0,8"
+                   Foreground="{StaticResource Brush.TextMuted}"
+                   Text="{Binding StatusMessage}" />
+
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <TextBlock FontSize="15"
                        FontWeight="SemiBold"
@@ -51,37 +77,15 @@
                        Visibility="{Binding IsPopularBusy, Converter={StaticResource BoolToVis}}" />
         </StackPanel>
 
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0"
-                     FontSize="14"
-                     Padding="10,6"
-                     VerticalContentAlignment="Center"
-                     Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}">
-                <TextBox.InputBindings>
-                    <KeyBinding Key="Return" Command="{Binding SearchCommand}" />
-                </TextBox.InputBindings>
-            </TextBox>
-            <Button Grid.Column="1"
-                    Margin="8,0,0,0"
-                    Content="Buscar"
-                    Style="{StaticResource Button.Accent}"
-                    Command="{Binding SearchCommand}" />
-        </Grid>
-
-        <TextBlock DockPanel.Dock="Top"
-                   Margin="0,0,0,8"
-                   Foreground="{StaticResource Brush.TextMuted}"
-                   Text="{Binding StatusMessage}" />
-
         <DataGrid ItemsSource="{Binding Results}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />
                 <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="*" MinWidth="80" />
                 <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Popularidade"
+                                    Binding="{Binding DownloadSummary}"
+                                    Width="*"
+                                    MinWidth="80" />
                 <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="*" MinWidth="80" />
                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="80" />
                 <DataGridTemplateColumn Header="" Width="Auto">
