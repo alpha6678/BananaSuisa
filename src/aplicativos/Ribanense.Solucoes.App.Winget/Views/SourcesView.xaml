@@ -41,43 +41,6 @@
             </StackPanel>
         </Grid>
 
-        <Border DockPanel.Dock="Bottom"
-                Background="{StaticResource Brush.LogBg}"
-                MaxHeight="180"
-                Margin="0,12,0,0">
-            <DockPanel>
-                <Grid DockPanel.Dock="Top" Background="#2B2B2B">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="Log de fontes"
-                               Foreground="{StaticResource Brush.LogText}"
-                               VerticalAlignment="Center"
-                               Margin="12,6" />
-                    <Button Grid.Column="1"
-                            Content="Copiar"
-                            Style="{StaticResource Button.Base}"
-                            Margin="6"
-                            Command="{Binding CopyLogCommand}" />
-                </Grid>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding LogLines}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                           FontFamily="Consolas"
-                                           FontSize="12"
-                                           Foreground="{StaticResource Brush.LogText}"
-                                           Margin="12,1" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
-
         <DataGrid ItemsSource="{Binding Rows}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Nome"     Binding="{Binding Name}"       Width="*" MinWidth="80" />

@@ -5,9 +5,9 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>Ribanense.Solucoes.App.Winget</RootNamespace>
     <AssemblyName>Ribanense.Solucoes.App.Winget</AssemblyName>
-    <Version>0.2.3</Version>
-    <AssemblyVersion>0.2.3.0</AssemblyVersion>
-    <FileVersion>0.2.3.0</FileVersion>
+    <Version>0.2.4</Version>
+    <AssemblyVersion>0.2.4.0</AssemblyVersion>
+    <FileVersion>0.2.4.0</FileVersion>
     <Product>Gestor WinGet — Ribanense Soluções</Product>
   </PropertyGroup>
   <ItemGroup>
@@ -30,6 +30,7 @@
     <InternalsVisibleTo Include="Ribanense.Solucoes.App.Winget.Tests" />
   </ItemGroup>
 </Project>
+
 
 
 

@@ -9,7 +9,7 @@ public class EmbeddedAppAliasCatalogTests
     public void Loads_at_least_20_entries()
     {
         var catalog = new EmbeddedAppAliasCatalog();
-        Assert.True(catalog.All.Count >= 20, $"esperava >=20, obtido {catalog.All.Count}");
+        Assert.True(catalog.All.Count >= 50, $"esperava >=50, obtido {catalog.All.Count}");
     }
 
     [Fact]
@@ -42,5 +42,41 @@ public class EmbeddedAppAliasCatalogTests
                 Assert.False(string.IsNullOrWhiteSpace(syn), $"sinonimo vazio em {alias.Id}");
             }
         }
+    }
+
+    [Fact]
+    public void Suggested_contains_required_audited_apps()
+    {
+        var catalog = new EmbeddedAppAliasCatalog();
+        string[] required =
+        [
+            "Google.Chrome",
+            "Mozilla.Firefox",
+            "VideoLAN.VLC",
+            "MPC-BE.MPC-BE",
+            "AnyDesk.AnyDesk",
+            "TeamViewer.TeamViewer",
+            "Microsoft.Teams",
+            "TheDocumentFoundation.LibreOffice",
+            "OBSProject.OBSStudio"
+        ];
+
+        foreach (string id in required)
+        {
+            var alias = Assert.Single(catalog.All, a => a.Id == id);
+            Assert.True(alias.IsSuggested, $"{id} deveria estar marcado como sugerido");
+            Assert.Equal("verified-winget-show", alias.AuditStatus);
+            Assert.Contains(catalog.Suggested, a => a.Id == id);
+        }
+    }
+
+    [Fact]
+    public void Suggested_are_ordered_by_suggested_order()
+    {
+        var catalog = new EmbeddedAppAliasCatalog();
+        var orders = catalog.Suggested.Select(a => a.SuggestedOrder ?? int.MaxValue).ToList();
+
+        Assert.NotEmpty(orders);
+        Assert.Equal(orders.OrderBy(v => v), orders);
     }
 }

@@ -38,7 +38,7 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
 
         SearchTab = new SearchViewModel(search, popular, this);
         InstalledTab = new InstalledViewModel(list, this);
-        SourcesTab = new SourcesViewModel(sources, log);
+        SourcesTab = new SourcesViewModel(sources, log, DispatcherAppend);
 
         SelectSearchCommand = new RelayCommand(() => CurrentTab = AppTab.Search);
         SelectInstalledCommand = new RelayCommand(() => CurrentTab = AppTab.Installed);

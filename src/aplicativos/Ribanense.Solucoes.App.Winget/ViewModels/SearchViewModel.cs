@@ -10,14 +10,16 @@ public sealed class SearchViewModel : ObservableObject
     private readonly ISearchEnhancer _search;
     private readonly IPackageRowHost _host;
 
-    public SearchViewModel(ISearchEnhancer search, IPackageRowHost host)
+    public SearchViewModel(ISearchEnhancer search, IAppAliasCatalog catalog, IPackageRowHost host)
     {
         _search = search;
         _host = host;
 
         SearchCommand = new AsyncRelayCommand(_ => ExecuteSearchAsync(), _ => !IsBusy && !string.IsNullOrWhiteSpace(Query));
+        LoadSuggestedPackages(catalog);
     }
 
+    public ObservableCollection<PackageRowViewModel> SuggestedPackages { get; } = new();
     public ObservableCollection<PackageRowViewModel> Results { get; } = new();
 
     private string _query = string.Empty;
@@ -48,6 +50,23 @@ public sealed class SearchViewModel : ObservableObject
     }
 
     public ICommand SearchCommand { get; }
+
+    private void LoadSuggestedPackages(IAppAliasCatalog catalog)
+    {
+        foreach (var alias in catalog.Suggested.Take(20))
+        {
+            SuggestedPackages.Add(new PackageRowViewModel(
+                PackageRowKind.SearchResult,
+                alias.PublicName ?? alias.Id,
+                alias.Id,
+                string.Empty,
+                _host)
+            {
+                Source = "winget",
+                Status = alias.Category ?? "Sugerido"
+            });
+        }
+    }
 
     private async Task ExecuteSearchAsync()
     {

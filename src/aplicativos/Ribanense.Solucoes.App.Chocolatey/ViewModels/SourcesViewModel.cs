@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Input;
 using Ribanense.Solucoes.App.Chocolatey.Services.Sources;
 using Ribanense.Solucoes.PluginSDK.Logging;
-using Ribanense.Solucoes.UI;
 using Ribanense.Solucoes.UI.Mvvm;
 
 namespace Ribanense.Solucoes.App.Chocolatey.ViewModels;
@@ -12,18 +11,18 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
 {
     private readonly IChocolateySourceService _svc;
     private readonly IAppJsonLog _log;
+    private readonly Action<string> _appendLog;
 
-    public SourcesViewModel(IChocolateySourceService svc, IAppJsonLog log)
+    public SourcesViewModel(IChocolateySourceService svc, IAppJsonLog log, Action<string> appendLog)
     {
         _svc = svc;
         _log = log;
+        _appendLog = appendLog;
 
         RefreshCommand = new AsyncRelayCommand(_ => ReloadAsync(), _ => !IsBusy);
-        CopyLogCommand = new RelayCommand(() => LogLinesClipboard.CopyOrWarn(LogLines, "Gestor Chocolatey"));
     }
 
     public ObservableCollection<SourceRowViewModel> Rows { get; } = new();
-    public ObservableCollection<string> LogLines { get; } = new();
 
     private bool _isBusy;
     public bool IsBusy
@@ -40,7 +39,6 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
     }
 
     public ICommand RefreshCommand { get; }
-    public ICommand CopyLogCommand { get; }
 
     public async Task ReloadAsync()
     {
@@ -81,7 +79,7 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         AppendLog($"== Removendo fonte {row.Name} ==");
         try
         {
-            var result = await _svc.RemoveAsync(row.Name, line => DispatcherAppend(line), CancellationToken.None).ConfigureAwait(true);
+            var result = await _svc.RemoveAsync(row.Name, line => AppendLog(line), CancellationToken.None).ConfigureAwait(true);
             if (result.Success)
             {
                 AppendLog($"OK - {row.Name} removida.");
@@ -104,21 +102,9 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         }
     }
 
-    private void DispatcherAppend(string line)
-    {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            AppendLog(line);
-            return;
-        }
-        dispatcher.Invoke(() => AppendLog(line));
-    }
-
     private void AppendLog(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return;
-        LogLines.Add(line);
-        while (LogLines.Count > 200) LogLines.RemoveAt(0);
+        _appendLog(line);
     }
 }

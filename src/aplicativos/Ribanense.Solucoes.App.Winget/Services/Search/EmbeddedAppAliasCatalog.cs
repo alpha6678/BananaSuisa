@@ -24,6 +24,11 @@ public sealed class EmbeddedAppAliasCatalog : IAppAliasCatalog
     }
 
     public IReadOnlyList<AppAlias> All => _lazy.Value;
+    public IReadOnlyList<AppAlias> Suggested => All
+        .Where(a => a.IsSuggested)
+        .OrderBy(a => a.SuggestedOrder ?? int.MaxValue)
+        .ThenBy(a => a.PublicName ?? a.Id, StringComparer.OrdinalIgnoreCase)
+        .ToList();
 
     private static IReadOnlyList<AppAlias> LoadEmbedded()
     {

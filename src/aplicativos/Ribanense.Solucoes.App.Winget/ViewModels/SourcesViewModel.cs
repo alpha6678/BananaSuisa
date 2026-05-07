@@ -4,7 +4,6 @@ using System.Windows.Input;
 using Ribanense.Solucoes.App.Winget.Services.Sources;
 using Ribanense.Solucoes.App.Winget.Views.Dialogs;
 using Ribanense.Solucoes.PluginSDK.Logging;
-using Ribanense.Solucoes.UI;
 using Ribanense.Solucoes.UI.Mvvm;
 
 namespace Ribanense.Solucoes.App.Winget.ViewModels;
@@ -13,21 +12,21 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
 {
     private readonly IWingetSourceService _svc;
     private readonly IAppJsonLog _log;
+    private readonly Action<string> _appendLog;
 
-    public SourcesViewModel(IWingetSourceService svc, IAppJsonLog log)
+    public SourcesViewModel(IWingetSourceService svc, IAppJsonLog log, Action<string> appendLog)
     {
         _svc = svc;
         _log = log;
+        _appendLog = appendLog;
 
         RefreshCommand = new AsyncRelayCommand(_ => ReloadAsync(), _ => !IsBusy);
         RefreshAllSourcesCommand = new AsyncRelayCommand(_ => UpdateAllAsync(), _ => !IsBusy);
         ResetAllCommand = new AsyncRelayCommand(_ => ResetAllAsync(), _ => !IsBusy);
         AddNewCommand = new AsyncRelayCommand(_ => AddNewAsync(), _ => !IsBusy);
-        CopyLogCommand = new RelayCommand(() => LogLinesClipboard.CopyOrWarn(LogLines, "Gestor WinGet"));
     }
 
     public ObservableCollection<SourceRowViewModel> Rows { get; } = new();
-    public ObservableCollection<string> LogLines { get; } = new();
 
     private bool _isBusy;
     public bool IsBusy
@@ -47,7 +46,6 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
     public ICommand RefreshAllSourcesCommand { get; }
     public ICommand ResetAllCommand { get; }
     public ICommand AddNewCommand { get; }
-    public ICommand CopyLogCommand { get; }
 
     public async Task ReloadAsync()
     {
@@ -81,7 +79,7 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         AppendLog($"== Atualizando fonte {row.Name} ==");
         try
         {
-            var result = await _svc.UpdateAsync(row.Name, line => DispatcherAppend(line), CancellationToken.None).ConfigureAwait(true);
+            var result = await _svc.UpdateAsync(row.Name, line => AppendLog(line), CancellationToken.None).ConfigureAwait(true);
             row.Status = result.Success ? "Atualizada." : $"Falhou (exit {result.ExitCode}).";
         }
         catch (Exception ex)
@@ -109,7 +107,7 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         AppendLog($"== Removendo fonte {row.Name} ==");
         try
         {
-            var result = await _svc.RemoveAsync(row.Name, line => DispatcherAppend(line), CancellationToken.None).ConfigureAwait(true);
+            var result = await _svc.RemoveAsync(row.Name, line => AppendLog(line), CancellationToken.None).ConfigureAwait(true);
             if (result.Success)
             {
                 AppendLog($"OK - {row.Name} removida.");
@@ -139,7 +137,7 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         AppendLog("== Atualizando todas as fontes ==");
         try
         {
-            var result = await _svc.UpdateAsync(null, line => DispatcherAppend(line), CancellationToken.None).ConfigureAwait(true);
+            var result = await _svc.UpdateAsync(null, line => AppendLog(line), CancellationToken.None).ConfigureAwait(true);
             StatusMessage = result.Success ? "Atualizacao concluida." : $"Falhou (exit {result.ExitCode}).";
             await ReloadAsync().ConfigureAwait(true);
         }
@@ -167,7 +165,7 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         StatusMessage = "Aguardando UAC para restaurar...";
         AppendLog("== Reset de fontes (requer UAC) ==");
 
-        var progress = new Progress<string>(line => DispatcherAppend(line));
+        var progress = new Progress<string>(line => AppendLog(line));
         try
         {
             var result = await _svc.ResetAsync(progress, CancellationToken.None).ConfigureAwait(true);
@@ -211,7 +209,7 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         AppendLog($"== Adicionando fonte {name} ({arg}) ==");
         try
         {
-            var result = await _svc.AddAsync(name, arg, type, line => DispatcherAppend(line), CancellationToken.None).ConfigureAwait(true);
+            var result = await _svc.AddAsync(name, arg, type, line => AppendLog(line), CancellationToken.None).ConfigureAwait(true);
             if (result.Success)
             {
                 StatusMessage = $"Fonte {name} adicionada.";
@@ -234,21 +232,9 @@ public sealed class SourcesViewModel : ObservableObject, ISourceRowHost
         }
     }
 
-    private void DispatcherAppend(string line)
-    {
-        var dispatcher = Application.Current?.Dispatcher;
-        if (dispatcher is null || dispatcher.CheckAccess())
-        {
-            AppendLog(line);
-            return;
-        }
-        dispatcher.Invoke(() => AppendLog(line));
-    }
-
     private void AppendLog(string line)
     {
         if (string.IsNullOrWhiteSpace(line)) return;
-        LogLines.Add(line);
-        while (LogLines.Count > 200) LogLines.RemoveAt(0);
+        _appendLog(line);
     }
 }

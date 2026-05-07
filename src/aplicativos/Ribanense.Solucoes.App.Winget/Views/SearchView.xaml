@@ -33,6 +33,36 @@
                    Foreground="{StaticResource Brush.TextMuted}"
                    Text="{Binding StatusMessage}" />
 
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+            <TextBlock FontSize="15"
+                       FontWeight="SemiBold"
+                       Text="Sugeridos auditados" />
+            <TextBlock Margin="0,4,0,8"
+                       Foreground="{StaticResource Brush.TextMuted}"
+                       Text="Aplicativos populares verificados no catálogo winget. Instale com um clique ou use a busca acima."
+                       TextWrapping="Wrap" />
+            <DataGrid MaxHeight="260"
+                      ItemsSource="{Binding SuggestedPackages}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />
+                    <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="*" MinWidth="80" />
+                    <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="*" MinWidth="80" />
+                    <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="*" MinWidth="80" />
+                    <DataGridTextColumn Header="Categoria" Binding="{Binding Status}" Width="*" MinWidth="80" />
+                    <DataGridTemplateColumn Header="" Width="Auto">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="Instalar"
+                                        Style="{StaticResource Button.Accent}"
+                                        Margin="6,2"
+                                        Command="{Binding InstallCommand}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </StackPanel>
+
         <DataGrid ItemsSource="{Binding Results}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />

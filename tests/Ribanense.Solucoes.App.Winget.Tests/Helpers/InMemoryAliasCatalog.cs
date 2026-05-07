@@ -11,6 +11,11 @@ public sealed class InMemoryAliasCatalog : IAppAliasCatalog
     }
 
     public IReadOnlyList<AppAlias> All { get; }
+    public IReadOnlyList<AppAlias> Suggested => All
+        .Where(a => a.IsSuggested)
+        .OrderBy(a => a.SuggestedOrder ?? int.MaxValue)
+        .ThenBy(a => a.PublicName ?? a.Id, StringComparer.OrdinalIgnoreCase)
+        .ToList();
 }
 
 public sealed class FakeWingetSearchService : IWingetSearchService
