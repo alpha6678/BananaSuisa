@@ -80,11 +80,11 @@
 
         <DataGrid ItemsSource="{Binding Rows}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Nome"     Binding="{Binding Name}"       Width="*" MinWidth="120" />
-                <DataGridTextColumn Header="URL / Arg" Binding="{Binding Argument}"  Width="3*" MinWidth="260" />
-                <DataGridTextColumn Header="Tipo"     Binding="{Binding Type}"       Width="Auto" MinWidth="150" />
-                <DataGridTextColumn Header="Confianca" Binding="{Binding TrustLevel}" Width="Auto" MinWidth="80" />
-                <DataGridTextColumn Header="Status"   Binding="{Binding Status}"     Width="2*" MinWidth="120" />
+                <DataGridTextColumn Header="Nome"     Binding="{Binding Name}"       Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="URL / Arg" Binding="{Binding Argument}"  Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Tipo"     Binding="{Binding Type}"       Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Confianca" Binding="{Binding TrustLevel}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Status"   Binding="{Binding Status}"     Width="*" MinWidth="80" />
                 <DataGridTemplateColumn Header="" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

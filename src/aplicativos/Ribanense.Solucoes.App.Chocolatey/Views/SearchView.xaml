@@ -24,15 +24,15 @@
                       ItemsSource="{Binding PopularSuggestions}"
                       Visibility="{Binding IsPopularBusy, Converter={StaticResource InverseBoolToVis}}">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="120" />
-                    <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="2*" MinWidth="160" />
-                    <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="Auto" MinWidth="72" />
+                    <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />
+                    <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="*" MinWidth="80" />
+                    <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="*" MinWidth="80" />
                     <DataGridTextColumn Header="Popularidade"
                                         Binding="{Binding DownloadSummary}"
-                                        Width="Auto"
-                                        MinWidth="140" />
-                    <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="Auto" MinWidth="120" />
-                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="2*" MinWidth="100" />
+                                        Width="*"
+                                        MinWidth="80" />
+                    <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="*" MinWidth="80" />
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="80" />
                     <DataGridTemplateColumn Header="" Width="Auto">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
@@ -79,11 +79,11 @@
 
         <DataGrid ItemsSource="{Binding Results}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="140" />
-                <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="2*" MinWidth="200" />
-                <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="Auto" MinWidth="80" />
-                <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="Auto" MinWidth="90" />
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="2*" MinWidth="120" />
+                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="80" />
                 <DataGridTemplateColumn Header="" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

@@ -67,11 +67,11 @@
 
         <DataGrid ItemsSource="{Binding Rows}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="120" />
-                <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="3*" MinWidth="260" />
-                <DataGridTextColumn Header="Desabilitada" Binding="{Binding Disabled}" Width="Auto" MinWidth="100" />
-                <DataGridTextColumn Header="Prioridade" Binding="{Binding Priority}" Width="Auto" MinWidth="80" />
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="2*" MinWidth="120" />
+                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Desabilitada" Binding="{Binding Disabled}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Prioridade" Binding="{Binding Priority}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="80" />
                 <DataGridTemplateColumn Header="" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

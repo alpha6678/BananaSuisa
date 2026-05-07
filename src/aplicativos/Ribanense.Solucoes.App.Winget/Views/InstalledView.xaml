@@ -24,11 +24,11 @@
 
         <DataGrid ItemsSource="{Binding Packages}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="140" />
-                <DataGridTextColumn Header="Id"   Binding="{Binding Id}"   Width="2*" MinWidth="200" />
-                <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="Auto" MinWidth="80" />
-                <DataGridTextColumn Header="Disponível" Binding="{Binding AvailableVersion}" Width="Auto" MinWidth="80" />
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="2*" MinWidth="120" />
+                <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Id"   Binding="{Binding Id}"   Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Disponível" Binding="{Binding AvailableVersion}" Width="*" MinWidth="80" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="80" />
                 <DataGridTemplateColumn Header="" Width="98" MinWidth="98" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
