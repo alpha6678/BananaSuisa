@@ -29,7 +29,7 @@
       "id": "com.ribanense.sistema",
       "name": "Gestor de Sistema",
       "publicName": "Gestor de Sistema",
-      "description": "Ativação do Windows e Office via MAS (open-source): HWID, Ohook, KMS38, KMS Online e solução de problemas.",
+      "description": "Ativação do Windows e Office via MAS (open-source): HWID, Ohook, TSforge, KMS Online e solução de problemas.",
       "category": "Sistema",
       "icon": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/icons/sistema.png",
       "githubOwner": "desenvolvimentoLocatelli",
