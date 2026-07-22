@@ -30,14 +30,13 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
         IWingetInstallService installer,
         IWingetLocator locator,
         IWingetSourceService sources,
-        IAppAliasCatalog aliasCatalog,
         IAppJsonLog log)
     {
         _installer = installer;
         _locator = locator;
         _log = log;
 
-        SearchTab = new SearchViewModel(search, aliasCatalog, this);
+        SearchTab = new SearchViewModel(search, this);
         InstalledTab = new InstalledViewModel(list, this);
         SourcesTab = new SourcesViewModel(sources, log, DispatcherAppend);
 

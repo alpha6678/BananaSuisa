@@ -2,14 +2,10 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Chocolatey.ViewModels"
-             xmlns:ui="clr-namespace:Ribanense.Solucoes.UI.Converters;assembly=Ribanense.Solucoes.UI"
              d:DataContext="{d:DesignInstance Type=vm:SearchViewModel}"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
-    <UserControl.Resources>
-        <ui:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
-    </UserControl.Resources>
     <DockPanel LastChildFill="True">
         <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
@@ -37,55 +33,11 @@
                    Foreground="{StaticResource Brush.TextMuted}"
                    Text="{Binding StatusMessage}" />
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock FontSize="15"
-                       FontWeight="SemiBold"
-                       Text="Mais baixados no Chocolatey Community" />
-            <TextBlock Margin="0,4,0,8"
-                       Foreground="{StaticResource Brush.TextMuted}"
-                       Text="{Binding PopularStatusMessage}"
-                       TextWrapping="Wrap" />
-            <DataGrid MaxHeight="280"
-                      Margin="0,0,0,0"
-                      ItemsSource="{Binding PopularSuggestions}"
-                      Visibility="{Binding IsPopularBusy, Converter={StaticResource InverseBoolToVis}}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />
-                    <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="*" MinWidth="80" />
-                    <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="*" MinWidth="80" />
-                    <DataGridTextColumn Header="Popularidade"
-                                        Binding="{Binding DownloadSummary}"
-                                        Width="*"
-                                        MinWidth="80" />
-                    <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="*" MinWidth="80" />
-                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="80" />
-                    <DataGridTemplateColumn Header="" Width="Auto">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Button Content="Instalar"
-                                        Style="{StaticResource Button.Accent}"
-                                        Margin="6,2"
-                                        Command="{Binding InstallCommand}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
-            <TextBlock Margin="0,8,0,0"
-                       Foreground="{StaticResource Brush.TextMuted}"
-                       Text="Carregando ranking..."
-                       Visibility="{Binding IsPopularBusy, Converter={StaticResource BoolToVis}}" />
-        </StackPanel>
-
         <DataGrid ItemsSource="{Binding Results}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Nome" Binding="{Binding Name}" Width="*" MinWidth="80" />
                 <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="*" MinWidth="80" />
                 <DataGridTextColumn Header="Versão" Binding="{Binding Version}" Width="*" MinWidth="80" />
-                <DataGridTextColumn Header="Popularidade"
-                                    Binding="{Binding DownloadSummary}"
-                                    Width="*"
-                                    MinWidth="80" />
                 <DataGridTextColumn Header="Origem" Binding="{Binding Source}" Width="*" MinWidth="80" />
                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" MinWidth="80" />
                 <DataGridTemplateColumn Header="" Width="Auto">

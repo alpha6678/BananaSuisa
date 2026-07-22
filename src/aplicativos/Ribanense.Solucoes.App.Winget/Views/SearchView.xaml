@@ -6,9 +6,6 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
-    </UserControl.Resources>
     <DockPanel LastChildFill="True">
         <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
@@ -35,54 +32,6 @@
                    Margin="0,0,0,8"
                    Foreground="{StaticResource Brush.TextMuted}"
                    Text="{Binding StatusMessage}" />
-
-        <StackPanel DockPanel.Dock="Top"
-                    Margin="0,0,0,16"
-                    Visibility="{Binding ShowSuggested, Converter={StaticResource BoolToVis}}">
-            <TextBlock FontSize="15"
-                       FontWeight="SemiBold"
-                       Text="Sugeridos auditados" />
-            <TextBlock Margin="0,4,0,8"
-                       Foreground="{StaticResource Brush.TextMuted}"
-                       Text="Aplicativos populares verificados no catálogo winget. Instale com um clique ou use a busca acima."
-                       TextWrapping="Wrap" />
-            <ScrollViewer MaxHeight="260"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding SuggestedPackages}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock FontWeight="SemiBold"
-                                               Text="{Binding Name}"
-                                               TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Foreground="{StaticResource Brush.TextMuted}"
-                                               FontSize="12"
-                                               Text="{Binding Id}"
-                                               TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                                <TextBlock Grid.Column="1"
-                                           Margin="12,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="{StaticResource Brush.TextMuted}"
-                                           Text="{Binding Category}" />
-                                <Button Grid.Column="2"
-                                        Content="Instalar"
-                                        Style="{StaticResource Button.Accent}"
-                                        Margin="6,2"
-                                        Command="{Binding InstallCommand}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </StackPanel>
 
         <DataGrid ItemsSource="{Binding Results}">
             <DataGrid.Columns>

@@ -25,7 +25,6 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
 
     public MainWindowViewModel(
         IChocolateySearchService search,
-        IChocolateyPopularPackagesService popular,
         IChocolateyListService list,
         IChocolateyInstallService installer,
         IChocolateyLocator locator,
@@ -36,7 +35,7 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
         _locator = locator;
         _log = log;
 
-        SearchTab = new SearchViewModel(search, popular, this);
+        SearchTab = new SearchViewModel(search, this);
         InstalledTab = new InstalledViewModel(list, this);
         SourcesTab = new SourcesViewModel(sources, log, DispatcherAppend);
 
@@ -102,14 +101,12 @@ public sealed class MainWindowViewModel : ObservableObject, IPackageRowHost
 
         AppendLog($"Gestor Chocolatey iniciado. {ChocolateyStatus}");
 
-        Task popularTask = SearchTab.EnsurePopularSuggestionsAsync();
         if (path is null)
         {
-            await popularTask.ConfigureAwait(true);
             return;
         }
 
-        await Task.WhenAll(InstalledTab.RefreshAsync(), popularTask).ConfigureAwait(true);
+        await InstalledTab.RefreshAsync().ConfigureAwait(true);
     }
 
     private async Task OnTabActivatedAsync(AppTab tab)

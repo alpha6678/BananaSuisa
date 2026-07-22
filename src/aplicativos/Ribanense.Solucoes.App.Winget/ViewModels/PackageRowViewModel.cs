@@ -54,8 +54,6 @@ public sealed class PackageRowViewModel : ObservableObject
 
     public string Source { get; init; } = string.Empty;
 
-    public string Category { get; init; } = string.Empty;
-
     public bool HasUpdate =>
         !string.IsNullOrWhiteSpace(AvailableVersion)
         && !string.Equals(AvailableVersion, Version, StringComparison.Ordinal);

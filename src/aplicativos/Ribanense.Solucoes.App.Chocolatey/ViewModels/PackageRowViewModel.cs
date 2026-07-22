@@ -51,9 +51,6 @@ public sealed class PackageRowViewModel : ObservableObject
 
     public string Source { get; init; } = string.Empty;
 
-    /// <summary>Texto opcional (ex.: downloads no CCR) para colunas de descoberta.</summary>
-    public string? DownloadSummary { get; init; }
-
     public bool HasUpdate =>
         !string.IsNullOrWhiteSpace(AvailableVersion)
         && !string.Equals(AvailableVersion, Version, StringComparison.OrdinalIgnoreCase);

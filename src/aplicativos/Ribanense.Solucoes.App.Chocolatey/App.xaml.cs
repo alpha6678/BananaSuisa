@@ -1,4 +1,3 @@
-using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
@@ -62,14 +61,12 @@ public partial class App : Application
         var locator = new ChocolateyLocator();
         var executor = new ChocolateyExecutor(locator);
         var search = new ChocolateySearchService(executor);
-        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
-        var popularPackages = new ChocolateyPopularPackagesService(http);
         var list = new ChocolateyListService(executor);
         var installer = new ChocolateyInstallService(executor);
         var sources = new ChocolateySourceService(executor);
         var diagnostics = new ChocolateyDiagnostics(locator, executor);
 
-        var viewModel = new MainWindowViewModel(search, popularPackages, list, installer, locator, sources, _logger)
+        var viewModel = new MainWindowViewModel(search, list, installer, locator, sources, _logger)
         {
             ModuleTab = new ModuleViewModel(diagnostics, _logger)
         };

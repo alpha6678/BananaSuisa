@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Windows.Input;
 using Ribanense.Solucoes.App.Winget.Services.Search;
 using Ribanense.Solucoes.UI.Mvvm;
@@ -11,17 +10,14 @@ public sealed class SearchViewModel : ObservableObject
     private readonly ISearchEnhancer _search;
     private readonly IPackageRowHost _host;
 
-    public SearchViewModel(ISearchEnhancer search, IAppAliasCatalog catalog, IPackageRowHost host)
+    public SearchViewModel(ISearchEnhancer search, IPackageRowHost host)
     {
         _search = search;
         _host = host;
 
         SearchCommand = new AsyncRelayCommand(_ => ExecuteSearchAsync(), _ => !IsBusy && !string.IsNullOrWhiteSpace(Query));
-        Results.CollectionChanged += OnResultsChanged;
-        LoadSuggestedPackages(catalog);
     }
 
-    public ObservableCollection<PackageRowViewModel> SuggestedPackages { get; } = new();
     public ObservableCollection<PackageRowViewModel> Results { get; } = new();
 
     private string _query = string.Empty;
@@ -30,19 +26,10 @@ public sealed class SearchViewModel : ObservableObject
         get => _query;
         set
         {
-            if (!SetProperty(ref _query, value))
+            if (SetProperty(ref _query, value))
             {
-                return;
+                CommandManager.InvalidateRequerySuggested();
             }
-
-            if (string.IsNullOrWhiteSpace(value) && Results.Count > 0)
-            {
-                Results.Clear();
-                StatusMessage = null;
-            }
-
-            OnPropertyChanged(nameof(ShowSuggested));
-            CommandManager.InvalidateRequerySuggested();
         }
     }
 
@@ -60,27 +47,7 @@ public sealed class SearchViewModel : ObservableObject
         set => SetProperty(ref _statusMessage, value);
     }
 
-    public bool ShowSuggested =>
-        Results.Count == 0 && string.IsNullOrWhiteSpace(Query);
-
     public ICommand SearchCommand { get; }
-
-    private void LoadSuggestedPackages(IAppAliasCatalog catalog)
-    {
-        foreach (var alias in catalog.Suggested.Take(20))
-        {
-            SuggestedPackages.Add(new PackageRowViewModel(
-                PackageRowKind.SearchResult,
-                alias.PublicName ?? alias.Id,
-                alias.Id,
-                string.Empty,
-                _host)
-            {
-                Source = "winget",
-                Category = alias.Category ?? "Sugerido"
-            });
-        }
-    }
 
     private async Task ExecuteSearchAsync()
     {
@@ -108,7 +75,4 @@ public sealed class SearchViewModel : ObservableObject
             IsBusy = false;
         }
     }
-
-    private void OnResultsChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
-        OnPropertyChanged(nameof(ShowSuggested));
 }

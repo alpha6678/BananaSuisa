@@ -75,7 +75,7 @@ public partial class App : Application
         var repair = new AppInstallerRepair(elevated);
         var moduleVm = new ModuleViewModel(diagnostics, repair, _logger);
 
-        var viewModel = new MainWindowViewModel(enhancer, list, installer, locator, sources, aliasCatalog, _logger)
+        var viewModel = new MainWindowViewModel(enhancer, list, installer, locator, sources, _logger)
         {
             ModuleTab = moduleVm
         };
