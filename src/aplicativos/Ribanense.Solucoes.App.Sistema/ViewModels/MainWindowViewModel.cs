@@ -10,6 +10,7 @@ public sealed class MainWindowViewModel : ObservableObject
     public MainWindowViewModel(ActivationViewModel activationTab)
     {
         ActivationTab = activationTab ?? throw new ArgumentNullException(nameof(activationTab));
+        ActivationTab.AttachUiLog(AppendLog);
         ClearLogCommand = new RelayCommand(() => LogLines.Clear());
         CopyLogCommand = new RelayCommand(() => LogLinesClipboard.CopyOrWarn(LogLines, ProductName));
     }
@@ -25,7 +26,7 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public void AppendLog(string line)
     {
-        // Garante append na thread da UI.
+        if (string.IsNullOrEmpty(line)) return;
         if (System.Windows.Threading.Dispatcher.CurrentDispatcher.CheckAccess())
         {
             LogLines.Add(line);

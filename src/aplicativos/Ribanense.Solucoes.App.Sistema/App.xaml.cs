@@ -55,9 +55,9 @@ public partial class App : Application
         _logger = new AppJsonLogWriter(_vault);
         _logger.Write(AppLogLevel.Information, "startup", $"Gestor de Sistema iniciado em {paths.AppData}.");
 
-        var elevated = new ElevatedCommandRunner();
-        var masRunner = new MasRunner(paths.AppData, elevated);
-        var activationVm = new ActivationViewModel(masRunner, line => _logger?.Write(AppLogLevel.Information, "activation", line));
+        var launcher = new ProcessLauncher();
+        var masRunner = new MasRunner(paths.AppData, launcher);
+        var activationVm = new ActivationViewModel(masRunner, _logger);
 
         var viewModel = new MainWindowViewModel(activationVm);
         viewModel.AppendLog("Gestor de Sistema pronto.");

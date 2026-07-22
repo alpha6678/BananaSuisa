@@ -10,18 +10,18 @@ namespace Ribanense.Solucoes.App.Sistema.Services;
 /// </summary>
 public sealed class MasRunner : IMasRunner
 {
-    /// <summary>URL crua do MAS AIO no GitHub (massgravel/MAS).</summary>
+    /// <summary>URL crua do MAS AIO (massgravel/Microsoft-Activation-Scripts).</summary>
     public const string MasAioUrl =
-        "https://raw.githubusercontent.com/massgravel/MAS/master/MAS/All-In-One-Version/MAS_AIO.cmd";
+        "https://raw.githubusercontent.com/massgravel/Microsoft-Activation-Scripts/05c4f881efec946c0040cdd552d1afa9a519704b/MAS/All-In-One-Version-KL/MAS_AIO.cmd";
 
     private readonly string _cacheDir;
-    private readonly IElevatedCommandRunner _elevated;
+    private readonly IProcessLauncher _launcher;
     private readonly Func<HttpClient> _httpClientFactory;
 
-    public MasRunner(string cacheDir, IElevatedCommandRunner elevated, Func<HttpClient>? httpClientFactory = null)
+    public MasRunner(string cacheDir, IProcessLauncher launcher, Func<HttpClient>? httpClientFactory = null)
     {
         _cacheDir = cacheDir ?? throw new ArgumentNullException(nameof(cacheDir));
-        _elevated = elevated ?? throw new ArgumentNullException(nameof(elevated));
+        _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
         _httpClientFactory = httpClientFactory ?? (() => new HttpClient { Timeout = TimeSpan.FromMinutes(5) });
     }
 
@@ -52,25 +52,37 @@ public sealed class MasRunner : IMasRunner
             return new MasRunResult(false, $"Falha ao baixar o MAS: {ex.Message}", false);
         }
 
-        // O MAS_AIO.cmd e interativo; passamos o codigo do metodo como argumento
-        // para saltar o menu. Se a versao do MAS nao aceitar, ele abre o menu.
-        string script = $"& cmd /c '\"{scriptPath}\" {method.MenuCode}'";
+        // MAS_AIO.cmd e interativo: precisa de janela visivel para o usuario
+        // escolher/confirmar o metodo. Passamos o codigo do metodo como argumento
+        // para saltar o menu quando a versao do MAS aceitar.
+        var psi = new ProcessStartInfo("cmd.exe")
+        {
+            UseShellExecute = true,
+            Verb = "runas",
+            WindowStyle = ProcessWindowStyle.Normal,
+            CreateNoWindow = false,
+        };
+        psi.ArgumentList.Add("/c");
+        psi.ArgumentList.Add($"\"{scriptPath}\" {method.MenuCode}");
 
-        ElevatedResult result = await _elevated.RunScriptAsync(script, onLine, ct).ConfigureAwait(false);
-
-        if (result.Cancelled)
+        int exitCode;
+        try
+        {
+            onLine?.Report("Abrindo janela elevada do MAS...");
+            exitCode = await _launcher.StartAndWaitAsync(psi, ct).ConfigureAwait(false);
+        }
+        catch (System.ComponentModel.Win32Exception win32) when (win32.NativeErrorCode == 1223)
         {
             return new MasRunResult(false, "Elevação cancelada (UAC).", true);
         }
-
-        if (result.ExitCode == ElevatedCommandRunner.UacCancelledExitCode)
+        catch (OperationCanceledException)
         {
-            return new MasRunResult(false, "Elevação cancelada (UAC).", true);
+            return new MasRunResult(false, "Operação cancelada.", true);
         }
 
-        if (result.ExitCode != 0)
+        if (exitCode != 0)
         {
-            return new MasRunResult(false, $"MAS encerrou com código {result.ExitCode}.", false);
+            return new MasRunResult(false, $"MAS encerrou com código {exitCode}.", false);
         }
 
         return new MasRunResult(true, null, false);

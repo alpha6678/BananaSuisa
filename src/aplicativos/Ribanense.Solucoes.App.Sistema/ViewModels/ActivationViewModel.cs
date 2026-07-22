@@ -1,6 +1,6 @@
-using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Ribanense.Solucoes.App.Sistema.Services;
+using Ribanense.Solucoes.PluginSDK.Logging;
 using Ribanense.Solucoes.UI.Mvvm;
 
 namespace Ribanense.Solucoes.App.Sistema.ViewModels;
@@ -8,17 +8,24 @@ namespace Ribanense.Solucoes.App.Sistema.ViewModels;
 public sealed class ActivationViewModel : ObservableObject
 {
     private readonly IMasRunner _runner;
-    private readonly Action<string> _appendLog;
+    private readonly IAppJsonLog? _logger;
+    private Action<string>? _logSink;
 
-    public ActivationViewModel(IMasRunner runner, Action<string> appendLog)
+    public ActivationViewModel(IMasRunner runner, IAppJsonLog? logger = null)
     {
         _runner = runner ?? throw new ArgumentNullException(nameof(runner));
-        _appendLog = appendLog ?? throw new ArgumentNullException(nameof(appendLog));
+        _logger = logger;
         Methods = MasMethod.All;
         RunCommand = new AsyncRelayCommand(p => RunAsync((MasMethod)p!), p => !IsBusy && p is MasMethod);
     }
 
     public IReadOnlyList<MasMethod> Methods { get; }
+
+    /// <summary>
+    /// Define o sink de log da UI (geralmente MainWindowViewModel.AppendLog).
+    /// Chamado apos a MainWindow ser construida para evitar dependencia circular.
+    /// </summary>
+    public void AttachUiLog(Action<string> logSink) => _logSink = logSink;
 
     private bool _isBusy;
     public bool IsBusy
@@ -33,45 +40,38 @@ public sealed class ActivationViewModel : ObservableObject
         }
     }
 
-    private MasMethod? _selectedMethod;
-    public MasMethod? SelectedMethod
-    {
-        get => _selectedMethod;
-        set
-        {
-            if (SetProperty(ref _selectedMethod, value))
-            {
-                CommandManager.InvalidateRequerySuggested();
-            }
-        }
-    }
-
     public ICommand RunCommand { get; }
+
+    private void Log(string line)
+    {
+        try { _logger?.Write(AppLogLevel.Information, "activation", line); } catch { }
+        _logSink?.Invoke(line);
+    }
 
     private async Task RunAsync(MasMethod method)
     {
         IsBusy = true;
-        _appendLog($"Iniciando: {method.Display}...");
+        Log($"Iniciando: {method.Display}...");
         try
         {
-            var progress = new Progress<string>(line => _appendLog(line));
+            var progress = new Progress<string>(line => Log(line));
             var result = await _runner.RunAsync(method, progress, CancellationToken.None).ConfigureAwait(true);
             if (result.Success)
             {
-                _appendLog($"Concluído: {method.Display}.");
+                Log($"Concluído: {method.Display}.");
             }
             else if (result.Cancelled)
             {
-                _appendLog($"Cancelado: {result.Error}");
+                Log($"Cancelado: {result.Error}");
             }
             else
             {
-                _appendLog($"Falha: {result.Error}");
+                Log($"Falha: {result.Error}");
             }
         }
         catch (Exception ex)
         {
-            _appendLog($"Erro: {ex.Message}");
+            Log($"Erro: {ex.Message}");
         }
         finally
         {
