@@ -2,7 +2,7 @@
   "id": "com.ribanense.sistema",
   "name": "Gestor de Sistema",
   "publicName": "Gestor de Sistema",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "minimumLauncherVersion": "0.1.0",
   "entryExecutable": "Ribanense.Solucoes.App.Sistema.exe",
   "icon": "icon.png",
@@ -10,4 +10,5 @@
   "requiresElevation": false,
   "githubTagPrefix": "sistema-v"
 }
+
 
