@@ -2,7 +2,7 @@
   "id": "com.ribanense.chocolatey",
   "name": "Gestor Chocolatey",
   "publicName": "Gestor Chocolatey",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "minimumLauncherVersion": "0.1.0",
   "entryExecutable": "Ribanense.Solucoes.App.Chocolatey.exe",
   "icon": "icon.png",
