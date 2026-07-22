@@ -2,7 +2,7 @@
   "id": "com.ribanense.winget",
   "name": "Gestor WinGet",
   "publicName": "Gestor WinGet",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "minimumLauncherVersion": "0.1.0",
   "entryExecutable": "Ribanense.Solucoes.App.Winget.exe",
   "icon": "icon.png",
