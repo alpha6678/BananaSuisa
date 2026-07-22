@@ -24,6 +24,18 @@
       "githubRepo": "BananaSuisa",
       "githubTagPrefix": "chocolatey-v",
       "minimumLauncherVersion": "0.1.0"
+    },
+    {
+      "id": "com.ribanense.sistema",
+      "name": "Gestor de Sistema",
+      "publicName": "Gestor de Sistema",
+      "description": "Ativação do Windows e Office via MAS (open-source): HWID, Ohook, KMS38, KMS Online e solução de problemas.",
+      "category": "Sistema",
+      "icon": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/icons/sistema.png",
+      "githubOwner": "desenvolvimentoLocatelli",
+      "githubRepo": "BananaSuisa",
+      "githubTagPrefix": "sistema-v",
+      "minimumLauncherVersion": "0.1.0"
     }
   ]
 }

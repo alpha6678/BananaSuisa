@@ -1,0 +1,63 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Sistema.Views.ActivationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Sistema.ViewModels"
+             d:DataContext="{d:DesignInstance Type=vm:ActivationViewModel}"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <DockPanel LastChildFill="True">
+        <Border DockPanel.Dock="Top"
+                Style="{StaticResource Badge.Warning}"
+                Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock FontWeight="SemiBold"
+                           Text="Ativação do Windows e Office via MAS (open-source)" />
+                <TextBlock Margin="0,4,0,0"
+                           Foreground="{StaticResource Brush.TextMuted}"
+                           TextWrapping="Wrap"
+                           Text="O MAS é uma ferramenta open-source. Métodos: HWID, Ohook, KMS38 e KMS Online. Cada ação abre uma janela elevada (UAC) e executa o script baixado do repositório público do MAS." />
+            </StackPanel>
+        </Border>
+
+        <TextBlock DockPanel.Dock="Top"
+                   Margin="0,0,0,8"
+                   FontWeight="SemiBold"
+                   Text="Selecione um método:" />
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Methods}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource Badge.Surface}"
+                                Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock FontWeight="SemiBold"
+                                               Text="{Binding Display}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Margin="0,2,0,0"
+                                               Foreground="{StaticResource Brush.TextMuted}"
+                                               FontSize="12"
+                                               Text="{Binding Description}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Content="Executar"
+                                        Style="{StaticResource Button.Accent}"
+                                        Margin="12,0"
+                                        Command="{Binding DataContext.RunCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

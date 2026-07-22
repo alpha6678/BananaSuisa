@@ -1,0 +1,102 @@
+<Window x:Class="Ribanense.Solucoes.App.Sistema.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Sistema.ViewModels"
+        xmlns:b="clr-namespace:Ribanense.Solucoes.UI.Behaviors;assembly=Ribanense.Solucoes.UI"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel}"
+        Title="Gestor de Sistema — Ribanense Soluções"
+        MinWidth="{StaticResource Breakpoint.MinWindowWidth}"
+        MinHeight="{StaticResource Breakpoint.MinWindowHeight}"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Brush.Background}"
+        b:WindowBreakpoints.Enabled="True">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Background="{StaticResource Brush.Surface}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="0,0,0,1"
+                Padding="20,12">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding ProductName}"
+                           FontSize="16" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.Text}" />
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1"
+                Background="{StaticResource Brush.Surface}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="0,0,0,1"
+                Padding="12,0">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton GroupName="Tabs"
+                             Style="{StaticResource Tab.Toggle}"
+                             IsChecked="True"
+                             Content="Ativar" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="16">
+            <ContentControl Content="{Binding ActivationTab}" />
+        </Grid>
+
+        <Border Grid.Row="3"
+                Background="{StaticResource Brush.LogBg}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="0,1,0,0"
+                MaxHeight="200">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" Background="#2B2B2B">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="Log de operações"
+                               Foreground="{StaticResource Brush.LogText}"
+                               VerticalAlignment="Center"
+                               Margin="12,6" />
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal">
+                        <Button Content="Copiar"
+                                Style="{StaticResource Button.Base}"
+                                Margin="6"
+                                Command="{Binding CopyLogCommand}" />
+                        <Button Content="Limpar"
+                                Style="{StaticResource Button.Base}"
+                                Margin="6"
+                                Command="{Binding ClearLogCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto"
+                              CanContentScroll="True">
+                    <ItemsControl ItemsSource="{Binding LogLines}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           FontFamily="Consolas"
+                                           FontSize="12"
+                                           Foreground="{StaticResource Brush.LogText}"
+                                           Margin="12,1" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

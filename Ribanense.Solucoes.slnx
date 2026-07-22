@@ -8,6 +8,7 @@
   <Folder Name="/aplicativos/">
     <Project Path="src/aplicativos/Ribanense.Solucoes.App.Chocolatey/Ribanense.Solucoes.App.Chocolatey.csproj" />
     <Project Path="src/aplicativos/Ribanense.Solucoes.App.Winget/Ribanense.Solucoes.App.Winget.csproj" />
+    <Project Path="src/aplicativos/Ribanense.Solucoes.App.Sistema/Ribanense.Solucoes.App.Sistema.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ribanense.Solucoes.PluginSDK.Tests/Ribanense.Solucoes.PluginSDK.Tests.csproj" />
@@ -15,5 +16,6 @@
     <Project Path="tests/Ribanense.Solucoes.Launcher.Tests/Ribanense.Solucoes.Launcher.Tests.csproj" />
     <Project Path="tests/Ribanense.Solucoes.App.Chocolatey.Tests/Ribanense.Solucoes.App.Chocolatey.Tests.csproj" />
     <Project Path="tests/Ribanense.Solucoes.App.Winget.Tests/Ribanense.Solucoes.App.Winget.Tests.csproj" />
+    <Project Path="tests/Ribanense.Solucoes.App.Sistema.Tests/Ribanense.Solucoes.App.Sistema.Tests.csproj" />
   </Folder>
 </Solution>
