@@ -5,9 +5,9 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>Ribanense.Solucoes.App.Sistema</RootNamespace>
     <AssemblyName>Ribanense.Solucoes.App.Sistema</AssemblyName>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.1.2</Version>
+    <AssemblyVersion>0.1.2.0</AssemblyVersion>
+    <FileVersion>0.1.2.0</FileVersion>
     <Product>Gestor de Sistema — Ribanense Soluções</Product>
   </PropertyGroup>
   <ItemGroup>
@@ -27,3 +27,4 @@
     <InternalsVisibleTo Include="Ribanense.Solucoes.App.Sistema.Tests" />
   </ItemGroup>
 </Project>
+
