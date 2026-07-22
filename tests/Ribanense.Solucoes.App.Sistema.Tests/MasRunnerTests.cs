@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using Ribanense.Solucoes.App.Sistema.Services;
@@ -11,7 +12,7 @@ public class MasRunnerTests
     public async Task RunAsync_returns_failure_when_download_throws()
     {
         var cacheDir = Path.Combine(Path.GetTempPath(), "ribanense-sistema-test-" + Guid.NewGuid().ToString("N"));
-        var runner = new MasRunner(cacheDir, new FakeElevated(), () => new HttpClient(new ThrowingHandler()));
+        var runner = new MasRunner(cacheDir, new FakeLauncher(), () => new HttpClient(new ThrowingHandler()));
 
         var result = await runner.RunAsync(MasMethod.Hwid, null, CancellationToken.None);
 
@@ -26,9 +27,9 @@ public class MasRunnerTests
             => throw new HttpRequestException("simulado");
     }
 
-    private sealed class FakeElevated : IElevatedCommandRunner
+    private sealed class FakeLauncher : IProcessLauncher
     {
-        public Task<ElevatedResult> RunScriptAsync(string powerShellScript, IProgress<string>? onLine, CancellationToken ct)
+        public Task<int> StartAndWaitAsync(ProcessStartInfo info, CancellationToken ct)
             => throw new InvalidOperationException("nao deveria chegar aqui");
     }
 }
