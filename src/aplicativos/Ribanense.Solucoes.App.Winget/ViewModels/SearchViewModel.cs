@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Windows.Input;
 using Ribanense.Solucoes.App.Winget.Services.Search;
 using Ribanense.Solucoes.UI.Mvvm;
@@ -16,6 +17,7 @@ public sealed class SearchViewModel : ObservableObject
         _host = host;
 
         SearchCommand = new AsyncRelayCommand(_ => ExecuteSearchAsync(), _ => !IsBusy && !string.IsNullOrWhiteSpace(Query));
+        Results.CollectionChanged += OnResultsChanged;
         LoadSuggestedPackages(catalog);
     }
 
@@ -28,10 +30,19 @@ public sealed class SearchViewModel : ObservableObject
         get => _query;
         set
         {
-            if (SetProperty(ref _query, value))
+            if (!SetProperty(ref _query, value))
             {
-                CommandManager.InvalidateRequerySuggested();
+                return;
             }
+
+            if (string.IsNullOrWhiteSpace(value) && Results.Count > 0)
+            {
+                Results.Clear();
+                StatusMessage = null;
+            }
+
+            OnPropertyChanged(nameof(ShowSuggested));
+            CommandManager.InvalidateRequerySuggested();
         }
     }
 
@@ -49,6 +60,9 @@ public sealed class SearchViewModel : ObservableObject
         set => SetProperty(ref _statusMessage, value);
     }
 
+    public bool ShowSuggested =>
+        Results.Count == 0 && string.IsNullOrWhiteSpace(Query);
+
     public ICommand SearchCommand { get; }
 
     private void LoadSuggestedPackages(IAppAliasCatalog catalog)
@@ -63,7 +77,7 @@ public sealed class SearchViewModel : ObservableObject
                 _host)
             {
                 Source = "winget",
-                Status = alias.Category ?? "Sugerido"
+                Category = alias.Category ?? "Sugerido"
             });
         }
     }
@@ -94,4 +108,7 @@ public sealed class SearchViewModel : ObservableObject
             IsBusy = false;
         }
     }
+
+    private void OnResultsChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        OnPropertyChanged(nameof(ShowSuggested));
 }
