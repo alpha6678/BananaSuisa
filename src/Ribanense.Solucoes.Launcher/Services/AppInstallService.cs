@@ -9,7 +9,7 @@ namespace Ribanense.Solucoes.Launcher.Services;
 
 /// <summary>
 /// Download + validacao SHA256 + extracao atomica com swap de pasta.
-/// Bloqueia se o app estiver em execucao (mutex <c>Global\Ribanense.{appId}</c>).
+/// Se o app estiver em execucao, tenta encerra-lo antes do swap de pasta.
 /// </summary>
 public sealed class AppInstallService : IAppInstallService
 {
@@ -30,8 +30,18 @@ public sealed class AppInstallService : IAppInstallService
 
         if (AppProcessDetector.IsRunning(request.AppId))
         {
-            return new AppInstallResult(false,
-                "O app está em execução. Feche-o antes de instalar ou atualizar.", null);
+            var installed = _registry.Find(request.AplicativosRoot, request.AppId);
+            _log.Write(AppLogLevel.Information, "install.close",
+                $"Encerrando {request.AppId} em execução para permitir instalação/atualização.");
+
+            if (!AppProcessDetector.TryCloseRunning(
+                    request.AppId,
+                    installed?.ExecutablePath,
+                    TimeSpan.FromSeconds(8)))
+            {
+                return new AppInstallResult(false,
+                    "Não foi possível encerrar o app em execução. Feche-o e tente novamente.", null);
+            }
         }
 
         var zipAsset = request.Release.ZipAsset;
@@ -150,15 +160,22 @@ public sealed class AppInstallService : IAppInstallService
             return new AppUninstallResult(false, "appId obrigatório.");
         }
 
-        if (AppProcessDetector.IsRunning(appId))
-        {
-            return new AppUninstallResult(false, "App em execução. Feche antes de desinstalar.");
-        }
-
         var installed = _registry.Find(aplicativosRoot, appId);
         if (installed is null)
         {
             return new AppUninstallResult(false, "App não está instalado.");
+        }
+
+        if (AppProcessDetector.IsRunning(appId))
+        {
+            _log.Write(AppLogLevel.Information, "uninstall.close",
+                $"Encerrando {appId} em execução para permitir desinstalação.");
+
+            if (!AppProcessDetector.TryCloseRunning(appId, installed.ExecutablePath, TimeSpan.FromSeconds(8)))
+            {
+                return new AppUninstallResult(false,
+                    "Não foi possível encerrar o app em execução. Feche-o e tente novamente.");
+            }
         }
 
         try
