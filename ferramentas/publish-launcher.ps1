@@ -1,14 +1,15 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Empacota o Launcher em zip + SHA256 (sem app.json — o Launcher nao usa manifesto de plugin).
+  Empacota o Launcher em um unico .exe self-contained + SHA256 (sem app.json).
 
 .DESCRIPTION
   Publica dotnet publish do projeto Ribanense.Solucoes.Launcher em Release win-x64
-  --no-self-contained. Versao default lida de Directory.Build.props na raiz do repo.
+  self-contained + PublishSingleFile. O asset principal e um .exe executavel
+  direto (sem extrair pasta). Versao default lida de Directory.Build.props.
 
 .PARAMETER Version
-  Versao SemVer no nome do zip. Se omitida, usa //PropertyGroup/Version em Directory.Build.props.
+  Versao SemVer no nome do .exe. Se omitida, usa //PropertyGroup/Version em Directory.Build.props.
 
 .PARAMETER OutputDir
   Pasta de saida (default: artifacts\publish\Launcher).
@@ -55,27 +56,32 @@ New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 $publishDir = Join-Path $OutputDir 'out'
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 
-Write-Host "Publicando Ribanense.Solucoes.Launcher $Version..." -ForegroundColor Cyan
+Write-Host "Publicando Ribanense.Solucoes.Launcher $Version (single-file self-contained)..." -ForegroundColor Cyan
 & dotnet publish $launcherProjectPath `
     -c Release `
     -r win-x64 `
-    --no-self-contained `
+    --self-contained true `
+    -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:EnableCompressionInSingleFile=true `
     -p:PublishReadyToRun=true `
     -o $publishDir
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish do Launcher falhou." }
 
-$zipName = "launcher-$Version-win-x64.zip"
-$zipPath = Join-Path $OutputDir $zipName
-if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+$publishedExe = Join-Path $publishDir 'Ribanense.Solucoes.Launcher.exe'
+if (-not (Test-Path -LiteralPath $publishedExe)) {
+    throw "Executavel single-file nao encontrado: $publishedExe"
+}
 
-Write-Host "Gerando zip: $zipName" -ForegroundColor Cyan
-Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $zipPath -Force
+$exeName = "launcher-$Version-win-x64.exe"
+$exePath = Join-Path $OutputDir $exeName
+Copy-Item -LiteralPath $publishedExe -Destination $exePath -Force
 
-$hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-$shaPath = "$zipPath.sha256"
-"$hash  $zipName" | Set-Content -LiteralPath $shaPath -Encoding ASCII
+$hash = (Get-FileHash -LiteralPath $exePath -Algorithm SHA256).Hash.ToLowerInvariant()
+$shaPath = "$exePath.sha256"
+"$hash  $exeName" | Set-Content -LiteralPath $shaPath -Encoding ASCII
 
 Write-Host ""
 Write-Host "Pacote do Launcher criado em: $OutputDir" -ForegroundColor Green
-Write-Host "  Zip    : $zipName"
+Write-Host "  Exe    : $exeName"
 Write-Host "  SHA256 : $hash"

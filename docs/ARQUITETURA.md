@@ -10,7 +10,7 @@ flowchart LR
   Launcher -->|GET raw| CatalogJson["catalog.json no repo"]
   Launcher -->|GET /releases| GhApi[api.github.com]
   GhApi -->|tags por prefixo| Launcher
-  Launcher -->|baixar zip| Release[GitHub Release Asset]
+  Launcher -->|baixar zip do app| Release[GitHub Release Asset]
   Release -->|extrair em| AppFolder["aplicativos/<Nome>/"]
   Launcher -->|Process.Start| AppExe["Ribanense.Solucoes.App.<Nome>.exe"]
   AppExe -.abre janela.-> UserWindow[Janela própria do app]

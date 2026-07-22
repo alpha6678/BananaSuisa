@@ -6,7 +6,8 @@
 .DESCRIPTION
   Executa publish-module.ps1, deriva o prefixo de tag do nome do app
   (convencao: <nome-minusculo>-v<semver>), cria a tag e publica o release
-  via gh (GitHub CLI), anexando zip + sha256 + app.json.
+  via gh (GitHub CLI), anexando assets: apps = zip + sha256 + app.json;
+  Launcher = .exe single-file self-contained + sha256.
 
 .PARAMETER App
   Nome do app conforme sufixo do projeto (ex: "Winget").
@@ -67,12 +68,18 @@ try {
 
     $outDir = Join-Path $ProjectRoot "artifacts\publish\$App"
     $lowerApp = $App.ToLowerInvariant()
-    $zipBaseName = if ($isLauncher) { "launcher-$Version-win-x64.zip" } else { "$lowerApp-$Version-win-x64.zip" }
-    $zipPath = Join-Path $outDir $zipBaseName
-    $shaPath = "$zipPath.sha256"
+    $assetBaseName = if ($isLauncher) {
+        "launcher-$Version-win-x64.exe"
+    } else {
+        "$lowerApp-$Version-win-x64.zip"
+    }
+    $assetPath = Join-Path $outDir $assetBaseName
+    $shaPath = "$assetPath.sha256"
     $manifestPath = Join-Path $outDir 'app.json'
 
-    if (-not (Test-Path -LiteralPath $zipPath)) { throw "Zip nao encontrado: $zipPath" }
+    if (-not (Test-Path -LiteralPath $assetPath)) {
+        throw "Asset nao encontrado: $assetPath"
+    }
     if (-not (Test-Path -LiteralPath $shaPath)) { throw "SHA256 nao encontrado: $shaPath" }
 
     Write-Host "Criando tag $tag..." -ForegroundColor Cyan
@@ -89,13 +96,13 @@ try {
         "$App $Version"
     }
     $releaseNotes = if ($isLauncher) {
-        "Release automatizado do Launcher $Version."
+        "Release automatizado do Launcher $Version (executavel unico win-x64 self-contained)."
     } else {
         "Release automatizado de $App $Version."
     }
 
     Write-Host "Publicando release $tag..." -ForegroundColor Cyan
-    $ghArgs = @('release', 'create', $tag, $zipPath, $shaPath, '--title', $releaseTitle, '--notes', $releaseNotes)
+    $ghArgs = @('release', 'create', $tag, $assetPath, $shaPath, '--title', $releaseTitle, '--notes', $releaseNotes)
     if (-not $isLauncher -and (Test-Path -LiteralPath $manifestPath)) { $ghArgs += $manifestPath }
 
     & gh @ghArgs

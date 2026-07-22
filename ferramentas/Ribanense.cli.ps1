@@ -680,12 +680,24 @@ function Invoke-PublishRun {
     Write-Info "dotnet publish Release win-x64 ($slotName) -> artifacts\publish-run\$slotName\out ..."
     Push-Location $script:ProjectRoot
     try {
-        & dotnet publish $projPath `
-            -c Release `
-            -r win-x64 `
-            --no-self-contained `
-            -p:PublishReadyToRun=true `
-            -o $outDir
+        if ($isLauncher) {
+            & dotnet publish $projPath `
+                -c Release `
+                -r win-x64 `
+                --self-contained true `
+                -p:PublishSingleFile=true `
+                -p:IncludeNativeLibrariesForSelfExtract=true `
+                -p:EnableCompressionInSingleFile=true `
+                -p:PublishReadyToRun=true `
+                -o $outDir
+        } else {
+            & dotnet publish $projPath `
+                -c Release `
+                -r win-x64 `
+                --no-self-contained `
+                -p:PublishReadyToRun=true `
+                -o $outDir
+        }
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
     finally {
@@ -700,7 +712,11 @@ function Invoke-PublishRun {
     $exePath = Join-Path $outDir $exeName
     Assert-PathExists -Path $exePath -Description "Executavel publicado ($slotName)"
 
-    Write-Muted "Mesmo perfil de rb publish (sem zip). Pasta: $outDir"
+    if ($isLauncher) {
+        Write-Muted "Perfil single-file self-contained (igual ao asset de release). Pasta: $outDir"
+    } else {
+        Write-Muted "Mesmo perfil de rb publish (sem zip). Pasta: $outDir"
+    }
     Write-Ok "Abrindo build Release publicado..."
     Start-Process -FilePath $exePath
 }

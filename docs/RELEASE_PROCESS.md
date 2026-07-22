@@ -59,9 +59,11 @@ Observações:
 
 | Asset | Conteúdo |
 |-------|----------|
-| `<nome>-<ver>-win-x64.zip` | Resultado de `dotnet publish -c Release -r win-x64 --no-self-contained` do projeto do app. Depende do runtime compartilhado do Launcher. |
+| `<nome>-<ver>-win-x64.zip` | Apps do catálogo: `dotnet publish -c Release -r win-x64 --no-self-contained`. |
 | `<nome>-<ver>-win-x64.zip.sha256` | `SHA256  <nome-do-arquivo>` em ASCII. |
-| `app.json` | Cópia do manifesto para inspeção rápida via API do GitHub, sem baixar o zip. |
+| `launcher-<ver>-win-x64.exe` | Launcher: publish **self-contained + PublishSingleFile** (`win-x64`). Um único `.exe` para baixar e executar. |
+| `launcher-<ver>-win-x64.exe.sha256` | `SHA256  <nome-do-arquivo>` em ASCII. |
+| `app.json` | Cópia do manifesto do app (não se aplica ao Launcher). |
 
 ## Rollback
 
