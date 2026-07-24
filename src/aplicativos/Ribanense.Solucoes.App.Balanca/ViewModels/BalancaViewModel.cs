@@ -118,6 +118,9 @@ public sealed class BalancaViewModel : ObservableObject
     private bool _deepScan;
     public bool DeepScan { get => _deepScan; set => SetProperty(ref _deepScan, value); }
 
+    private bool _scanOnlySelectedPort;
+    public bool ScanOnlySelectedPort { get => _scanOnlySelectedPort; set => SetProperty(ref _scanOnlySelectedPort, value); }
+
     #endregion
 
     #region Modo
@@ -425,9 +428,18 @@ public sealed class BalancaViewModel : ObservableObject
 
     #region Varredura automática
 
+    private IReadOnlyList<string> GetPortsToScan()
+    {
+        if (ScanOnlySelectedPort && SelectedPort is not null)
+        {
+            return new[] { SelectedPort.Port };
+        }
+        return Ports.Select(p => p.Port).ToList();
+    }
+
     private async Task StartFullScanAsync()
     {
-        var ports = Ports.Select(p => p.Port).ToList();
+        var ports = GetPortsToScan();
         if (ports.Count == 0) { Log("Sem portas para varrer."); return; }
 
         var model = SelectedModel;
@@ -495,7 +507,7 @@ public sealed class BalancaViewModel : ObservableObject
 
     private async Task StartStepScanAsync()
     {
-        var ports = Ports.Select(p => p.Port).ToList();
+        var ports = GetPortsToScan();
         if (ports.Count == 0) { Log("Sem portas para varrer."); return; }
 
         var options = new ScanOptions { Deep = DeepScan, TimeoutMsPerAttempt = Math.Max(400, Math.Min(TimeoutMs, 3000)) };

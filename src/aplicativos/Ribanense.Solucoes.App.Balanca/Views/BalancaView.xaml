@@ -101,6 +101,11 @@
                         </StackPanel>
 
                         <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,12,0,0"
+                                  IsChecked="{Binding ScanOnlySelectedPort}"
+                                  Content="Varrer apenas a porta selecionada"
+                                  Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}" />
+
+                        <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,6,0,0"
                                   IsChecked="{Binding DeepScan}"
                                   Content="Varredura profunda (mais bauds/paridades/stop bits)"
                                   Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}" />

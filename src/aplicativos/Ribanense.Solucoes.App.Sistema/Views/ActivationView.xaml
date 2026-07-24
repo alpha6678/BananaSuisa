@@ -7,24 +7,104 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
     <DockPanel LastChildFill="True">
+        <!-- Aviso / Informações sobre interatividade e UAC -->
         <Border DockPanel.Dock="Top"
                 Style="{StaticResource Badge.Warning}"
-                Margin="0,0,0,16">
+                Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock FontWeight="SemiBold"
-                           Text="Ativação do Windows e Office via MAS (open-source)" />
+                           Text="Ativação do Windows e Office via MAS (Microsoft Activation Scripts)" />
                 <TextBlock Margin="0,4,0,0"
                            Foreground="{StaticResource Brush.TextMuted}"
                            TextWrapping="Wrap"
-                           Text="O MAS é uma ferramenta open-source. Métodos: HWID, Ohook, KMS38 e KMS Online. Cada ação abre uma janela elevada (UAC) e executa o script baixado do repositório público do MAS." />
+                           Text="O MAS é uma suite de código aberto. Como muitos scripts requerem confirmação ou interação pelo usuário, você pode executar cada método em uma Janela de Terminal Interativa (CMD/PowerShell) ou em modo direto. As ações disparam o prompt de Administrador (UAC)." />
+            </StackPanel>
+        </Border>
+
+        <!-- Painel de Gerenciamento do Script e Modos de Execução -->
+        <Border DockPanel.Dock="Top"
+                Style="{StaticResource Badge.Surface}"
+                Margin="0,0,0,12"
+                Padding="14,10">
+            <StackPanel>
+                <!-- Status e Atualização -->
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock FontWeight="SemiBold"
+                                   Text="Status do Script MAS" />
+                        <TextBlock Text="{Binding ScriptStatusText}"
+                                   Foreground="{StaticResource Brush.TextMuted}"
+                                   FontSize="12"
+                                   Margin="0,2,0,0"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <Button Content="Atualizar Script MAS"
+                                Style="{StaticResource Button.Base}"
+                                Margin="0,0,8,0"
+                                Command="{Binding UpdateScriptCommand}" />
+                        <Button Content="Abrir Menu Interativo MAS"
+                                Style="{StaticResource Button.Accent}"
+                                Command="{Binding OpenInteractiveMenuCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <Separator Background="{StaticResource Brush.Border}" Margin="0,4,0,10" />
+
+                <!-- Configurações do Terminal / Modo de Execução -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Modo de Interação -->
+                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                        <TextBlock FontWeight="SemiBold"
+                                   FontSize="12"
+                                   Margin="0,0,0,6"
+                                   Text="Modo de interação do terminal:" />
+                        <RadioButton IsChecked="{Binding IsInteractiveMode}"
+                                     Margin="0,2"
+                                     Content="Janela de Terminal Interativa (Recomendado)" />
+                        <RadioButton IsChecked="{Binding IsDirectMode}"
+                                     Margin="0,2"
+                                     Content="Execução Direta em Segundo Plano" />
+                    </StackPanel>
+
+                    <!-- Motor do Terminal -->
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                        <TextBlock FontWeight="SemiBold"
+                                   FontSize="12"
+                                   Margin="0,0,0,6"
+                                   Text="Motor de execução:" />
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton IsChecked="{Binding UseCmd}"
+                                         Margin="0,2,16,2"
+                                         Content="CMD (cmd.exe)" />
+                            <RadioButton IsChecked="{Binding UsePowerShell}"
+                                         Margin="0,2"
+                                         Content="PowerShell (powershell.exe)" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Border>
 
         <TextBlock DockPanel.Dock="Top"
                    Margin="0,0,0,8"
                    FontWeight="SemiBold"
-                   Text="Selecione um método:" />
+                   Text="Métodos de ativação disponíveis:" />
 
+        <!-- Lista de Métodos de Ativação -->
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Methods}">
                 <ItemsControl.ItemTemplate>
@@ -36,6 +116,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
+
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock FontWeight="SemiBold"
                                                Text="{Binding Display}"
@@ -45,7 +126,18 @@
                                                FontSize="12"
                                                Text="{Binding Description}"
                                                TextWrapping="Wrap" />
+                                    <Border HorizontalAlignment="Left"
+                                            Background="{StaticResource Brush.Background}"
+                                            CornerRadius="3"
+                                            Padding="6,2"
+                                            Margin="0,6,0,0">
+                                        <TextBlock FontFamily="Consolas"
+                                                   FontSize="11"
+                                                   Foreground="{StaticResource Brush.TextMuted}"
+                                                   Text="{Binding Arguments, StringFormat='Argumentos: {0}'}" />
+                                    </Border>
                                 </StackPanel>
+
                                 <Button Grid.Column="1"
                                         VerticalAlignment="Center"
                                         Content="Executar"
