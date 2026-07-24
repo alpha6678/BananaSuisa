@@ -22,6 +22,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         IReleaseCheckService releases,
         IInstalledAppsRegistry registry,
         IAppInstallService installer,
+        ILauncherUpdateService launcherUpdater,
         IAppJsonLog log,
         string aplicativosRoot)
     {
@@ -34,7 +35,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         CatalogPage = new CatalogViewModel(catalog, releases, registry, this, log, aplicativosRoot);
         MyAppsPage = new MyAppsViewModel(CatalogPage);
         UpdatesPage = new UpdatesViewModel(CatalogPage, this);
-        AboutPage = new AboutViewModel();
+        AboutPage = new AboutViewModel(launcherUpdater);
 
         Pages = new[] { (PageViewModel)CatalogPage, MyAppsPage, UpdatesPage, AboutPage };
         CurrentPage = CatalogPage;
@@ -67,7 +68,12 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         await page.OnActivatedAsync().ConfigureAwait(true);
     }
 
-    public Task BootstrapAsync() => CatalogPage.OnActivatedAsync();
+    public async Task BootstrapAsync()
+    {
+        await CatalogPage.OnActivatedAsync().ConfigureAwait(true);
+        // Checagem silenciosa da atualizacao do proprio launcher; alimenta o banner e a aba Sobre.
+        await AboutPage.CheckForUpdateAsync(silent: true).ConfigureAwait(true);
+    }
 
     // IAppCardHost ------------------------------------------------------
 

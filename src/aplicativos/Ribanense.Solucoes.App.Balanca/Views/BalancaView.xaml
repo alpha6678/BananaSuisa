@@ -1,0 +1,231 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Balanca.Views.BalancaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Balanca.ViewModels"
+             d:DataContext="{d:DesignInstance Type=vm:BalancaViewModel}"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <Style x:Key="Section.Header" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="0,4,0,8" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Painel de configuração -->
+        <Border Grid.Column="0"
+                Style="{StaticResource Badge.Surface}"
+                MinWidth="360" MaxWidth="440"
+                Margin="0,0,16,0"
+                Padding="16">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Section.Header}" Text="Modelo da balança" />
+                    <ComboBox ItemsSource="{Binding Models}"
+                              SelectedItem="{Binding SelectedModel}"
+                              DisplayMemberPath="DisplayName" />
+
+                    <TextBlock Style="{StaticResource Section.Header}" Margin="0,16,0,8" Text="Modo de teste" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton GroupName="Mode" Content="Manual" Margin="0,0,12,0"
+                                     IsChecked="{Binding IsManualMode, Mode=TwoWay}" />
+                        <RadioButton GroupName="Mode" Content="Um a um" Margin="0,0,12,0"
+                                     IsChecked="{Binding IsUmAUmMode, Mode=TwoWay}" />
+                        <RadioButton GroupName="Mode" Content="Todas as portas"
+                                     IsChecked="{Binding IsTodasMode, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <TextBlock Style="{StaticResource Section.Header}" Margin="0,16,0,8" Text="Configuração serial" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+                            <TextBlock Style="{StaticResource Label.Field}" Text="Porta serial" />
+                            <DockPanel LastChildFill="True">
+                                <Button DockPanel.Dock="Right" Content="Atualizar"
+                                        Style="{StaticResource Button.Base}" Margin="8,0,0,0"
+                                        Command="{Binding RefreshPortsCommand}" />
+                                <ComboBox ItemsSource="{Binding Ports}"
+                                          SelectedItem="{Binding SelectedPort}"
+                                          DisplayMemberPath="Display" />
+                            </DockPanel>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
+                            <TextBlock Style="{StaticResource Label.Field}" Text="Baud rate" />
+                            <ComboBox ItemsSource="{Binding BaudRateOptions}" SelectedItem="{Binding BaudRate}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,8,0,0">
+                            <TextBlock Style="{StaticResource Label.Field}" Text="Data bits" />
+                            <ComboBox ItemsSource="{Binding DataBitsOptions}" SelectedItem="{Binding DataBits}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,8,0,0">
+                            <TextBlock Style="{StaticResource Label.Field}" Text="Paridade" />
+                            <ComboBox ItemsSource="{Binding ParityOptions}" SelectedItem="{Binding Parity}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,8,0,0">
+                            <TextBlock Style="{StaticResource Label.Field}" Text="Stop bits" />
+                            <ComboBox ItemsSource="{Binding StopBitsOptions}" SelectedItem="{Binding StopBits}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,8,0,0">
+                            <TextBlock Style="{StaticResource Label.Field}" Text="Handshake" />
+                            <ComboBox ItemsSource="{Binding HandshakeOptions}" SelectedItem="{Binding Handshake}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,8,0,0">
+                            <TextBlock Style="{StaticResource Label.Field}" Text="Timeout (ms)" />
+                            <TextBox Text="{Binding TimeoutMs}" />
+                        </StackPanel>
+
+                        <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,12,0,0"
+                                  IsChecked="{Binding DeepScan}"
+                                  Content="Varredura profunda (mais bauds/paridades/stop bits)"
+                                  Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}" />
+                    </Grid>
+
+                    <!-- Ações: MANUAL -->
+                    <StackPanel Margin="0,16,0,0"
+                                Visibility="{Binding IsManualMode, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Style="{StaticResource Section.Header}" Text="Teste manual" />
+                        <WrapPanel>
+                            <Button Content="Ativar" Style="{StaticResource Button.Accent}" Margin="0,0,8,8"
+                                    Command="{Binding ActivateCommand}" />
+                            <Button Content="Desativar" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                    Command="{Binding DeactivateCommand}" />
+                            <Button Content="Ler peso" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                    Command="{Binding ReadWeightCommand}" />
+                            <Button Content="{Binding MonitorButtonText}" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                    Command="{Binding ToggleMonitorCommand}" />
+                            <Button Content="Limpar" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                    Command="{Binding ClearCommand}" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <!-- Ações: UM A UM -->
+                    <StackPanel Margin="0,16,0,0"
+                                Visibility="{Binding IsUmAUmMode, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Style="{StaticResource Section.Header}" Text="Varredura passo a passo" />
+                        <TextBlock Style="{StaticResource Label.Field}" Text="Combinação atual" />
+                        <TextBlock Text="{Binding CurrentCandidateText}" FontFamily="Consolas" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding StepProgress}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,0,8" />
+                        <WrapPanel>
+                            <Button Content="Iniciar" Style="{StaticResource Button.Accent}" Margin="0,0,8,8"
+                                    Command="{Binding StartStepCommand}" />
+                            <Button Content="Próximo" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                    Command="{Binding NextStepCommand}" />
+                            <Button Content="Usar esta config" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                    Command="{Binding UseCurrentConfigCommand}" />
+                            <Button Content="Parar" Style="{StaticResource Button.Danger}" Margin="0,0,8,8"
+                                    Command="{Binding StopScanCommand}" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <!-- Ações: TODAS -->
+                    <StackPanel Margin="0,16,0,0"
+                                Visibility="{Binding IsTodasMode, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Style="{StaticResource Section.Header}" Text="Varredura completa" />
+                        <WrapPanel>
+                            <Button Content="Iniciar varredura" Style="{StaticResource Button.Accent}" Margin="0,0,8,8"
+                                    Command="{Binding StartScanCommand}" />
+                            <Button Content="Parar" Style="{StaticResource Button.Danger}" Margin="0,0,8,8"
+                                    Command="{Binding StopScanCommand}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Leitura e resultados -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Style="{StaticResource Badge.Surface}" Padding="20">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Label.Field}" Text="Último peso lido" />
+                    <TextBlock Style="{StaticResource Text.Weight}" Text="{Binding WeightDisplay}" />
+                    <TextBlock Foreground="{StaticResource Brush.TextMuted}" Text="{Binding StatusText}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource Badge.Surface}" Padding="16">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Label.Field}" Text="Última resposta (ASCII)" />
+                    <TextBox Text="{Binding LastResponseAscii, Mode=OneWay}" IsReadOnly="True"
+                             FontFamily="Consolas" BorderThickness="0" Background="Transparent"
+                             TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <TextBlock Style="{StaticResource Label.Field}" Text="Última resposta (HEX)" />
+                    <TextBox Text="{Binding LastResponseHex, Mode=OneWay}" IsReadOnly="True"
+                             FontFamily="Consolas" BorderThickness="0" Background="Transparent"
+                             TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding ScanProgress}"
+                               Foreground="{StaticResource Brush.TextMuted}"
+                               Margin="0,8,0,0"
+                               Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource Badge.Surface}" Padding="0" Margin="0,0,0,0"
+                    Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section.Header}"
+                               Margin="14,10,0,6" Text="Configurações que responderam" />
+                    <DataGrid ItemsSource="{Binding ScanResults}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              CanUserAddRows="False"
+                              SelectionMode="Single">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Configuração" Width="*"
+                                                Binding="{Binding Config.ShortDescription}" />
+                            <DataGridTextColumn Header="Peso"
+                                                Binding="{Binding Reading.Weight, StringFormat=0.000}" />
+                            <DataGridTextColumn Header="Unid."
+                                                Binding="{Binding Reading.Unit}" />
+                            <DataGridTextColumn Header="Status"
+                                                Binding="{Binding Reading.StatusText}" />
+                            <DataGridTemplateColumn Header="">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Usar"
+                                                Style="{StaticResource Button.Accent}"
+                                                Margin="4,2"
+                                                Command="{Binding DataContext.UseResultCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

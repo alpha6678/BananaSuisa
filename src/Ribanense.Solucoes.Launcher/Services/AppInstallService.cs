@@ -1,6 +1,5 @@
 using System.IO;
 using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text;
 using Ribanense.Solucoes.Launcher.Domain;
 using Ribanense.Solucoes.PluginSDK.Logging;
@@ -72,9 +71,9 @@ public sealed class AppInstallService : IAppInstallService
             {
                 byte[] shaBytes = await _github.GetBytesAsync(shaAsset.DownloadUrl, null, ct).ConfigureAwait(false);
                 string shaText = Encoding.UTF8.GetString(shaBytes).Trim();
-                string expected = ExtractHash(shaText);
+                string expected = Sha256Util.ExtractHash(shaText);
 
-                string actual = ComputeSha256(zipBytes);
+                string actual = Sha256Util.Compute(zipBytes);
                 if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
                 {
                     _log.Write(AppLogLevel.Error, "install.hash",
@@ -189,22 +188,6 @@ public sealed class AppInstallService : IAppInstallService
             _log.Write(AppLogLevel.Error, "uninstall.fail", "Falha ao remover pasta.", ex);
             return new AppUninstallResult(false, ex.Message);
         }
-    }
-
-    private static string ComputeSha256(byte[] bytes)
-    {
-        using var sha = SHA256.Create();
-        return Convert.ToHexString(sha.ComputeHash(bytes)).ToLowerInvariant();
-    }
-
-    private static string ExtractHash(string shaText)
-    {
-        // formato comum: "<hash>  <filename>" ou somente "<hash>".
-        string line = shaText.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
-            ?? string.Empty;
-        string head = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault() ?? string.Empty;
-        return head.Trim().ToLowerInvariant();
     }
 
     private static string DeriveSlug(string appId)

@@ -1,0 +1,12 @@
+{
+  "id": "com.ribanense.balanca",
+  "name": "Testador de Balanças",
+  "publicName": "Testador de Balanças",
+  "version": "0.1.0",
+  "minimumLauncherVersion": "0.1.0",
+  "entryExecutable": "Ribanense.Solucoes.App.Balanca.exe",
+  "icon": "icon.png",
+  "category": "Dispositivos",
+  "requiresElevation": false,
+  "githubTagPrefix": "balanca-v"
+}

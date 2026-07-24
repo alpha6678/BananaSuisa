@@ -116,8 +116,37 @@
         </Border>
 
         <!-- Content -->
-        <ContentControl Grid.Row="1" Grid.Column="1"
-                        Content="{Binding CurrentPage}"
-                        Margin="24" />
+        <Grid Grid.Row="1" Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Banner de atualizacao do launcher -->
+            <Border Grid.Row="0"
+                    Margin="24,16,24,0"
+                    Padding="16,10"
+                    Background="{StaticResource Brush.Surface}"
+                    BorderBrush="{StaticResource Brush.Accent}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Visibility="{Binding AboutPage.UpdateAvailable, Converter={StaticResource BoolToVisibility}}">
+                <DockPanel LastChildFill="False">
+                    <Button DockPanel.Dock="Right"
+                            Content="Atualizar launcher"
+                            Style="{StaticResource Button.Accent}"
+                            Command="{Binding NavigateCommand}"
+                            CommandParameter="{Binding AboutPage}" />
+                    <TextBlock VerticalAlignment="Center"
+                               Foreground="{StaticResource Brush.Text}"
+                               TextWrapping="Wrap"
+                               Text="{Binding AboutPage.UpdateBannerText, Mode=OneWay}" />
+                </DockPanel>
+            </Border>
+
+            <ContentControl Grid.Row="1"
+                            Content="{Binding CurrentPage}"
+                            Margin="24" />
+        </Grid>
     </Grid>
 </Window>

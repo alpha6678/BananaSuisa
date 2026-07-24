@@ -906,6 +906,62 @@ function Invoke-AppPublish {
     Write-Ok "Pacote de '$targetName' gerado em artifacts\publish\$targetName\."
 }
 
+function Invoke-PublishAllVersionCommit {
+    param(
+        [Parameter(Mandatory)] [object[]] $Plan,
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $VersionFiles
+    )
+
+    $files = @(
+        foreach ($f in $VersionFiles) {
+            if (-not [string]::IsNullOrWhiteSpace($f)) {
+                [System.IO.Path]::GetFullPath($f)
+            }
+        }
+    ) | Select-Object -Unique
+
+    if ($files.Count -eq 0) {
+        Write-Warn2 "Nenhum arquivo de versao para commitar."
+        return
+    }
+
+    foreach ($f in $files) {
+        if (-not (Test-Path -LiteralPath $f)) {
+            throw "Arquivo de versao esperado nao encontrado para commit: $f"
+        }
+        & git add -- $f
+        if ($LASTEXITCODE -ne 0) { throw "git add falhou para: $f" }
+    }
+
+    $stagedRaw = @(& git diff --cached --name-only)
+    if ($LASTEXITCODE -ne 0) { throw "git diff --cached falhou." }
+    $staged = @($stagedRaw | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($staged.Count -eq 0) {
+        Write-Warn2 "Nenhuma alteracao de versao para commitar (arquivos ja versionados?)."
+        return
+    }
+
+    Write-Muted "Arquivos no commit de versao:"
+    foreach ($s in $staged) { Write-Muted " + $s" }
+
+    $summaryLines = @(
+        foreach ($item in $Plan) {
+            " - $($item.App.ShortName) $($item.Current) -> $($item.Next)"
+        }
+    )
+    $commitTitle = 'chore(release): bump de versoes (publish all)'
+    $commitBody = $summaryLines -join "`n"
+
+    & git commit -m $commitTitle -m $commitBody
+    if ($LASTEXITCODE -ne 0) { throw "git commit das versoes falhou." }
+
+    Write-Info "Enviando commit de versoes para origin..."
+    & git push origin HEAD
+    if ($LASTEXITCODE -ne 0) { throw "git push origin HEAD falhou; publish all abortado antes das tags." }
+
+    Write-Ok "Commit de versoes criado e enviado (tags apontarao para este commit)."
+}
+
 function Invoke-PublishAll {
     param([string[]] $Arguments = @())
 
@@ -1002,17 +1058,26 @@ function Invoke-PublishAll {
         }
 
         Write-Step "Atualizando versoes (patch)"
+        $versionFiles = @()
         foreach ($item in $plan) {
             if ($item.App.ShortName -eq "Launcher") {
                 Set-LauncherVersion -Version $item.Next
+                $versionFiles += (Get-LauncherVersionState).BuildPropsPath
             } else {
                 Set-AppVersion -App $item.App -Version $item.Next
+                $versionFiles += $item.App.ProjectPath
+                if ($item.App.HasManifest) {
+                    $versionFiles += $item.App.ManifestPath
+                }
             }
             Write-Ok "$($item.App.ShortName): $($item.Current) -> $($item.Next)"
         }
 
         Write-Step "Validacao"
         Invoke-FullCheck
+
+        Write-Step "Commit das versoes"
+        Invoke-PublishAllVersionCommit -Plan $plan -VersionFiles $versionFiles
 
         Write-Step "Publicacao no GitHub"
         $releaseScript = Join-Path $script:CliRoot 'release.ps1'

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -49,6 +50,11 @@ public partial class App : Application
 
         base.OnStartup(e);
 
+        // Se este processo foi iniciado por uma auto-atualizacao, aguarda o processo antigo
+        // encerrar (liberando o mutex) antes de seguir, e limpa binarios residuais.
+        WaitForPreviousInstanceAfterUpdate(e.Args);
+        CleanupStaleUpdateFiles();
+
         string launcherMutexName = AppProcessDetector.MutexNameFor(LauncherConfig.LauncherAppId);
         _singleInstanceMutex = new Mutex(initiallyOwned: true, launcherMutexName, out bool createdNew);
         if (!createdNew)
@@ -79,9 +85,10 @@ public partial class App : Application
         var releases = new ReleaseCheckService(_github);
         var registry = new InstalledAppsRegistry();
         var installer = new AppInstallService(_github, registry, _logger);
+        var launcherUpdater = new LauncherUpdateService(releases, _github, _logger);
 
         var viewModel = new MainWindowViewModel(
-            catalog, releases, registry, installer, _logger, LauncherConfig.AplicativosRoot);
+            catalog, releases, registry, installer, launcherUpdater, _logger, LauncherConfig.AplicativosRoot);
 
         var window = new MainWindow { DataContext = viewModel };
         window.Show();
@@ -155,6 +162,65 @@ public partial class App : Application
             }
         }
         return -1;
+    }
+
+    /// <summary>
+    /// Quando iniciado com <c>--post-update &lt;pidAntigo&gt; &lt;exeAntigo&gt;</c>, aguarda o processo
+    /// antigo encerrar e o mutex de instancia unica liberar, para evitar conflito na inicializacao.
+    /// </summary>
+    private static void WaitForPreviousInstanceAfterUpdate(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (!string.Equals(args[i], LauncherUpdateService.PostUpdateArg, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (i + 1 < args.Length && int.TryParse(args[i + 1], out int oldPid) && oldPid > 0)
+            {
+                try
+                {
+                    using var old = Process.GetProcessById(oldPid);
+                    old.WaitForExit(10_000);
+                }
+                catch
+                {
+                    // processo ja encerrou ou nao existe mais
+                }
+            }
+
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while (AppProcessDetector.IsRunning(LauncherConfig.LauncherAppId) && DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(150);
+            }
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Remove binarios residuais de auto-atualizacao (<c>*.old-*.exe</c> / <c>*.new-*.exe</c>)
+    /// deixados ao lado do executavel atual. Best-effort.
+    /// </summary>
+    private static void CleanupStaleUpdateFiles()
+    {
+        try
+        {
+            string? exePath = Environment.ProcessPath;
+            string? dir = exePath is null ? null : Path.GetDirectoryName(exePath);
+            if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir)) return;
+
+            foreach (string pattern in new[] { "*.old-*.exe", "*.new-*.exe" })
+            {
+                foreach (string file in Directory.GetFiles(dir, pattern))
+                {
+                    try { File.Delete(file); } catch { /* pode estar em uso; ignora */ }
+                }
+            }
+        }
+        catch
+        {
+            // best effort
+        }
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

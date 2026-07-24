@@ -14,6 +14,17 @@ public static class LauncherConfig
     public const string DefaultCatalogUrl =
         "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/catalog.json";
 
+    public const string DefaultLauncherGithubOwner = "desenvolvimentoLocatelli";
+    public const string DefaultLauncherGithubRepo = "BananaSuisa";
+
+    /// <summary>Owner do repositorio GitHub que publica as releases do launcher (launcher-v*).</summary>
+    public static string LauncherGithubOwner =>
+        Environment.GetEnvironmentVariable("RIBANENSE_LAUNCHER_OWNER") ?? DefaultLauncherGithubOwner;
+
+    /// <summary>Repositorio GitHub que publica as releases do launcher (launcher-v*).</summary>
+    public static string LauncherGithubRepo =>
+        Environment.GetEnvironmentVariable("RIBANENSE_LAUNCHER_REPO") ?? DefaultLauncherGithubRepo;
+
     public const string ProductFolderName = "Ribanense Soluções";
 
     public static string CatalogUrl =>

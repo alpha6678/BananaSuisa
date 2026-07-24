@@ -36,6 +36,18 @@
       "githubRepo": "BananaSuisa",
       "githubTagPrefix": "sistema-v",
       "minimumLauncherVersion": "0.1.0"
+    },
+    {
+      "id": "com.ribanense.balanca",
+      "name": "Testador de Balanças",
+      "publicName": "Testador de Balanças",
+      "description": "Captura e testa peso de balanças via serial (COM/USB). Aceita os modelos e configurações clássicos e automatiza a varredura de porta e parâmetros: modos manual, um a um e todas as portas.",
+      "category": "Dispositivos",
+      "icon": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/icons/balanca.png",
+      "githubOwner": "desenvolvimentoLocatelli",
+      "githubRepo": "BananaSuisa",
+      "githubTagPrefix": "balanca-v",
+      "minimumLauncherVersion": "0.1.0"
     }
   ]
 }
