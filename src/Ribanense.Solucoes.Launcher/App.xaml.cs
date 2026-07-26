@@ -54,6 +54,11 @@ public partial class App : Application
         // encerrar (liberando o mutex) antes de seguir, e limpa binarios residuais.
         WaitForPreviousInstanceAfterUpdate(e.Args);
         CleanupStaleUpdateFiles();
+        if (TryMigrateLegacyLauncherFileNameAfterUpdate(e.Args))
+        {
+            Shutdown(0);
+            return;
+        }
 
         string launcherMutexName = AppProcessDetector.MutexNameFor(LauncherConfig.LauncherAppId);
         _singleInstanceMutex = new Mutex(initiallyOwned: true, launcherMutexName, out bool createdNew);
@@ -198,6 +203,88 @@ public partial class App : Application
     }
 
     /// <summary>
+    /// Corrige a primeira atualizacao vinda de um launcher antigo, cujo atualizador instalava
+    /// o binario novo preservando o nome versionado anterior. Renomeia o processo atual e o
+    /// relanca uma unica vez com o nome correspondente a versao realmente instalada.
+    /// </summary>
+    private static bool TryMigrateLegacyLauncherFileNameAfterUpdate(string[] args)
+    {
+        if (!args.Any(a =>
+                string.Equals(a, LauncherUpdateService.PostUpdateArg, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        string? currentPath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(currentPath) || !File.Exists(currentPath))
+        {
+            return false;
+        }
+
+        string? targetPath;
+        try
+        {
+            targetPath = LauncherUpdateService.GetLegacyFileNameMigrationTarget(
+                currentPath,
+                AppVersion.ForEntry());
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (targetPath is null)
+        {
+            return false;
+        }
+
+        string? dir = Path.GetDirectoryName(targetPath);
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            return false;
+        }
+
+        string? displacedTargetPath = null;
+        bool currentRenamed = false;
+        try
+        {
+            if (File.Exists(targetPath))
+            {
+                displacedTargetPath = targetPath + $".old-{Guid.NewGuid():N}.exe";
+                File.Move(targetPath, displacedTargetPath);
+            }
+
+            File.Move(currentPath, targetPath);
+            currentRenamed = true;
+
+            var psi = new ProcessStartInfo(targetPath)
+            {
+                UseShellExecute = false,
+                WorkingDirectory = dir
+            };
+            psi.ArgumentList.Add(LauncherUpdateService.PostUpdateArg);
+            psi.ArgumentList.Add(Environment.ProcessId.ToString());
+            psi.ArgumentList.Add(targetPath);
+            Process.Start(psi);
+            return true;
+        }
+        catch
+        {
+            if (currentRenamed)
+            {
+                TryMoveFile(targetPath, currentPath);
+            }
+
+            if (displacedTargetPath is not null)
+            {
+                TryMoveFile(displacedTargetPath, targetPath);
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Remove binarios residuais de auto-atualizacao (<c>*.old-*.exe</c> / <c>*.new-*.exe</c>)
     /// deixados ao lado do executavel atual. Best-effort.
     /// </summary>
@@ -215,6 +302,21 @@ public partial class App : Application
                 {
                     try { File.Delete(file); } catch { /* pode estar em uso; ignora */ }
                 }
+            }
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
+    private static void TryMoveFile(string source, string destination)
+    {
+        try
+        {
+            if (File.Exists(source) && !File.Exists(destination))
+            {
+                File.Move(source, destination);
             }
         }
         catch

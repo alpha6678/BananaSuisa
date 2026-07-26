@@ -241,6 +241,36 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
         return Path.Combine(dir, fileName);
     }
 
+    internal static string? GetLegacyFileNameMigrationTarget(
+        string currentExecutablePath,
+        string currentVersion)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentExecutablePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentVersion);
+
+        const string prefix = "launcher-";
+        const string suffix = "-win-x64.exe";
+        string fileName = Path.GetFileName(currentExecutablePath);
+
+        if (!fileName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+            !fileName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        string legacyVersion = fileName[prefix.Length..^suffix.Length];
+        string numericVersion = legacyVersion.Split('-', 2)[0];
+        if (numericVersion.Count(c => c == '.') < 2 ||
+            !Version.TryParse(numericVersion, out _))
+        {
+            return null;
+        }
+
+        string expectedName = $"launcher-{currentVersion}-win-x64.exe";
+        string targetPath = GetTargetExecutablePath(currentExecutablePath, expectedName);
+        return PathsEqual(currentExecutablePath, targetPath) ? null : targetPath;
+    }
+
     private static bool PathsEqual(string left, string right) =>
         string.Equals(
             Path.GetFullPath(left),
