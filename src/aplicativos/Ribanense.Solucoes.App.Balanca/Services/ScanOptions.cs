@@ -3,9 +3,9 @@ using System.IO.Ports;
 namespace Ribanense.Solucoes.App.Balanca.Services;
 
 /// <summary>
-/// Conjuntos de parâmetros seriais a combinar durante a varredura automática.
-/// O padrão cobre as configurações mais comuns; <see cref="Deep"/> amplia a
-/// matriz (mais bauds, data bits e stop bits) para casos difíceis.
+/// Parâmetros da varredura automática. O modo normal é guiado pelo protocolo:
+/// testa o default do modelo e um pequeno conjunto de bauds/formatos plausíveis.
+/// <see cref="Deep"/> amplia para o produto cartesiano completo (casos difíceis).
 /// </summary>
 public sealed class ScanOptions
 {
@@ -13,25 +13,31 @@ public sealed class ScanOptions
 
     public bool Deep { get; init; }
 
+    /// <summary>Parar a varredura ao encontrar um frame de alta confiança e estável.</summary>
+    public bool StopOnConfidentHit { get; init; } = true;
+
     public IReadOnlyList<int> BaudRates => Deep
         ? new[] { 9600, 4800, 19200, 2400, 38400, 57600, 115200, 1200, 600, 300, 110 }
-        : new[] { 9600, 4800, 19200, 2400, 38400 };
+        : new[] { 9600, 4800, 2400, 19200 };
 
-    public IReadOnlyList<int> DataBits => Deep
-        ? new[] { 8, 7, 6, 5 }
-        : new[] { 8, 7 };
+    /// <summary>Formatos (data/paridade/stop) comuns testados no modo normal.</summary>
+    public IReadOnlyList<(int DataBits, Parity Parity, StopBits StopBits)> FramingProfiles { get; } =
+        new[]
+        {
+            (8, Parity.None, StopBits.One),
+            (8, Parity.None, StopBits.Two),
+            (8, Parity.Even, StopBits.One),
+            (7, Parity.Even, StopBits.One),
+        };
 
-    public IReadOnlyList<Parity> Parities => Deep
-        ? new[] { Parity.None, Parity.Even, Parity.Odd, Parity.Mark, Parity.Space }
-        : new[] { Parity.None, Parity.Even, Parity.Odd };
-
-    public IReadOnlyList<StopBits> StopBitsSet => Deep
-        ? new[] { StopBits.One, StopBits.Two, StopBits.OnePointFive }
-        : new[] { StopBits.One };
-
-    public IReadOnlyList<Handshake> Handshakes => Deep
-        ? new[] { Handshake.None, Handshake.RequestToSend, Handshake.XOnXOff }
-        : new[] { Handshake.None };
+    // Conjuntos completos usados apenas no modo profundo.
+    public IReadOnlyList<int> DataBits => new[] { 8, 7, 6, 5 };
+    public IReadOnlyList<Parity> Parities =>
+        new[] { Parity.None, Parity.Even, Parity.Odd, Parity.Mark, Parity.Space };
+    public IReadOnlyList<StopBits> StopBitsSet =>
+        new[] { StopBits.One, StopBits.Two, StopBits.OnePointFive };
+    public IReadOnlyList<Handshake> Handshakes =>
+        new[] { Handshake.None, Handshake.RequestToSend, Handshake.XOnXOff };
 
     public static ScanOptions Default => new();
 }

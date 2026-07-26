@@ -3,9 +3,10 @@ using Ribanense.Solucoes.App.Balanca.Protocols;
 namespace Ribanense.Solucoes.App.Balanca.Domain;
 
 /// <summary>
-/// Catálogo de modelos de balança oferecidos ao usuário. Mantém os modelos da
-/// interface original do ACBrBAL, mapeando cada um para um protocolo preciso
-/// (Toledo/Filizola/Urano) ou para o detector genérico.
+/// Catálogo de modelos de balança oferecidos ao usuário. Os modelos com formato de
+/// protocolo documentado (Toledo, Toledo 2180, Filizola, Urano) apontam para
+/// implementações específicas; os demais usam o detector genérico e são marcados como
+/// experimentais, pois não têm fixture/manual confirmando o formato.
 /// </summary>
 public static class BalancaModelRegistry
 {
@@ -19,24 +20,28 @@ public static class BalancaModelRegistry
     private static IReadOnlyList<BalancaModel> Build()
     {
         var toledo = new ToledoProtocol();
+        var toledo2180 = new Toledo2180Protocol();
         var filizola = new FilizolaProtocol();
         var urano = new UranoProtocol();
         var generic = new GenericHeuristicProtocol();
 
+        const ModelSupport doc = ModelSupport.Documentado;
+        const ModelSupport exp = ModelSupport.Experimental;
+
         return new List<BalancaModel>
         {
-            new("automatico", "Automático / Genérico", generic),
-            new("filizola", "Filizola", filizola),
-            new("toledo", "Toledo", toledo),
-            new("toledo2180", "Toledo 2180", toledo),
-            new("urano", "Urano", urano),
-            new("uranopop", "Urano POP", urano),
-            new("lucastec", "LucasTec", generic),
-            new("magna", "Magna", generic),
-            new("digitron", "Digitron", generic),
-            new("magellan", "Magellan", generic),
-            new("lider", "Lider", generic),
-            new("simulada", "Balança simulada (demo)", generic, isSimulated: true),
+            new("automatico", "Automático / Genérico", generic, exp),
+            new("filizola", "Filizola", filizola, doc),
+            new("toledo", "Toledo (Prix/9094)", toledo, doc),
+            new("toledo2180", "Toledo 2180", toledo2180, doc),
+            new("urano", "Urano", urano, doc),
+            new("uranopop", "Urano POP", urano, doc),
+            new("lucastec", "LucasTec", generic, exp),
+            new("magna", "Magna", generic, exp),
+            new("digitron", "Digitron", generic, exp),
+            new("magellan", "Magellan", generic, exp),
+            new("lider", "Lider", generic, exp),
+            new("simulada", "Balança simulada (demo)", generic, exp, isSimulated: true),
         };
     }
 }

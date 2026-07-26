@@ -1,4 +1,6 @@
+using System.IO.Ports;
 using Ribanense.Solucoes.App.Balanca.Domain;
+using Ribanense.Solucoes.App.Balanca.Protocols;
 using Ribanense.Solucoes.App.Balanca.Serial;
 
 namespace Ribanense.Solucoes.App.Balanca.Services;
@@ -17,8 +19,10 @@ public sealed class ScanEngine
     }
 
     /// <summary>
-    /// Gera os candidatos de configuração, colocando o default do modelo primeiro
-    /// em cada porta e evitando repetições.
+    /// Gera os candidatos de configuração guiados pelo protocolo: primeiro o default
+    /// do modelo, depois os bauds documentados com os formatos plausíveis. No modo
+    /// profundo, expande para o produto cartesiano completo. O timeout é adaptado ao
+    /// baud (bauds baixos ganham mais tempo).
     /// </summary>
     public IReadOnlyList<SerialConfig> BuildCandidates(
         BalancaModel model,
@@ -34,21 +38,47 @@ public sealed class ScanEngine
 
         foreach (string port in ports)
         {
-            var preferred = model.DefaultConfig(port) with { TimeoutMs = options.TimeoutMsPerAttempt };
+            // 1) Default documentado do modelo tem prioridade absoluta.
+            var preferred = model.DefaultConfig(port) with { TimeoutMs = TimeoutFor(model.DefaultConfig(port).BaudRate, options) };
             if (seen.Add(Signature(preferred))) result.Add(preferred);
 
-            foreach (int baud in options.BaudRates)
-            foreach (int dataBits in options.DataBits)
-            foreach (var parity in options.Parities)
-            foreach (var stopBits in options.StopBitsSet)
-            foreach (var handshake in options.Handshakes)
+            if (options.Deep)
             {
-                var cfg = new SerialConfig(port, baud, dataBits, parity, stopBits, handshake, options.TimeoutMsPerAttempt);
-                if (seen.Add(Signature(cfg))) result.Add(cfg);
+                foreach (int baud in options.BaudRates)
+                foreach (int dataBits in options.DataBits)
+                foreach (var parity in options.Parities)
+                foreach (var stopBits in options.StopBitsSet)
+                foreach (var handshake in options.Handshakes)
+                {
+                    Add(new SerialConfig(port, baud, dataBits, parity, stopBits, handshake, TimeoutFor(baud, options)));
+                }
+            }
+            else
+            {
+                // 2) Bauds documentados × formatos plausíveis, sem handshake.
+                foreach (int baud in options.BaudRates)
+                foreach (var (dataBits, parity, stopBits) in options.FramingProfiles)
+                {
+                    Add(new SerialConfig(port, baud, dataBits, parity, stopBits, Handshake.None, TimeoutFor(baud, options)));
+                }
             }
         }
 
         return result;
+
+        void Add(SerialConfig cfg)
+        {
+            if (seen.Add(Signature(cfg))) result.Add(cfg);
+        }
+    }
+
+    /// <summary>Timeout por tentativa adaptado ao baud: bauds baixos precisam de mais tempo.</summary>
+    private static int TimeoutFor(int baud, ScanOptions options)
+    {
+        int baseTimeout = options.TimeoutMsPerAttempt;
+        if (baud is <= 0 or >= 2400) return baseTimeout;
+        // Um frame curto a 300 baud já custa centenas de ms; dobra o orçamento abaixo de 2400.
+        return baseTimeout * 2;
     }
 
     /// <summary>Testa uma única configuração, abrindo e fechando a porta.</summary>
@@ -64,17 +94,23 @@ public sealed class ScanEngine
             {
                 channel = _factory.Create();
                 channel.Open(config);
-                var reading = SerialWeightReader.Read(channel, model.Protocol, config.TimeoutMs, ct);
-                bool success = reading.HasResponse;
-                return new ScanResult(config, reading, success);
+                var options = SerialReadOptions.FromConfig(config);
+                var outcome = SerialWeightReader.Read(channel, model.Protocol, options, ct);
+                bool success = outcome.Reading.HasResponse;
+                string? error = success ? null : outcome.Diagnostics.Reason;
+                return new ScanResult(config, outcome.Reading, success, outcome.Confidence, error);
             }
             catch (OperationCanceledException)
             {
                 throw;
             }
+            catch (SerialChannelException ex)
+            {
+                return new ScanResult(config, WeightReading.NotRead(), false, FrameConfidence.None, $"{ex.FaultLabel}: {ex.Message}");
+            }
             catch (Exception ex)
             {
-                return new ScanResult(config, WeightReading.NotRead(), false, ex.Message);
+                return new ScanResult(config, WeightReading.NotRead(), false, FrameConfidence.None, ex.Message);
             }
             finally
             {
@@ -95,6 +131,7 @@ public sealed class ScanEngine
         IProgress<ScanResult>? onAttempt = null,
         CancellationToken ct = default)
     {
+        options ??= ScanOptions.Default;
         var candidates = BuildCandidates(model, ports, options);
         var hits = new List<ScanResult>();
 
@@ -104,6 +141,14 @@ public sealed class ScanEngine
             var result = await ProbeAsync(model, config, ct).ConfigureAwait(false);
             onAttempt?.Report(result);
             if (result.Reading.HasResponse) hits.Add(result);
+
+            // Parada antecipada: frame de alta confiança e leitura estável já resolve.
+            if (options.StopOnConfidentHit
+                && result.Confidence == Protocols.FrameConfidence.High
+                && result.Reading.Status == Domain.WeightStatus.Estavel)
+            {
+                break;
+            }
         }
 
         return hits

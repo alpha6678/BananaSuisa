@@ -38,10 +38,12 @@ public sealed class SimulatedSerialChannel : ISerialChannel
 
     public void Write(ReadOnlySpan<byte> data)
     {
+        // Só responde quando recebe o comando de solicitação (ENQ), como uma balança real.
+        bool hasEnq = data.IndexOf(Protocols.SerialControl.ENQ) >= 0;
         lock (_sync)
         {
             if (!_open) throw new InvalidOperationException("Porta simulada não está aberta.");
-            if (!_matched) return;
+            if (!_matched || !hasEnq) return;
             foreach (byte b in _frame) _pending.Enqueue(b);
         }
     }
@@ -85,7 +87,8 @@ public sealed class SimulatedSerialChannel : ISerialChannel
         && a.BaudRate == b.BaudRate
         && a.DataBits == b.DataBits
         && a.Parity == b.Parity
-        && a.StopBits == b.StopBits;
+        && a.StopBits == b.StopBits
+        && a.Handshake == b.Handshake;
 
     /// <summary>Frame no formato genérico: STX + peso + unidade + ETX + CRLF.</summary>
     private static byte[] BuildFrame(decimal weight, string unit)

@@ -21,6 +21,7 @@ public partial class App : Application
     private LiteDbVault? _vault;
     private AppJsonLogWriter? _logger;
     private Mutex? _singleInstanceMutex;
+    private BalancaViewModel? _balancaVm;
     private bool _isHandlingUnhandled;
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -59,6 +60,7 @@ public partial class App : Application
 
         var profiles = new ProfileStore(_vault);
         var balancaVm = new BalancaViewModel(profiles, _logger);
+        _balancaVm = balancaVm;
         var viewModel = new MainWindowViewModel(balancaVm);
         viewModel.AppendLog("Testador de Balanças pronto.");
 
@@ -68,6 +70,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        try { _balancaVm?.Dispose(); } catch { }
         try { _logger?.Write(AppLogLevel.Information, "shutdown", "Testador de Balanças encerrado."); } catch { }
         _vault?.Dispose();
         try { _singleInstanceMutex?.ReleaseMutex(); } catch { }

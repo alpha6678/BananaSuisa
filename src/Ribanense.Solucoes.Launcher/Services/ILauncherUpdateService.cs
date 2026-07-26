@@ -14,9 +14,10 @@ public interface ILauncherUpdateService
     Task<ReleaseInfo?> CheckForUpdateAsync(CancellationToken ct);
 
     /// <summary>
-    /// Baixa o .exe da release, valida SHA256, substitui o binario atual (rename-and-swap)
-    /// e inicia o novo processo com <c>--post-update</c>. Em caso de sucesso, o chamador
-    /// deve encerrar a aplicacao para liberar o mutex de instancia unica.
+    /// Baixa o .exe da release, valida SHA256, instala-o com o nome do asset
+    /// (rename-and-swap) e inicia o novo processo com <c>--post-update</c>.
+    /// Em caso de sucesso, o chamador deve encerrar a aplicacao para liberar
+    /// o mutex de instancia unica.
     /// </summary>
     Task<LauncherUpdateResult> DownloadAndApplyAsync(
         ReleaseInfo release, IProgress<double>? progress, CancellationToken ct);

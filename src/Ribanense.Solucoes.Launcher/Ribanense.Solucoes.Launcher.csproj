@@ -18,4 +18,7 @@
   <ItemGroup>
     <EmbeddedResource Include="..\..\catalog\catalog.json" LogicalName="Ribanense.Solucoes.Launcher.catalog.json" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ribanense.Solucoes.Launcher.Tests" />
+  </ItemGroup>
 </Project>

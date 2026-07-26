@@ -46,14 +46,14 @@ public sealed class BalancaReader : IDisposable
         _config = null;
     }
 
-    public Task<WeightReading> ReadWeightAsync(CancellationToken ct = default)
+    public Task<SerialReadOutcome> ReadWeightAsync(CancellationToken ct = default)
     {
         if (_channel is not { IsOpen: true } channel || _protocol is null || _config is null)
             throw new InvalidOperationException("Ative a balança antes de ler o peso.");
 
         var protocol = _protocol;
-        int timeout = _config.TimeoutMs;
-        return Task.Run(() => SerialWeightReader.Read(channel, protocol, timeout, ct), ct);
+        var options = SerialReadOptions.FromConfig(_config);
+        return Task.Run(() => SerialWeightReader.Read(channel, protocol, options, ct), ct);
     }
 
     public void Dispose() => Deactivate();

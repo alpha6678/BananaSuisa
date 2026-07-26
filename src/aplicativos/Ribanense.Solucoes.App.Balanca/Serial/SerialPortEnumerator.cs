@@ -5,34 +5,31 @@ using System.Text.RegularExpressions;
 namespace Ribanense.Solucoes.App.Balanca.Serial;
 
 /// <summary>
-/// Enumera portas seriais físicas e USB-serial presentes na máquina, garantindo
-/// portas de COM1 a COM12 como baseline e filtrando portas seriais virtuais Bluetooth.
+/// Enumera apenas as portas seriais realmente presentes na máquina (físicas e
+/// USB-serial), sem inventar COM1–COM12. Filtra portas seriais virtuais Bluetooth e
+/// anexa identidade estável (PNP ID, VID/PID) para reconhecer o mesmo dispositivo após
+/// reconexão, quando o número da COM pode mudar.
 /// </summary>
 public static partial class SerialPortEnumerator
 {
-    private const int MinBaselineComPort = 1;
-    private const int MaxBaselineComPort = 12;
-
     public static IReadOnlyList<SerialPortInfo> Enumerate()
     {
         string[] detectedNames;
         try { detectedNames = SerialPort.GetPortNames(); }
         catch { detectedNames = Array.Empty<string>(); }
 
-        var (friendlyNames, bluetoothPorts) = InspectWmiDevices();
+        var wmi = InspectWmiDevices();
 
-        // Baseline portas COM1 a COM12 para garantir presença na interface + portas detectadas no sistema.
-        var candidatePorts = Enumerable.Range(MinBaselineComPort, MaxBaselineComPort - MinBaselineComPort + 1)
-            .Select(i => $"COM{i}")
-            .Concat(detectedNames.Select(NormalizePort))
+        return detectedNames
+            .Select(NormalizePort)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(port => !bluetoothPorts.Contains(port))
+            .Where(port => !wmi.BluetoothPorts.Contains(port))
             .OrderBy(ComPortOrder)
             .ThenBy(p => p, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        return candidatePorts
-            .Select(p => new SerialPortInfo(p, friendlyNames.GetValueOrDefault(p)))
+            .Select(p => wmi.Devices.TryGetValue(p, out var info)
+                ? info
+                : new SerialPortInfo(p, null))
             .ToList();
     }
 
@@ -49,12 +46,12 @@ public static partial class SerialPortEnumerator
         return match.Success && int.TryParse(match.Groups[1].Value, out int n) ? n : int.MaxValue;
     }
 
-    private static (Dictionary<string, string> FriendlyNames, HashSet<string> BluetoothPorts) InspectWmiDevices()
+    private static (Dictionary<string, SerialPortInfo> Devices, HashSet<string> BluetoothPorts) InspectWmiDevices()
     {
-        var friendlyNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var devices = new Dictionary<string, SerialPortInfo>(StringComparer.OrdinalIgnoreCase);
         var bluetoothPorts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (!OperatingSystem.IsWindows()) return (friendlyNames, bluetoothPorts);
+        if (!OperatingSystem.IsWindows()) return (devices, bluetoothPorts);
 
         try
         {
@@ -71,20 +68,21 @@ public static partial class SerialPortEnumerator
 
                 string searchContext = $"{pnpDeviceId} {name} {service} {description} {caption}";
                 var match = ComPortRegex().Match(name ?? caption ?? "");
-
                 if (!match.Success) continue;
                 string port = match.Value.ToUpperInvariant();
 
                 if (IsBluetoothDevice(searchContext))
                 {
                     bluetoothPorts.Add(port);
+                    continue;
                 }
-                else
-                {
-                    string label = !string.IsNullOrWhiteSpace(name) ? name : (caption ?? description ?? port);
-                    string friendly = FriendlyNameRegex().Replace(label, string.Empty).Trim();
-                    friendlyNames[port] = string.IsNullOrWhiteSpace(friendly) ? label.Trim() : friendly;
-                }
+
+                string label = !string.IsNullOrWhiteSpace(name) ? name : (caption ?? description ?? port);
+                string friendly = FriendlyNameRegex().Replace(label, string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(friendly)) friendly = label.Trim();
+
+                var (vid, pid) = ExtractVidPid(pnpDeviceId);
+                devices[port] = new SerialPortInfo(port, friendly, pnpDeviceId, vid, pid);
             }
         }
         catch
@@ -92,7 +90,17 @@ public static partial class SerialPortEnumerator
             // WMI indisponível: segue sem metadados WMI.
         }
 
-        return (friendlyNames, bluetoothPorts);
+        return (devices, bluetoothPorts);
+    }
+
+    private static (string? Vid, string? Pid) ExtractVidPid(string? pnpDeviceId)
+    {
+        if (string.IsNullOrWhiteSpace(pnpDeviceId)) return (null, null);
+        var vid = VidRegex().Match(pnpDeviceId);
+        var pid = PidRegex().Match(pnpDeviceId);
+        return (
+            vid.Success ? vid.Groups[1].Value.ToUpperInvariant() : null,
+            pid.Success ? pid.Groups[1].Value.ToUpperInvariant() : null);
     }
 
     private static bool IsBluetoothDevice(string text)
@@ -109,4 +117,10 @@ public static partial class SerialPortEnumerator
 
     [GeneratedRegex(@"\s*\(COM\d+\)\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex FriendlyNameRegex();
+
+    [GeneratedRegex(@"VID_([0-9A-Fa-f]{4})", RegexOptions.IgnoreCase)]
+    private static partial Regex VidRegex();
+
+    [GeneratedRegex(@"PID_([0-9A-Fa-f]{4})", RegexOptions.IgnoreCase)]
+    private static partial Regex PidRegex();
 }

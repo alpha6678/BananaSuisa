@@ -32,7 +32,7 @@
                     <TextBlock Style="{StaticResource Section.Header}" Text="Modelo da balança" />
                     <ComboBox ItemsSource="{Binding Models}"
                               SelectedItem="{Binding SelectedModel}"
-                              DisplayMemberPath="DisplayName" />
+                              DisplayMemberPath="Label" />
 
                     <TextBlock Style="{StaticResource Section.Header}" Margin="0,16,0,8" Text="Modo de teste" />
                     <StackPanel Orientation="Horizontal">

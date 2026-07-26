@@ -1,3 +1,5 @@
+using Ribanense.Solucoes.App.Balanca.Protocols;
+
 namespace Ribanense.Solucoes.App.Balanca.Domain;
 
 /// <summary>
@@ -7,18 +9,28 @@ public sealed record ScanResult(
     SerialConfig Config,
     WeightReading Reading,
     bool Success,
+    FrameConfidence Confidence = FrameConfidence.None,
     string? Error = null)
 {
     /// <summary>
-    /// Pontuação para ranking: leitura estável com peso vale mais que apenas
-    /// resposta reconhecida; sem resposta vale zero.
+    /// Pontuação para ranking. Prioriza a confiança do frame (delimitado/documentado
+    /// vale mais que texto salvo por heurística) e, dentro dela, o status da leitura.
+    /// Sem resposta vale zero.
     /// </summary>
-    public int Score => Reading.Status switch
+    public int Score
     {
-        WeightStatus.Estavel => 100,
-        WeightStatus.Instavel => 60,
-        WeightStatus.Negativo => 50,
-        WeightStatus.Sobrecarga => 50,
-        _ => 0,
-    };
+        get
+        {
+            int statusScore = Reading.Status switch
+            {
+                WeightStatus.Estavel => 100,
+                WeightStatus.Instavel => 60,
+                WeightStatus.Negativo => 50,
+                WeightStatus.Sobrecarga => 50,
+                _ => 0,
+            };
+            if (statusScore == 0) return 0;
+            return statusScore + (int)Confidence * 15;
+        }
+    }
 }

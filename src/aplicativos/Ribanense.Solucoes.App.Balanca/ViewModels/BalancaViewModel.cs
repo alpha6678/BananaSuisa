@@ -15,11 +15,12 @@ namespace Ribanense.Solucoes.App.Balanca.ViewModels;
 /// ViewModel principal da tela de teste de balança. Mantém o modo manual clássico
 /// e acrescenta os modos automáticos "Um a um" e "Todas as portas".
 /// </summary>
-public sealed class BalancaViewModel : ObservableObject
+public sealed class BalancaViewModel : ObservableObject, IDisposable
 {
     private readonly RealSerialChannelFactory _realFactory = new();
     private readonly ProfileStore _profiles;
     private readonly IAppJsonLog? _logger;
+    private readonly SerialPortWatcher _portWatcher = new();
     private Action<string>? _logSink;
 
     private BalancaReader? _reader;
@@ -53,6 +54,34 @@ public sealed class BalancaViewModel : ObservableObject
 
         RefreshPorts();
         LoadProfileForModel(SelectedModel);
+
+        _portWatcher.PortsChanged += OnPortsChanged;
+        _portWatcher.Start();
+    }
+
+    private void OnPortsChanged(IReadOnlyList<SerialPortInfo> present)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(() => OnPortsChanged(present));
+            return;
+        }
+
+        // Modelo simulado não usa portas reais; ignore hot-plug.
+        if (SelectedModel.IsSimulated) return;
+
+        bool activePortGone = IsActive && SelectedPort is not null
+            && !present.Any(p => string.Equals(p.Port, SelectedPort.Port, StringComparison.OrdinalIgnoreCase));
+
+        if (activePortGone)
+        {
+            Log($"Porta {SelectedPort!.Port} removida; encerrando a sessão.");
+            Deactivate();
+        }
+
+        // Durante varredura completa não mexemos na lista para não afetar os candidatos.
+        if (!IsScanning) RefreshPorts();
     }
 
     #region Catálogos / opções
@@ -359,8 +388,9 @@ public sealed class BalancaViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            var reading = await _reader.ReadWeightAsync().ConfigureAwait(true);
-            ShowReading(reading);
+            var outcome = await _reader.ReadWeightAsync().ConfigureAwait(true);
+            ShowReading(outcome.Reading);
+            LogOutcome(outcome);
         }
         catch (Exception ex)
         {
@@ -403,9 +433,9 @@ public sealed class BalancaViewModel : ObservableObject
         {
             while (!ct.IsCancellationRequested && _reader is { IsActive: true })
             {
-                var reading = await _reader.ReadWeightAsync(ct).ConfigureAwait(true);
-                ShowReading(reading);
-                await Task.Delay(400, ct).ConfigureAwait(true);
+                var outcome = await _reader.ReadWeightAsync(ct).ConfigureAwait(true);
+                ShowReading(outcome.Reading);
+                await Task.Delay(150, ct).ConfigureAwait(true);
             }
         }
         catch (OperationCanceledException) { }
@@ -452,7 +482,8 @@ public sealed class BalancaViewModel : ObservableObject
         _scanCts = new CancellationTokenSource();
         int total = candidates.Count;
         int done = 0;
-        Log($"Varredura completa iniciada: {total} combinações em {ports.Count} porta(s).");
+        Log($"Varredura completa iniciada: {total} combinações em {ports.Count} porta(s). " +
+            $"Estimativa máxima: {EstimateDuration(candidates, options.TimeoutMsPerAttempt)}.");
 
         var progress = new Progress<ScanResult>(r =>
         {
@@ -494,15 +525,23 @@ public sealed class BalancaViewModel : ObservableObject
     private void StopScan()
     {
         _scanCts?.Cancel();
-        if (IsStepping)
+
+        bool wasStepping = _stepCandidates.Count > 0;
+        _stepCandidates = Array.Empty<SerialConfig>();
+        _stepIndex = -1;
+        CurrentCandidate = null;
+        StepProgress = "";
+
+        // A varredura completa dispõe o CTS no próprio finally; aqui só liberamos o do
+        // modo passo a passo (quando não há varredura completa em andamento).
+        if (!IsScanning)
         {
-            _stepCandidates = Array.Empty<SerialConfig>();
-            _stepIndex = -1;
-            CurrentCandidate = null;
-            StepProgress = "";
-            OnPropertyChanged(nameof(IsStepping));
-            CommandManager.InvalidateRequerySuggested();
+            _scanCts?.Dispose();
+            _scanCts = null;
         }
+
+        if (wasStepping) OnPropertyChanged(nameof(IsStepping));
+        CommandManager.InvalidateRequerySuggested();
     }
 
     private async Task StartStepScanAsync()
@@ -515,8 +554,11 @@ public sealed class BalancaViewModel : ObservableObject
         _stepCandidates = engine.BuildCandidates(SelectedModel, ports, options);
         _stepIndex = -1;
         ScanResults.Clear();
+        _scanCts?.Dispose();
+        _scanCts = new CancellationTokenSource();
         OnPropertyChanged(nameof(IsStepping));
-        Log($"Varredura passo a passo iniciada: {_stepCandidates.Count} combinações.");
+        Log($"Varredura passo a passo iniciada: {_stepCandidates.Count} combinações. " +
+            $"Estimativa máxima: {EstimateDuration(_stepCandidates, options.TimeoutMsPerAttempt)}.");
         await NextStepAsync().ConfigureAwait(true);
     }
 
@@ -541,7 +583,8 @@ public sealed class BalancaViewModel : ObservableObject
             IsBusy = true;
             ScanProgress = $"Testando {config.ShortDescription}...";
             var engine = new ScanEngine(FactoryFor(SelectedModel));
-            var result = await engine.ProbeAsync(SelectedModel, config).ConfigureAwait(true);
+            var token = _scanCts?.Token ?? CancellationToken.None;
+            var result = await engine.ProbeAsync(SelectedModel, config, token).ConfigureAwait(true);
             ShowReading(result.Reading);
             if (result.Reading.HasResponse)
             {
@@ -554,6 +597,10 @@ public sealed class BalancaViewModel : ObservableObject
                 string detail = result.Error is null ? "sem resposta" : result.Error;
                 Log($"[{StepProgress}] {config.ShortDescription} → {detail}");
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Log($"Teste cancelado em {config.ShortDescription}.");
         }
         catch (Exception ex)
         {
@@ -594,16 +641,49 @@ public sealed class BalancaViewModel : ObservableObject
 
     private void ShowReading(WeightReading reading)
     {
-        WeightDisplay = reading.HasResponse
+        // Peso só é exibido quando há valor numérico; status sem peso (IIIII/NNNNN/SSSSS)
+        // e "não lido" não mostram número, mas o StatusText informa a situação.
+        WeightDisplay = reading.HasWeight
             ? reading.Weight.ToString("0.000", CultureInfo.CurrentCulture) + " " + reading.Unit
-            : "----";
+            : reading.HasResponse ? "—" : "----";
         StatusText = reading.StatusText;
         LastResponseAscii = reading.RawAscii;
         LastResponseHex = reading.RawHex;
     }
 
     private static string FormatReading(WeightReading r) =>
-        $"{r.Weight.ToString("0.000", CultureInfo.InvariantCulture)} {r.Unit} ({r.StatusText})";
+        r.HasWeight
+            ? $"{r.Weight.ToString("0.000", CultureInfo.InvariantCulture)} {r.Unit} ({r.StatusText})"
+            : $"({r.StatusText})";
+
+    private void LogOutcome(SerialReadOutcome outcome)
+    {
+        // Loga o diagnóstico apenas quando não houve frame, para não inundar o log.
+        if (!outcome.Reading.HasResponse)
+            Log($"Sem leitura: {outcome.Diagnostics.Summary}");
+    }
+
+    private static string EstimateDuration(IReadOnlyCollection<SerialConfig> candidates, int timeoutMsPerAttempt)
+    {
+        // Estimativa de pior caso: cada candidato podendo esgotar o timeout.
+        var worst = TimeSpan.FromMilliseconds((long)candidates.Count * timeoutMsPerAttempt);
+        if (worst.TotalMinutes >= 1)
+            return $"~{Math.Ceiling(worst.TotalMinutes)} min ({candidates.Count} testes)";
+        return $"~{Math.Ceiling(worst.TotalSeconds)} s ({candidates.Count} testes)";
+    }
+
+    /// <summary>Encerra sessões abertas (monitor, varredura, porta) ao fechar o app.</summary>
+    public void Dispose()
+    {
+        try { _portWatcher.PortsChanged -= OnPortsChanged; _portWatcher.Dispose(); } catch { }
+        try { StopMonitor(); } catch { }
+        try { StopScan(); } catch { }
+        try { Deactivate(); } catch { }
+        _monitorCts?.Dispose();
+        _monitorCts = null;
+        _scanCts?.Dispose();
+        _scanCts = null;
+    }
 
     private void Log(string line)
     {

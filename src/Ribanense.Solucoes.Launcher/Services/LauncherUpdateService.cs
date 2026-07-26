@@ -10,7 +10,7 @@ namespace Ribanense.Solucoes.Launcher.Services;
 
 /// <summary>
 /// Auto-atualizacao do launcher: verifica release <c>launcher-v*</c>, baixa o .exe single-file,
-/// valida SHA256 e substitui o binario no mesmo local via rename-and-swap coordenado por PID.
+/// valida SHA256 e instala o binario com o nome do asset via rename-and-swap coordenado por PID.
 /// </summary>
 public sealed class LauncherUpdateService : ILauncherUpdateService
 {
@@ -87,6 +87,19 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
                 $"A release {release.Tag} nao possui asset .exe.");
         }
 
+        string targetPath;
+        try
+        {
+            targetPath = GetTargetExecutablePath(exePath, exeAsset.Name);
+        }
+        catch (ArgumentException ex)
+        {
+            _log.Write(AppLogLevel.Error, "launcher.update.asset-name",
+                $"Nome de asset invalido: {exeAsset.Name}", ex);
+            return new LauncherUpdateResult(false,
+                $"O nome do executavel da release e invalido: {exeAsset.Name}");
+        }
+
         _log.Write(AppLogLevel.Information, "launcher.update.start",
             $"Baixando launcher {release.Version}.");
 
@@ -125,8 +138,11 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
         }
 
         string suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
-        string newPath = exePath + $".new-{suffix}.exe";
+        string newPath = targetPath + $".new-{suffix}.exe";
         string oldPath = exePath + $".old-{suffix}.exe";
+        string? displacedTargetPath = PathsEqual(exePath, targetPath)
+            ? null
+            : targetPath + $".old-{suffix}.exe";
 
         try
         {
@@ -139,42 +155,45 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
             return new LauncherUpdateResult(false, $"Falha ao gravar o novo executavel: {ex.Message}");
         }
 
-        // Renomeia o exe em execucao (permitido no Windows) e move o novo para o lugar.
+        // Renomeia o exe em execucao (permitido no Windows) e instala o novo usando
+        // o nome versionado do asset da release.
+        bool targetDisplaced = false;
+        bool currentRenamed = false;
+        bool newInstalled = false;
         try
         {
-            File.Move(exePath, oldPath);
-        }
-        catch (Exception ex)
-        {
-            TryDelete(newPath);
-            _log.Write(AppLogLevel.Error, "launcher.update.rename", "Falha ao renomear executavel atual.", ex);
-            return new LauncherUpdateResult(false, $"Falha ao preparar a substituicao: {ex.Message}");
-        }
-
-        try
-        {
-            File.Move(newPath, exePath);
-        }
-        catch (Exception ex)
-        {
-            // rollback: restaura o binario original
-            try
+            if (displacedTargetPath is not null && File.Exists(targetPath))
             {
-                if (!File.Exists(exePath) && File.Exists(oldPath))
-                {
-                    File.Move(oldPath, exePath);
-                }
+                File.Move(targetPath, displacedTargetPath);
+                targetDisplaced = true;
             }
-            catch { /* best effort */ }
+
+            File.Move(exePath, oldPath);
+            currentRenamed = true;
+
+            File.Move(newPath, targetPath);
+            newInstalled = true;
+        }
+        catch (Exception ex)
+        {
+            RollbackSwap(
+                exePath,
+                targetPath,
+                oldPath,
+                displacedTargetPath,
+                targetDisplaced,
+                currentRenamed,
+                newInstalled);
             TryDelete(newPath);
-            _log.Write(AppLogLevel.Error, "launcher.update.swap", "Falha ao aplicar o novo executavel.", ex);
+            _log.Write(AppLogLevel.Error, "launcher.update.swap",
+                "Falha ao instalar o novo executavel com o nome da release.", ex);
             return new LauncherUpdateResult(false, $"Falha ao aplicar a atualizacao: {ex.Message}");
         }
 
         // Inicia o novo processo, que aguarda este encerrar e limpa o binario antigo.
         try
         {
-            var psi = new ProcessStartInfo(exePath)
+            var psi = new ProcessStartInfo(targetPath)
             {
                 UseShellExecute = false,
                 WorkingDirectory = dir
@@ -186,13 +205,71 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
         }
         catch (Exception ex)
         {
+            RollbackSwap(
+                exePath,
+                targetPath,
+                oldPath,
+                displacedTargetPath,
+                targetDisplaced,
+                currentRenamed,
+                newInstalled);
             _log.Write(AppLogLevel.Error, "launcher.update.relaunch", "Falha ao iniciar o novo launcher.", ex);
             return new LauncherUpdateResult(false, $"Falha ao iniciar a nova versao: {ex.Message}");
         }
 
         _log.Write(AppLogLevel.Information, "launcher.update.done",
-            $"Launcher {release.Version} aplicado; reiniciando.");
+            $"Launcher {release.Version} aplicado como {Path.GetFileName(targetPath)}; reiniciando.");
         return new LauncherUpdateResult(true, null);
+    }
+
+    internal static string GetTargetExecutablePath(string currentExecutablePath, string assetName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentExecutablePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(assetName);
+
+        string? dir = Path.GetDirectoryName(currentExecutablePath);
+        string fileName = Path.GetFileName(assetName.Trim());
+
+        if (string.IsNullOrWhiteSpace(dir) ||
+            string.IsNullOrWhiteSpace(fileName) ||
+            fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+            !fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("O asset nao possui um nome de executavel valido.", nameof(assetName));
+        }
+
+        return Path.Combine(dir, fileName);
+    }
+
+    private static bool PathsEqual(string left, string right) =>
+        string.Equals(
+            Path.GetFullPath(left),
+            Path.GetFullPath(right),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static void RollbackSwap(
+        string currentPath,
+        string targetPath,
+        string oldPath,
+        string? displacedTargetPath,
+        bool targetDisplaced,
+        bool currentRenamed,
+        bool newInstalled)
+    {
+        if (newInstalled)
+        {
+            TryDelete(targetPath);
+        }
+
+        if (currentRenamed)
+        {
+            TryMove(oldPath, currentPath);
+        }
+
+        if (targetDisplaced && displacedTargetPath is not null)
+        {
+            TryMove(displacedTargetPath, targetPath);
+        }
     }
 
     private static bool IsDirectoryWritable(string dir)
@@ -207,6 +284,21 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
         catch
         {
             return false;
+        }
+    }
+
+    private static void TryMove(string source, string destination)
+    {
+        try
+        {
+            if (File.Exists(source) && !File.Exists(destination))
+            {
+                File.Move(source, destination);
+            }
+        }
+        catch
+        {
+            // best effort
         }
     }
 
