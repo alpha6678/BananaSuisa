@@ -10,6 +10,7 @@
     <Project Path="src/aplicativos/Ribanense.Solucoes.App.Winget/Ribanense.Solucoes.App.Winget.csproj" />
     <Project Path="src/aplicativos/Ribanense.Solucoes.App.Sistema/Ribanense.Solucoes.App.Sistema.csproj" />
     <Project Path="src/aplicativos/Ribanense.Solucoes.App.Balanca/Ribanense.Solucoes.App.Balanca.csproj" />
+    <Project Path="src/aplicativos/Ribanense.Solucoes.App.Scripts/Ribanense.Solucoes.App.Scripts.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ribanense.Solucoes.PluginSDK.Tests/Ribanense.Solucoes.PluginSDK.Tests.csproj" />
@@ -19,5 +20,6 @@
     <Project Path="tests/Ribanense.Solucoes.App.Winget.Tests/Ribanense.Solucoes.App.Winget.Tests.csproj" />
     <Project Path="tests/Ribanense.Solucoes.App.Sistema.Tests/Ribanense.Solucoes.App.Sistema.Tests.csproj" />
     <Project Path="tests/Ribanense.Solucoes.App.Balanca.Tests/Ribanense.Solucoes.App.Balanca.Tests.csproj" />
+    <Project Path="tests/Ribanense.Solucoes.App.Scripts.Tests/Ribanense.Solucoes.App.Scripts.Tests.csproj" />
   </Folder>
 </Solution>

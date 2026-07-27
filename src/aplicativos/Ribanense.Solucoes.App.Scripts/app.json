@@ -1,0 +1,12 @@
+{
+  "id": "com.ribanense.scripts",
+  "name": "Scripts",
+  "publicName": "Scripts",
+  "version": "0.1.0",
+  "minimumLauncherVersion": "0.1.0",
+  "entryExecutable": "Ribanense.Solucoes.App.Scripts.exe",
+  "icon": "icon.png",
+  "category": "Ferramentas",
+  "requiresElevation": false,
+  "githubTagPrefix": "scripts-v"
+}

@@ -48,6 +48,18 @@
       "githubRepo": "BananaSuisa",
       "githubTagPrefix": "balanca-v",
       "minimumLauncherVersion": "0.1.0"
+    },
+    {
+      "id": "com.ribanense.scripts",
+      "name": "Scripts",
+      "publicName": "Scripts",
+      "description": "Coleção de scripts utilitários com execução automática e saída em tempo real. O primeiro testa qual servidor DNS responde mais rápido na sua rede.",
+      "category": "Ferramentas",
+      "icon": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/icons/scripts.png",
+      "githubOwner": "desenvolvimentoLocatelli",
+      "githubRepo": "BananaSuisa",
+      "githubTagPrefix": "scripts-v",
+      "minimumLauncherVersion": "0.1.0"
     }
   ]
 }
