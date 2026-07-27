@@ -65,6 +65,11 @@
                                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Content="Baixar .NET Runtime"
+                                        Style="{StaticResource Button.Accent}"
+                                        Command="{Binding OpenMissingRuntimeCommand}"
+                                        Visibility="{Binding HasMissingRuntimeUrl, Converter={StaticResource BoolToVisibility}}"
+                                        Margin="0,0,6,0" />
                                 <Button Content="Abrir"
                                         Style="{StaticResource Button.Base}"
                                         Command="{Binding OpenCommand}"

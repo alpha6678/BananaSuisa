@@ -91,9 +91,11 @@ public partial class App : Application
         var registry = new InstalledAppsRegistry();
         var installer = new AppInstallService(_github, registry, _logger);
         var launcherUpdater = new LauncherUpdateService(releases, _github, _logger);
+        var runtimeChecker = new DotNetDesktopRuntimeChecker();
 
         var viewModel = new MainWindowViewModel(
-            catalog, releases, registry, installer, launcherUpdater, _logger, LauncherConfig.AplicativosRoot);
+            catalog, releases, registry, installer, launcherUpdater, _logger, LauncherConfig.AplicativosRoot,
+            runtimeChecker);
 
         var window = new MainWindow { DataContext = viewModel };
         window.Show();

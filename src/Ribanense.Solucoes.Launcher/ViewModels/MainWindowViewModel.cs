@@ -15,6 +15,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
     private readonly IReleaseCheckService _releases;
     private readonly IInstalledAppsRegistry _registry;
     private readonly IAppJsonLog _log;
+    private readonly IDotNetDesktopRuntimeChecker _runtimeChecker;
     private readonly string _aplicativosRoot;
 
     public MainWindowViewModel(
@@ -24,12 +25,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         IAppInstallService installer,
         ILauncherUpdateService launcherUpdater,
         IAppJsonLog log,
-        string aplicativosRoot)
+        string aplicativosRoot,
+        IDotNetDesktopRuntimeChecker? runtimeChecker = null)
     {
         _installer = installer;
         _releases = releases;
         _registry = registry;
         _log = log;
+        _runtimeChecker = runtimeChecker ?? new DotNetDesktopRuntimeChecker();
         _aplicativosRoot = aplicativosRoot;
 
         CatalogPage = new CatalogViewModel(catalog, releases, registry, this, log, aplicativosRoot);
@@ -82,6 +85,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         if (card.LatestRelease is null) return;
         card.IsBusy = true;
         card.ErrorMessage = null;
+        card.MissingRuntimeUrl = null;
         try
         {
             var progress = new Progress<double>(v => card.Progress = v * 100.0);
@@ -114,6 +118,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
     {
         card.IsBusy = true;
         card.ErrorMessage = null;
+        card.MissingRuntimeUrl = null;
         try
         {
             var result = _installer.Uninstall(_aplicativosRoot, card.Id);
@@ -139,6 +144,22 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
     public void Open(AppCardViewModel card)
     {
         if (card.Installed is null) return;
+
+        card.ErrorMessage = null;
+        card.MissingRuntimeUrl = null;
+
+        var runtimeCheck = _runtimeChecker.Check(card.Installed.ExecutablePath);
+        if (!runtimeCheck.IsSatisfied)
+        {
+            string versionLabel = FormatMajorMinor(runtimeCheck.RequiredVersion);
+            string downloadUrl = $"https://dotnet.microsoft.com/download/dotnet/{versionLabel}";
+            card.ErrorMessage = $"Requer .NET Desktop Runtime {versionLabel} (x64), não encontrado nesta máquina. {downloadUrl}";
+            card.MissingRuntimeUrl = downloadUrl;
+            _log.Write(AppLogLevel.Warning, "open.runtime-missing",
+                $"{card.Id} requer .NET Desktop Runtime {versionLabel}, ausente na máquina.");
+            return;
+        }
+
         try
         {
             var psi = new ProcessStartInfo(card.Installed.ExecutablePath)
@@ -159,6 +180,9 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
             card.ErrorMessage = ex.Message;
         }
     }
+
+    private static string FormatMajorMinor(string? version) =>
+        Version.TryParse(version, out var v) ? $"{v.Major}.{v.Minor}" : version ?? "";
 
     private void RefreshCard(AppCardViewModel card)
     {

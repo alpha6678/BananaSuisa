@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows.Input;
 using Ribanense.Solucoes.Launcher.Domain;
 using Ribanense.Solucoes.UI.Mvvm;
@@ -25,6 +26,7 @@ public sealed class AppCardViewModel : ObservableObject
         UpdateCommand = new AsyncRelayCommand(_ => _host.UpdateAsync(this), _ => CanUpdate);
         UninstallCommand = new AsyncRelayCommand(_ => _host.UninstallAsync(this), _ => CanUninstall);
         OpenCommand = new RelayCommand(_ => _host.Open(this), _ => CanOpen);
+        OpenMissingRuntimeCommand = new RelayCommand(_ => OpenMissingRuntimeUrl(), _ => HasMissingRuntimeUrl);
     }
 
     public CatalogEntry Entry { get; }
@@ -115,6 +117,25 @@ public sealed class AppCardViewModel : ObservableObject
         set => SetProperty(ref _errorMessage, value);
     }
 
+    private string? _missingRuntimeUrl;
+    /// <summary>
+    /// Preenchido quando <see cref="Open"/> detecta que o .NET Desktop Runtime exigido pelo app
+    /// nao esta instalado nesta maquina; aponta para a pagina de download correspondente.
+    /// </summary>
+    public string? MissingRuntimeUrl
+    {
+        get => _missingRuntimeUrl;
+        set
+        {
+            if (SetProperty(ref _missingRuntimeUrl, value))
+            {
+                OnPropertyChanged(nameof(HasMissingRuntimeUrl));
+            }
+        }
+    }
+
+    public bool HasMissingRuntimeUrl => !string.IsNullOrEmpty(MissingRuntimeUrl);
+
     public string? InstalledVersion => Installed?.Version;
     public string? LatestVersion => LatestRelease?.Version;
 
@@ -138,4 +159,18 @@ public sealed class AppCardViewModel : ObservableObject
     public ICommand UpdateCommand { get; }
     public ICommand UninstallCommand { get; }
     public ICommand OpenCommand { get; }
+    public ICommand OpenMissingRuntimeCommand { get; }
+
+    private void OpenMissingRuntimeUrl()
+    {
+        if (!HasMissingRuntimeUrl) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(MissingRuntimeUrl!) { UseShellExecute = true });
+        }
+        catch
+        {
+            // best effort: se o navegador padrao nao abrir, o usuario ainda ve a mensagem de erro com a URL.
+        }
+    }
 }
