@@ -30,6 +30,13 @@ Ponto de entrada da documentação do **Ribanense Soluções**. Use como mapa an
 | [`FERRAMENTAS_IA.md`](FERRAMENTAS_IA.md) | MCP/IA aplicados ao desenvolvimento deste repositório. |
 | [`REFERENCIAS_EXTERNAS.md`](REFERENCIAS_EXTERNAS.md) | Links para specs, bibliotecas e documentação canônica. |
 
+## Hardware
+
+| Documento | Foco |
+|-----------|------|
+| [`../hardware/README.md`](../hardware/README.md) | Inventário de equipamentos físicos documentados. |
+| [`../hardware/esp32-2432s028r/README.md`](../hardware/esp32-2432s028r/README.md) | Display ESP32-32E 2,8" (SKU `E32R28T-1`, família CYD): fotos, identificação e pinout. |
+
 ## Agentes e decisões
 
 | Documento | Foco |

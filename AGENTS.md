@@ -20,6 +20,7 @@ Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows
 | `ferramentas/` | CLI do monorepo (`Ribanense.cli.ps1`, `publish-module.ps1`, `release.ps1`). |
 | `catalog/catalog.json` | Catálogo público consumido pelo Launcher via `raw.githubusercontent.com`. |
 | `docs/` | Arquitetura, processo de release, contrato do SDK, etc. |
+| `hardware/` | Dossiês de equipamentos físicos (fotos, identificação, pinout). |
 
 ## Regras de naming
 
@@ -75,3 +76,4 @@ Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows
 - [`docs/AMBIENTE.md`](docs/AMBIENTE.md)
 - [`docs/FERRAMENTAS_CLI.md`](docs/FERRAMENTAS_CLI.md)
 - [`docs/FERRAMENTAS_IA.md`](docs/FERRAMENTAS_IA.md)
+- [`hardware/README.md`](hardware/README.md)
