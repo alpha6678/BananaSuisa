@@ -23,9 +23,16 @@ public static class LogDumpHelper
         }
 
         string tmp = Path.Combine(Path.GetTempPath(), $"ribanense-log-{Guid.NewGuid():N}.dat");
+        string tmpWal = SidecarLogPath(tmp);
         try
         {
             File.Copy(vaultPath, tmp, overwrite: true);
+
+            // O LiteDB só faz checkpoint do .dat quando o dono fecha o banco. Um app
+            // de bandeja fica dias aberto, então a maior parte dos registros ainda
+            // está no -log.dat; sem copiá-lo junto o dump sai vazio.
+            string wal = SidecarLogPath(vaultPath);
+            if (File.Exists(wal)) File.Copy(wal, tmpWal, overwrite: true);
 
             using var vault = new LiteDbVault(tmp);
             var logs = vault.GetRecentLogs(count);
@@ -53,7 +60,20 @@ public static class LogDumpHelper
         finally
         {
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+            try { if (File.Exists(tmpWal)) File.Delete(tmpWal); } catch { }
         }
+    }
+
+    /// <summary>
+    /// Caminho do log de escrita que o LiteDB mantém ao lado do banco:
+    /// <c>Farol.dat</c> tem como par <c>Farol-log.dat</c>.
+    /// </summary>
+    internal static string SidecarLogPath(string vaultPath)
+    {
+        string? dir = Path.GetDirectoryName(vaultPath);
+        string name = Path.GetFileNameWithoutExtension(vaultPath) + "-log" + Path.GetExtension(vaultPath);
+
+        return string.IsNullOrEmpty(dir) ? name : Path.Combine(dir, name);
     }
 
     private static void WriteEntry(TextWriter writer, JsonLogEntry entry)
