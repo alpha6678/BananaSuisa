@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>Ribanense.Solucoes.App.Farol</RootNamespace>
+    <AssemblyName>Ribanense.Solucoes.App.Farol</AssemblyName>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Product>Farol — Ribanense Soluções</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Ribanense.Solucoes.PluginSDK\Ribanense.Solucoes.PluginSDK.csproj" />
+    <ProjectReference Include="..\..\Ribanense.Solucoes.Infrastructure\Ribanense.Solucoes.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Ribanense.Solucoes.UI\Ribanense.Solucoes.UI.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      WinForms entra só pelo NotifyIcon da bandeja. Sem remover os usings
+      implícitos, Application e UserControl ficariam ambíguos com o WPF em todo
+      arquivo do app.
+    -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="10.0.0" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="app.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ribanense.Solucoes.App.Farol.Tests" />
+  </ItemGroup>
+</Project>

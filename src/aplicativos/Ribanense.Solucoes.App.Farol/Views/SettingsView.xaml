@@ -1,0 +1,83 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Farol.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Farol.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:SettingsViewModel}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <Border Style="{StaticResource Panel.Surface}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.SectionTitle}" Text="Código da loja" />
+                    <TextBlock Style="{StaticResource Text.Muted}"
+                               Text="Só faróis com o mesmo código trocam dossiês. Use o mesmo texto em todas as máquinas do local, por exemplo LOJA-RIBA-042. O código nunca trafega em claro na rede." />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBox MinWidth="240"
+                                 Padding="8,6"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding StoreCode, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Content="Parear"
+                                Margin="8,0,0,0"
+                                Style="{StaticResource Button.Accent}"
+                                Command="{Binding PairCommand}" />
+                        <Button Content="Remover pareamento"
+                                Margin="8,0,0,0"
+                                Style="{StaticResource Button.Base}"
+                                Command="{Binding UnpairCommand}" />
+                    </StackPanel>
+
+                    <TextBlock Margin="0,10,0,0"
+                               Style="{StaticResource Text.Muted}"
+                               Text="{Binding MeshStatus}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Panel.Surface}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.SectionTitle}" Text="Como esta máquina aparece" />
+                    <TextBlock Style="{StaticResource Text.Muted}"
+                               Text="Nome exibido no mapa dos outros faróis. Vale mais 'Caixa 2' do que o nome de rede." />
+                    <TextBox MinWidth="240"
+                             HorizontalAlignment="Left"
+                             Margin="0,10,0,0"
+                             Padding="8,6"
+                             VerticalContentAlignment="Center"
+                             Text="{Binding FriendlyName, UpdateSourceTrigger=LostFocus}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Panel.Surface}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.SectionTitle}" Text="Ficar acordado" />
+                    <TextBlock Style="{StaticResource Text.Muted}"
+                               Text="A malha só existe enquanto o farol está rodando. Com a inicialização automática ligada ele sobe minimizado na bandeja junto com o Windows, sem pedir administrador." />
+                    <CheckBox Margin="0,10,0,0"
+                              Content="Iniciar o Farol com o Windows"
+                              IsChecked="{Binding AutostartEnabled}" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Panel.Surface}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.SectionTitle}" Text="Firewall" />
+                    <TextBlock Style="{StaticResource Text.Muted}"
+                               Text="Se os faróis não se enxergam, o firewall do Windows costuma ser o motivo. Criar as regras exige uma confirmação de administrador — é a única vez que o Farol pede elevação, e as regras valem apenas para os perfis Domínio e Privada, restritas à sub-rede local." />
+                    <Button Content="Liberar portas no firewall"
+                            HorizontalAlignment="Left"
+                            Margin="0,10,0,0"
+                            Style="{StaticResource Button.Base}"
+                            Command="{Binding InstallFirewallCommand}" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Style="{StaticResource Text.Muted}"
+                       Margin="2,0,0,0"
+                       Text="{Binding StatusMessage}"
+                       Visibility="{Binding StatusMessage, Converter={StaticResource NullToVis}}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,68 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Farol.Views.CompareView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Farol.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:CompareViewModel}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Comparar com" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <ComboBox MinWidth="220"
+                      Padding="8,5"
+                      ItemsSource="{Binding Peers}"
+                      SelectedItem="{Binding SelectedPeer}"
+                      DisplayMemberPath="DisplayName" />
+            <Button Content="Comparar"
+                    Margin="10,0,0,0"
+                    Style="{StaticResource Button.Accent}"
+                    Command="{Binding CompareCommand}" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1"
+                   Margin="0,0,0,10"
+                   Style="{StaticResource Text.Muted}"
+                   Text="{Binding StatusMessage}"
+                   Visibility="{Binding StatusMessage, Converter={StaticResource NullToVis}}" />
+
+        <Border Grid.Row="2"
+                Style="{StaticResource Panel.Surface}"
+                VerticalAlignment="Top"
+                Visibility="{Binding HasDifferences, Converter={StaticResource InverseBoolToVis}}">
+            <TextBlock Style="{StaticResource Text.Muted}"
+                       Text="Escolha um farol da rede e compare. O diff mostra perfil de rede, DNS, gateway, serviços parados, impressoras ausentes e espaço em disco lado a lado." />
+        </Border>
+
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Differences}"
+                  Visibility="{Binding HasDifferences, Converter={StaticResource BoolToVis}}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Área" Binding="{Binding Category}" Width="120" />
+                <DataGridTextColumn Header="Item" Binding="{Binding Aspect}" Width="200" />
+                <DataGridTextColumn Header="Aqui" Binding="{Binding Local}" Width="160" />
+                <DataGridTextColumn Header="No outro" Binding="{Binding Remote}" Width="160" />
+                <DataGridTextColumn Header="Leitura" Binding="{Binding Note}" Width="*" />
+            </DataGrid.Columns>
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Severity}" Value="High">
+                            <Setter Property="Background" Value="{StaticResource Brush.Danger.Bg}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Severity}" Value="Medium">
+                            <Setter Property="Background" Value="{StaticResource Brush.Warning.Bg}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+        </DataGrid>
+    </Grid>
+</UserControl>

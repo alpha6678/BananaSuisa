@@ -66,6 +66,16 @@ APPS = [
         "app_dir": "src/aplicativos/Ribanense.Solucoes.App.Balanca",
         "catalog_icon": "catalog/icons/balanca.png",
     },
+    {
+        "slug": "farol",
+        "name": "Farol",
+        "letters": "Fa",
+        "light": (56, 208, 214),
+        "dark": (4, 92, 110),
+        "fold": (2, 40, 52),
+        "app_dir": "src/aplicativos/Ribanense.Solucoes.App.Farol",
+        "catalog_icon": "catalog/icons/farol.png",
+    },
 ]
 
 # Proporcoes do card, herdadas do icone do launcher.
@@ -558,7 +568,42 @@ def build_a(size, x, baseline, geo):
     return [(bowl, "b"), (stem, "a")], xh
 
 
+def build_f(size, x, baseline, geo):
+    """Haste vertical com dois bracos horizontais, ambos recolhidos atras dela."""
+    cap, w = geo["cap"], geo["w"]
+    advance = 0.70 * cap
+
+    stem_x = x + w / 2
+    y_cap = baseline - cap + w / 2
+    y_waist = baseline - cap * 0.50
+
+    arm_top = stroke_mask(
+        size,
+        [(stem_x, y_cap), (x + advance, y_cap)],
+        w,
+        start_cap="fold",
+        end_cap="cut",
+    )
+    arm_waist = stroke_mask(
+        size,
+        [(stem_x, y_waist), (x + advance * 0.78, y_waist)],
+        w,
+        start_cap="fold",
+        end_cap="cut",
+    )
+    stem = stroke_mask(
+        size,
+        [(stem_x, y_cap - w / 2), (stem_x, baseline)],
+        w,
+        start_cap="cut",
+        end_cap="cut",
+    )
+
+    return [(arm_top, "b"), (arm_waist, "b"), (stem, "a")], advance
+
+
 LETTER_BUILDERS = {
+    "F": build_f,
     "W": build_w,
     "g": build_g,
     "C": build_c,

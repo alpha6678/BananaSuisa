@@ -1,0 +1,12 @@
+{
+  "id": "com.ribanense.farol",
+  "name": "Farol",
+  "publicName": "Farol",
+  "version": "0.1.0",
+  "minimumLauncherVersion": "0.1.0",
+  "entryExecutable": "Ribanense.Solucoes.App.Farol.exe",
+  "icon": "icon.png",
+  "category": "Ferramentas",
+  "requiresElevation": false,
+  "githubTagPrefix": "farol-v"
+}

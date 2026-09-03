@@ -26,6 +26,7 @@ Ponto de entrada da documentação do **Ribanense Soluções**. Use como mapa an
 | [`FERRAMENTAS_CLI.md`](FERRAMENTAS_CLI.md) | `rb.cmd` e ferramentas externas usadas. |
 | [`APP_CHOCOLATEY.md`](APP_CHOCOLATEY.md) | App Gestor Chocolatey, comandos `choco` usados, parsing e riscos. |
 | [`APP_BALANCA.md`](APP_BALANCA.md) | App Testador de Balanças: serial COM/USB, protocolos, timing, varredura e troubleshooting. |
+| [`APP_FAROL.md`](APP_FAROL.md) | App Farol: coletores de evidência, regras, malha LAN (UDP/TCP), pareamento, bandeja e autostart. |
 | [`FERRAMENTAS_IA.md`](FERRAMENTAS_IA.md) | MCP/IA aplicados ao desenvolvimento deste repositório. |
 | [`REFERENCIAS_EXTERNAS.md`](REFERENCIAS_EXTERNAS.md) | Links para specs, bibliotecas e documentação canônica. |
 

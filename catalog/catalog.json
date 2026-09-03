@@ -60,6 +60,18 @@
       "githubRepo": "BananaSuisa",
       "githubTagPrefix": "scripts-v",
       "minimumLauncherVersion": "0.1.0"
+    },
+    {
+      "id": "com.ribanense.farol",
+      "name": "Farol",
+      "publicName": "Farol",
+      "description": "Cada PC vira um farol na rede local: captura um dossiê de evidências da máquina (rede, discos, serviços, impressoras, eventos do Windows), enxerga os outros faróis da loja, compara com uma máquina saudável e exporta tudo em um ZIP para o chamado.",
+      "category": "Ferramentas",
+      "icon": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/icons/farol.png",
+      "githubOwner": "desenvolvimentoLocatelli",
+      "githubRepo": "BananaSuisa",
+      "githubTagPrefix": "farol-v",
+      "minimumLauncherVersion": "0.1.0"
     }
   ]
 }
