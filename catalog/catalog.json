@@ -41,7 +41,7 @@
       "id": "com.ribanense.balanca",
       "name": "Testador de Balanças",
       "publicName": "Testador de Balanças",
-      "description": "Captura e testa peso de balanças via serial (COM/USB). Aceita os modelos e configurações clássicos e automatiza a varredura de porta e parâmetros: modos manual, um a um e todas as portas.",
+      "description": "Descobre qual porta COM do checkout é a balança (e qual é a maquininha TEF), aplica a configuração documentada do modelo escolhido e testa a leitura de peso. Se não responder, testa as outras combinações conhecidas na mesma porta.",
       "category": "Dispositivos",
       "icon": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/icons/balanca.png",
       "githubOwner": "desenvolvimentoLocatelli",

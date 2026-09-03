@@ -12,8 +12,10 @@ using Ribanense.Solucoes.UI.Mvvm;
 namespace Ribanense.Solucoes.App.Balanca.ViewModels;
 
 /// <summary>
-/// ViewModel principal da tela de teste de balança. Mantém o modo manual clássico
-/// e acrescenta os modos automáticos "Um a um" e "Todas as portas".
+/// ViewModel da tela de teste de balança, organizada como um roteiro de três passos:
+/// escolher a porta no inventário do checkout, identificar o modelo (que traz a
+/// configuração documentada) e testar a leitura. A varredura de combinações é o plano B,
+/// oferecido depois que a configuração sugerida não responde.
 /// </summary>
 public sealed class BalancaViewModel : ObservableObject, IDisposable
 {
@@ -26,6 +28,7 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
     private BalancaReader? _reader;
     private CancellationTokenSource? _monitorCts;
     private CancellationTokenSource? _scanCts;
+    private string? _activePort;
 
     private IReadOnlyList<SerialConfig> _stepCandidates = Array.Empty<SerialConfig>();
     private int _stepIndex = -1;
@@ -44,9 +47,10 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
         ReadWeightCommand = new AsyncRelayCommand(_ => ReadOnceAsync(), _ => IsActive && !IsMonitoring);
         ToggleMonitorCommand = new RelayCommand(ToggleMonitor, () => IsActive);
         ClearCommand = new RelayCommand(ClearReadout);
+        UseSuggestedConfigCommand = new RelayCommand(ApplySuggestedConfig, () => !IsActive && !IsScanning);
 
         StartScanCommand = new AsyncRelayCommand(_ => StartFullScanAsync(), _ => CanStartScan);
-        StopScanCommand = new RelayCommand(StopScan, () => IsScanning);
+        StopScanCommand = new RelayCommand(StopScan, () => IsScanning || IsStepping);
         StartStepCommand = new AsyncRelayCommand(_ => StartStepScanAsync(), _ => CanStartScan);
         NextStepCommand = new AsyncRelayCommand(_ => NextStepAsync(), _ => IsStepping && !IsBusy);
         UseCurrentConfigCommand = new RelayCommand(UseCurrentCandidate, () => CurrentCandidate is not null);
@@ -114,82 +118,94 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
                 Deactivate();
                 RefreshPorts();
                 LoadProfileForModel(value);
+                OnPropertyChanged(nameof(ModelNotes));
                 CommandManager.InvalidateRequerySuggested();
             }
         }
     }
+
+    /// <summary>Resumo do protocolo do modelo selecionado, exibido no passo 2.</summary>
+    public string ModelNotes => SelectedModel.Notes;
 
     private SerialPortInfo? _selectedPort;
     public SerialPortInfo? SelectedPort
     {
         get => _selectedPort;
-        set { if (SetProperty(ref _selectedPort, value)) CommandManager.InvalidateRequerySuggested(); }
-    }
-
-    private int _baudRate = 9600;
-    public int BaudRate { get => _baudRate; set => SetProperty(ref _baudRate, value); }
-
-    private int _dataBits = 8;
-    public int DataBits { get => _dataBits; set => SetProperty(ref _dataBits, value); }
-
-    private Parity _parity = Parity.None;
-    public Parity Parity { get => _parity; set => SetProperty(ref _parity, value); }
-
-    private StopBits _stopBits = StopBits.One;
-    public StopBits StopBits { get => _stopBits; set => SetProperty(ref _stopBits, value); }
-
-    private Handshake _handshake = Handshake.None;
-    public Handshake Handshake { get => _handshake; set => SetProperty(ref _handshake, value); }
-
-    private int _timeoutMs = 2000;
-    public int TimeoutMs { get => _timeoutMs; set => SetProperty(ref _timeoutMs, value); }
-
-    private bool _deepScan;
-    public bool DeepScan { get => _deepScan; set => SetProperty(ref _deepScan, value); }
-
-    private bool _scanOnlySelectedPort;
-    public bool ScanOnlySelectedPort { get => _scanOnlySelectedPort; set => SetProperty(ref _scanOnlySelectedPort, value); }
-
-    #endregion
-
-    #region Modo
-
-    private ScanMode _mode = ScanMode.Manual;
-    public ScanMode Mode
-    {
-        get => _mode;
         set
         {
-            if (SetProperty(ref _mode, value))
+            if (SetProperty(ref _selectedPort, value))
             {
-                OnPropertyChanged(nameof(IsManualMode));
-                OnPropertyChanged(nameof(IsUmAUmMode));
-                OnPropertyChanged(nameof(IsTodasMode));
-                OnPropertyChanged(nameof(IsAutoMode));
+                OnPropertyChanged(nameof(SelectedPortHint));
+                UpdateSuggestedConfigText();
                 CommandManager.InvalidateRequerySuggested();
             }
         }
     }
 
-    public bool IsManualMode
+    /// <summary>Orientação sobre a porta escolhida (origem e se está ocupada).</summary>
+    public string SelectedPortHint => SelectedPort switch
     {
-        get => Mode == ScanMode.Manual;
-        set { if (value) Mode = ScanMode.Manual; }
+        null => "Nenhuma porta selecionada.",
+        { IsBusy: true } p => $"{p.RoleHint}. Está em uso por outro programa — feche o outro sistema antes de ativar.",
+        { IsBluetooth: true } p => $"{p.RoleHint}. Se a balança é ligada por cabo, provavelmente não é esta porta.",
+        var p => p.RoleHint + ".",
+    };
+
+    private string _portsSummary = "";
+    public string PortsSummary { get => _portsSummary; private set => SetProperty(ref _portsSummary, value); }
+
+    private int _baudRate = 9600;
+    public int BaudRate
+    {
+        get => _baudRate;
+        set { if (SetProperty(ref _baudRate, value)) UpdateSuggestedConfigText(); }
     }
 
-    public bool IsUmAUmMode
+    private int _dataBits = 8;
+    public int DataBits
     {
-        get => Mode == ScanMode.UmAUm;
-        set { if (value) Mode = ScanMode.UmAUm; }
+        get => _dataBits;
+        set { if (SetProperty(ref _dataBits, value)) UpdateSuggestedConfigText(); }
     }
 
-    public bool IsTodasMode
+    private Parity _parity = Parity.None;
+    public Parity Parity
     {
-        get => Mode == ScanMode.Todas;
-        set { if (value) Mode = ScanMode.Todas; }
+        get => _parity;
+        set { if (SetProperty(ref _parity, value)) UpdateSuggestedConfigText(); }
     }
 
-    public bool IsAutoMode => Mode != ScanMode.Manual;
+    private StopBits _stopBits = StopBits.One;
+    public StopBits StopBits
+    {
+        get => _stopBits;
+        set { if (SetProperty(ref _stopBits, value)) UpdateSuggestedConfigText(); }
+    }
+
+    private Handshake _handshake = Handshake.None;
+    public Handshake Handshake
+    {
+        get => _handshake;
+        set { if (SetProperty(ref _handshake, value)) UpdateSuggestedConfigText(); }
+    }
+
+    private int _timeoutMs = 2000;
+    public int TimeoutMs { get => _timeoutMs; set => SetProperty(ref _timeoutMs, value); }
+
+    private string _currentConfigText = "";
+    /// <summary>Configuração que será usada ao ativar, ex.: "COM5 9600 8N1".</summary>
+    public string CurrentConfigText { get => _currentConfigText; private set => SetProperty(ref _currentConfigText, value); }
+
+    private bool _showAdvanced;
+    /// <summary>Abre os parâmetros seriais e a varredura ampla (casos difíceis).</summary>
+    public bool ShowAdvanced { get => _showAdvanced; set => SetProperty(ref _showAdvanced, value); }
+
+    private bool _deepScan;
+    public bool DeepScan { get => _deepScan; set => SetProperty(ref _deepScan, value); }
+
+    private bool _scanAllPorts;
+    /// <summary>Por padrão a varredura fica restrita à porta escolhida no passo 1.</summary>
+    public bool ScanAllPorts { get => _scanAllPorts; set => SetProperty(ref _scanAllPorts, value); }
 
     #endregion
 
@@ -247,7 +263,20 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
     private string _scanProgress = "";
     public string ScanProgress { get => _scanProgress; private set => SetProperty(ref _scanProgress, value); }
 
+    private string _advice = "";
+    /// <summary>Próximo passo sugerido depois de uma falha, exibido no passo 3.</summary>
+    public string Advice
+    {
+        get => _advice;
+        private set { if (SetProperty(ref _advice, value)) OnPropertyChanged(nameof(HasAdvice)); }
+    }
+
+    public bool HasAdvice => !string.IsNullOrWhiteSpace(Advice);
+
     public ObservableCollection<ScanResult> ScanResults { get; } = new();
+
+    private bool _hasScanResults;
+    public bool HasScanResults { get => _hasScanResults; private set => SetProperty(ref _hasScanResults, value); }
 
     private SerialConfig? _currentCandidate;
     public SerialConfig? CurrentCandidate
@@ -280,6 +309,7 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
     public ICommand ReadWeightCommand { get; }
     public ICommand ToggleMonitorCommand { get; }
     public ICommand ClearCommand { get; }
+    public ICommand UseSuggestedConfigCommand { get; }
     public ICommand StartScanCommand { get; }
     public ICommand StopScanCommand { get; }
     public ICommand StartStepCommand { get; }
@@ -306,22 +336,70 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
         var previous = SelectedPort?.Port;
         Ports.Clear();
         foreach (var p in FactoryFor(SelectedModel).ListPorts())
-            Ports.Add(p);
+        {
+            // A porta que nós mesmos mantemos aberta não é "ocupada por outro programa".
+            Ports.Add(string.Equals(p.Port, _activePort, StringComparison.OrdinalIgnoreCase)
+                ? p with { IsBusy = false }
+                : p);
+        }
 
         SelectedPort = Ports.FirstOrDefault(p => string.Equals(p.Port, previous, StringComparison.OrdinalIgnoreCase))
-                       ?? Ports.FirstOrDefault();
+                       ?? PickLikelyScalePort();
+
+        UpdatePortsSummary();
 
         if (Ports.Count == 0)
-            Log("Nenhuma porta serial encontrada. Conecte a balança (COM/USB-serial) e clique em Atualizar portas.");
+            Log("Nenhuma porta serial encontrada. Conecte a balança (COM/USB-serial) e clique em Atualizar.");
+    }
+
+    /// <summary>
+    /// Primeira sugestão de porta: descarta as de link Bluetooth (tipicamente a
+    /// maquininha TEF no caixa) e as já ocupadas por outro programa.
+    /// </summary>
+    private SerialPortInfo? PickLikelyScalePort() =>
+        Ports.FirstOrDefault(p => !p.IsBluetooth && !p.IsBusy)
+        ?? Ports.FirstOrDefault(p => !p.IsBusy)
+        ?? Ports.FirstOrDefault();
+
+    private void UpdatePortsSummary()
+    {
+        if (Ports.Count == 0)
+        {
+            PortsSummary = "Nenhuma porta COM presente neste computador.";
+            return;
+        }
+
+        int bluetooth = Ports.Count(p => p.IsBluetooth);
+        int busy = Ports.Count(p => p.IsBusy);
+
+        var parts = new List<string> { $"{Ports.Count} porta(s) COM presente(s)" };
+        if (bluetooth > 0) parts.Add($"{bluetooth} de link Bluetooth (normalmente TEF)");
+        if (busy > 0) parts.Add($"{busy} em uso por outro programa");
+
+        PortsSummary = string.Join(" · ", parts) + ".";
     }
 
     private void LoadProfileForModel(BalancaModel model)
     {
         var saved = _profiles.TryLoad(model.Key);
-        var basis = saved ?? (SelectedPort is not null ? model.DefaultConfig(SelectedPort.Port) : model.DefaultConfig("COM1"));
+        var basis = saved ?? SuggestedConfigFor(model);
         ApplyConfig(basis);
-        if (saved is not null)
-            Log($"Perfil salvo carregado para {model.DisplayName}: {saved.ShortDescription}.");
+        UpdateSuggestedConfigText();
+        Log(saved is not null
+            ? $"Perfil salvo carregado para {model.DisplayName}: {saved.ShortDescription}."
+            : $"Configuração documentada de {model.DisplayName}: {basis.ShortDescription}.");
+    }
+
+    private SerialConfig SuggestedConfigFor(BalancaModel model) =>
+        model.DefaultConfig(SelectedPort?.Port ?? Ports.FirstOrDefault()?.Port ?? "COM1");
+
+    private void ApplySuggestedConfig()
+    {
+        var suggested = SuggestedConfigFor(SelectedModel);
+        ApplyConfig(suggested);
+        UpdateSuggestedConfigText();
+        Advice = "";
+        Log($"Configuração documentada restaurada: {suggested.ShortDescription}.");
     }
 
     private void ApplyConfig(SerialConfig cfg)
@@ -335,18 +413,25 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
 
         var match = Ports.FirstOrDefault(p => string.Equals(p.Port, cfg.Port, StringComparison.OrdinalIgnoreCase));
         if (match is not null) SelectedPort = match;
+
+        UpdateSuggestedConfigText();
     }
+
+    private void UpdateSuggestedConfigText() => CurrentConfigText = BuildConfig().ShortDescription;
 
     private SerialConfig BuildConfig() =>
         new(SelectedPort?.Port ?? "COM1", BaudRate, DataBits, Parity, StopBits, Handshake, TimeoutMs);
 
     #endregion
 
-    #region Modo manual
+    #region Teste na porta escolhida
 
     private async Task ActivateAsync()
     {
         if (SelectedPort is null) { Log("Selecione uma porta serial."); return; }
+
+        if (SelectedPort.IsBusy)
+            Log($"{SelectedPort.Port} aparece como em uso por outro programa; a ativação pode falhar.");
 
         try
         {
@@ -355,6 +440,8 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
             _reader = new BalancaReader(FactoryFor(SelectedModel));
             await Task.Run(() => _reader.Activate(config, SelectedModel.Protocol)).ConfigureAwait(true);
             IsActive = true;
+            _activePort = config.Port;
+            Advice = "";
             Log($"Balança ativada: {SelectedModel.DisplayName} em {config.ShortDescription}.");
         }
         catch (Exception ex)
@@ -362,6 +449,9 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
             _reader?.Dispose();
             _reader = null;
             IsActive = false;
+            _activePort = null;
+            Advice = $"Não foi possível abrir {SelectedPort.Port}. Confira se a porta é mesmo a da balança " +
+                     "(a de link Bluetooth costuma ser a maquininha TEF) e se outro sistema não está usando-a.";
             Log($"Falha ao ativar: {ex.Message}");
         }
         finally
@@ -380,6 +470,7 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
             Log("Balança desativada.");
         }
         IsActive = false;
+        _activePort = null;
     }
 
     private async Task ReadOnceAsync()
@@ -391,6 +482,7 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
             var outcome = await _reader.ReadWeightAsync().ConfigureAwait(true);
             ShowReading(outcome.Reading);
             LogOutcome(outcome);
+            UpdateAdviceFor(outcome);
         }
         catch (Exception ex)
         {
@@ -400,6 +492,19 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
         {
             IsBusy = false;
         }
+    }
+
+    private void UpdateAdviceFor(SerialReadOutcome outcome)
+    {
+        if (outcome.Reading.HasResponse)
+        {
+            Advice = "";
+            return;
+        }
+
+        string port = SelectedPort?.Port ?? "a porta";
+        Advice = $"A balança não respondeu em {CurrentConfigText}. Use \"Tentar outras configurações\" " +
+                 $"para testar as combinações conhecidas de {SelectedModel.DisplayName} em {port}.";
     }
 
     private void ToggleMonitor()
@@ -452,18 +557,22 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
         StatusText = "Aguardando";
         LastResponseAscii = "";
         LastResponseHex = "";
+        Advice = "";
     }
 
     #endregion
 
-    #region Varredura automática
+    #region Varredura de apoio
 
+    /// <summary>
+    /// Portas a varrer. O padrão é apenas a porta escolhida no passo 1; abrir para todas
+    /// só acontece quando o usuário pede explicitamente no painel avançado.
+    /// </summary>
     private IReadOnlyList<string> GetPortsToScan()
     {
-        if (ScanOnlySelectedPort && SelectedPort is not null)
-        {
+        if (!ScanAllPorts && SelectedPort is not null)
             return new[] { SelectedPort.Port };
-        }
+
         return Ports.Select(p => p.Port).ToList();
     }
 
@@ -478,11 +587,12 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
         var candidates = engine.BuildCandidates(model, ports, options);
 
         ScanResults.Clear();
+        HasScanResults = false;
         IsScanning = true;
         _scanCts = new CancellationTokenSource();
         int total = candidates.Count;
         int done = 0;
-        Log($"Varredura completa iniciada: {total} combinações em {ports.Count} porta(s). " +
+        Log($"Testando outras configurações de {model.DisplayName}: {total} combinações em {ports.Count} porta(s). " +
             $"Estimativa máxima: {EstimateDuration(candidates, options.TimeoutMsPerAttempt)}.");
 
         var progress = new Progress<ScanResult>(r =>
@@ -492,6 +602,7 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
             if (r.Reading.HasResponse)
             {
                 ScanResults.Add(r);
+                HasScanResults = true;
                 Log($"[hit] {r.Config.ShortDescription} → {FormatReading(r.Reading)}");
             }
         });
@@ -501,9 +612,20 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
             var hits = await engine.ScanAllAsync(model, ports, options, progress, _scanCts.Token);
             ScanResults.Clear();
             foreach (var h in hits) ScanResults.Add(h);
+            HasScanResults = ScanResults.Count > 0;
             ScanProgress = $"Concluído: {hits.Count} combinação(ões) com resposta de {total} testadas.";
             Log(ScanProgress);
-            if (hits.Count > 0) ShowReading(hits[0].Reading);
+            if (hits.Count > 0)
+            {
+                ShowReading(hits[0].Reading);
+                Advice = "Escolha a linha que trouxe o peso correto e clique em \"Usar\" para salvar essa configuração.";
+            }
+            else
+            {
+                Advice = ScanAllPorts
+                    ? "Nenhuma combinação respondeu. Confira cabo, alimentação da balança e o modelo selecionado."
+                    : "Nenhuma combinação respondeu nesta porta. Tente outra porta da lista ou marque \"Varrer todas as portas\" no painel avançado.";
+            }
         }
         catch (OperationCanceledException)
         {
@@ -554,6 +676,7 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
         _stepCandidates = engine.BuildCandidates(SelectedModel, ports, options);
         _stepIndex = -1;
         ScanResults.Clear();
+        HasScanResults = false;
         _scanCts?.Dispose();
         _scanCts = new CancellationTokenSource();
         OnPropertyChanged(nameof(IsStepping));
@@ -590,6 +713,7 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
             {
                 if (!ScanResults.Any(r => r.Config.ShortDescription == result.Config.ShortDescription))
                     ScanResults.Add(result);
+                HasScanResults = ScanResults.Count > 0;
                 Log($"[{StepProgress}] {config.ShortDescription} → {FormatReading(result.Reading)}");
             }
             else
@@ -617,7 +741,6 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
         if (CurrentCandidate is null) return;
         ApplyAndSave(CurrentCandidate);
         StopScan();
-        Mode = ScanMode.Manual;
     }
 
     private void UseResult(ScanResult? result)
@@ -625,13 +748,13 @@ public sealed class BalancaViewModel : ObservableObject, IDisposable
         if (result is null) return;
         ApplyAndSave(result.Config);
         StopScan();
-        Mode = ScanMode.Manual;
     }
 
     private void ApplyAndSave(SerialConfig config)
     {
         ApplyConfig(config);
         _profiles.Save(SelectedModel.Key, config);
+        Advice = "Configuração salva. Clique em \"Ativar\" e depois em \"Ler peso\" para confirmar.";
         Log($"Configuração aplicada e salva para {SelectedModel.DisplayName}: {config.ShortDescription}.");
     }
 

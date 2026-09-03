@@ -39,5 +39,5 @@ public sealed class SimulatedSerialChannelFactory : ISerialChannelFactory
     public ISerialChannel Create() => new SimulatedSerialChannel(_target, _weight);
 
     public IReadOnlyList<SerialPortInfo> ListPorts() =>
-        new[] { new SerialPortInfo(SimulatedPort, "Balança simulada") };
+        new[] { new SerialPortInfo(SimulatedPort, "Balança simulada", Kind: SerialPortKind.Simulada) };
 }

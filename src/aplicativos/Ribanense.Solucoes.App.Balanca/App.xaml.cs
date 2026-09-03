@@ -94,9 +94,10 @@ public partial class App : Application
             if (a == "--selfcheck")
             {
                 AttachConsole(ATTACH_PARENT_PROCESS);
-                var ports = SerialPortEnumerator.Enumerate();
+                // Selfcheck não abre portas: só inventaria o que o Windows expõe.
+                var ports = SerialPortEnumerator.Enumerate(probeOccupancy: false);
                 Console.WriteLine(ports.Count > 0
-                    ? $"ok ({ports.Count} porta(s): {string.Join(", ", ports.Select(p => p.Port))})"
+                    ? $"ok ({ports.Count} porta(s): {string.Join(", ", ports.Select(p => p.DeviceManagerLabel))})"
                     : "ok (nenhuma porta serial detectada)");
                 return 0;
             }

@@ -27,6 +27,32 @@ public class ScanEngineTests
     }
 
     [Fact]
+    public void BuildCandidates_stays_on_the_chosen_port()
+    {
+        // Caminho padrão do app: a varredura de apoio só testa a porta escolhida no
+        // passo 1, sem mexer na maquininha TEF ligada na COM ao lado.
+        var engine = new ScanEngine(new RealSerialChannelFactory());
+        var model = BalancaModelRegistry.FindByKey("filizola")!;
+
+        var candidates = engine.BuildCandidates(model, new[] { "COM5" }, ScanOptions.Default);
+
+        Assert.NotEmpty(candidates);
+        Assert.All(candidates, c => Assert.Equal("COM5", c.Port));
+    }
+
+    [Fact]
+    public void BuildCandidates_covers_every_port_when_asked()
+    {
+        var engine = new ScanEngine(new RealSerialChannelFactory());
+        var model = BalancaModelRegistry.FindByKey("filizola")!;
+
+        var candidates = engine.BuildCandidates(model, new[] { "COM3", "COM5" }, ScanOptions.Default);
+
+        Assert.Contains(candidates, c => c.Port == "COM3");
+        Assert.Contains(candidates, c => c.Port == "COM5");
+    }
+
+    [Fact]
     public void BuildCandidates_has_no_duplicates()
     {
         var engine = new ScanEngine(new RealSerialChannelFactory());

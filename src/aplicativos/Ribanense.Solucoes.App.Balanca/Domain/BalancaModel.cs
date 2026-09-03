@@ -23,19 +23,24 @@ public sealed class BalancaModel
         string displayName,
         IBalancaProtocol protocol,
         ModelSupport support = ModelSupport.Documentado,
-        bool isSimulated = false)
+        bool isSimulated = false,
+        string notes = "")
     {
         Key = key ?? throw new ArgumentNullException(nameof(key));
         DisplayName = displayName ?? throw new ArgumentNullException(nameof(displayName));
         Protocol = protocol ?? throw new ArgumentNullException(nameof(protocol));
         Support = support;
         IsSimulated = isSimulated;
+        Notes = notes ?? "";
     }
 
     public string Key { get; }
     public string DisplayName { get; }
     public IBalancaProtocol Protocol { get; }
     public ModelSupport Support { get; }
+
+    /// <summary>Resumo do protocolo e da configuração típica, exibido junto ao modelo.</summary>
+    public string Notes { get; }
 
     /// <summary>Modelo virtual usado para testar o app sem hardware.</summary>
     public bool IsSimulated { get; }

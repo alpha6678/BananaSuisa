@@ -13,6 +13,18 @@
             <Setter Property="Margin" Value="0,4,0,8" />
             <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
         </Style>
+
+        <Style x:Key="Step.Header" TargetType="TextBlock" BasedOn="{StaticResource Section.Header}">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style x:Key="Text.Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -21,144 +33,189 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Painel de configuração -->
+        <!-- Roteiro: porta -> modelo -> teste -->
         <Border Grid.Column="0"
                 Style="{StaticResource Badge.Surface}"
-                MinWidth="360" MaxWidth="440"
+                MinWidth="380" MaxWidth="460"
                 Margin="0,0,16,0"
                 Padding="16">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource Section.Header}" Text="Modelo da balança" />
+
+                    <!-- PASSO 1: porta -->
+                    <TextBlock Style="{StaticResource Step.Header}" Text="1. Porta do equipamento" />
+                    <TextBlock Style="{StaticResource Text.Hint}"
+                               Text="No caixa costumam aparecer duas ou três portas COM. A da maquininha TEF em geral é a de link Bluetooth; a balança costuma estar num adaptador USB-serial ou na COM da placa." />
+
+                    <ListBox ItemsSource="{Binding Ports}"
+                             SelectedItem="{Binding SelectedPort}"
+                             MaxHeight="180"
+                             HorizontalContentAlignment="Stretch"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="2,4">
+                                    <TextBlock Text="{Binding DeviceManagerLabel}"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding RoleHint}"
+                                               Foreground="{StaticResource Brush.TextMuted}"
+                                               FontSize="11"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding StatusHint}"
+                                               Foreground="{StaticResource Brush.Warning}"
+                                               FontSize="11"
+                                               Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <DockPanel LastChildFill="True" Margin="0,8,0,0">
+                        <Button DockPanel.Dock="Right" Content="Atualizar"
+                                Style="{StaticResource Button.Base}" Margin="8,0,0,0"
+                                Command="{Binding RefreshPortsCommand}" />
+                        <TextBlock Text="{Binding PortsSummary}"
+                                   Style="{StaticResource Text.Hint}"
+                                   Margin="0"
+                                   VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <TextBlock Text="{Binding SelectedPortHint}"
+                               Style="{StaticResource Text.Hint}"
+                               Margin="0,8,0,0" />
+
+                    <!-- PASSO 2: modelo -->
+                    <TextBlock Style="{StaticResource Step.Header}" Margin="0,16,0,4" Text="2. Modelo da balança" />
+                    <TextBlock Style="{StaticResource Text.Hint}"
+                               Text="Identifique a marca gravada na balança. O app aplica a configuração serial documentada desse modelo." />
                     <ComboBox ItemsSource="{Binding Models}"
                               SelectedItem="{Binding SelectedModel}"
                               DisplayMemberPath="Label" />
+                    <TextBlock Text="{Binding ModelNotes}"
+                               Style="{StaticResource Text.Hint}"
+                               Margin="0,8,0,0" />
 
-                    <TextBlock Style="{StaticResource Section.Header}" Margin="0,16,0,8" Text="Modo de teste" />
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton GroupName="Mode" Content="Manual" Margin="0,0,12,0"
-                                     IsChecked="{Binding IsManualMode, Mode=TwoWay}" />
-                        <RadioButton GroupName="Mode" Content="Um a um" Margin="0,0,12,0"
-                                     IsChecked="{Binding IsUmAUmMode, Mode=TwoWay}" />
-                        <RadioButton GroupName="Mode" Content="Todas as portas"
-                                     IsChecked="{Binding IsTodasMode, Mode=TwoWay}" />
-                    </StackPanel>
-
-                    <TextBlock Style="{StaticResource Section.Header}" Margin="0,16,0,8" Text="Configuração serial" />
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
-                            <TextBlock Style="{StaticResource Label.Field}" Text="Porta serial" />
-                            <DockPanel LastChildFill="True">
-                                <Button DockPanel.Dock="Right" Content="Atualizar"
-                                        Style="{StaticResource Button.Base}" Margin="8,0,0,0"
-                                        Command="{Binding RefreshPortsCommand}" />
-                                <ComboBox ItemsSource="{Binding Ports}"
-                                          SelectedItem="{Binding SelectedPort}"
-                                          DisplayMemberPath="Display" />
-                            </DockPanel>
+                    <DockPanel LastChildFill="True" Margin="0,4,0,0">
+                        <Button DockPanel.Dock="Right" Content="Restaurar sugerida"
+                                Style="{StaticResource Button.Base}" Margin="8,0,0,0"
+                                Command="{Binding UseSuggestedConfigCommand}" />
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Label.Field}" Text="Configuração em uso" />
+                            <TextBlock Text="{Binding CurrentConfigText}" FontFamily="Consolas" />
                         </StackPanel>
+                    </DockPanel>
 
-                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
-                            <TextBlock Style="{StaticResource Label.Field}" Text="Baud rate" />
-                            <ComboBox ItemsSource="{Binding BaudRateOptions}" SelectedItem="{Binding BaudRate}" />
+                    <!-- PASSO 3: testar -->
+                    <TextBlock Style="{StaticResource Step.Header}" Margin="0,16,0,4" Text="3. Testar a leitura" />
+                    <WrapPanel>
+                        <Button Content="Ativar" Style="{StaticResource Button.Accent}" Margin="0,0,8,8"
+                                Command="{Binding ActivateCommand}" />
+                        <Button Content="Ler peso" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                Command="{Binding ReadWeightCommand}" />
+                        <Button Content="{Binding MonitorButtonText}" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                Command="{Binding ToggleMonitorCommand}" />
+                        <Button Content="Desativar" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                Command="{Binding DeactivateCommand}" />
+                        <Button Content="Limpar" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                Command="{Binding ClearCommand}" />
+                    </WrapPanel>
+
+                    <Border Background="{StaticResource Brush.Warning.Bg}"
+                            BorderBrush="{StaticResource Brush.Warning}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10"
+                            Margin="0,4,0,0"
+                            Visibility="{Binding HasAdvice, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Advice}" TextWrapping="Wrap" Foreground="{StaticResource Brush.Text}" />
+                            <WrapPanel Margin="0,8,0,0">
+                                <Button Content="Tentar outras configurações" Style="{StaticResource Button.Accent}"
+                                        Margin="0,0,8,0"
+                                        Command="{Binding StartScanCommand}" />
+                                <Button Content="Parar" Style="{StaticResource Button.Base}"
+                                        Command="{Binding StopScanCommand}" />
+                            </WrapPanel>
                         </StackPanel>
-                        <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,8,0,0">
-                            <TextBlock Style="{StaticResource Label.Field}" Text="Data bits" />
-                            <ComboBox ItemsSource="{Binding DataBitsOptions}" SelectedItem="{Binding DataBits}" />
+                    </Border>
+
+                    <!-- AVANÇADO: parâmetros manuais e varredura ampla -->
+                    <Expander Header="Avançado: parâmetros e varredura ampla"
+                              IsExpanded="{Binding ShowAdvanced}"
+                              Margin="0,16,0,0">
+                        <StackPanel Margin="0,8,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0">
+                                    <TextBlock Style="{StaticResource Label.Field}" Text="Baud rate" />
+                                    <ComboBox ItemsSource="{Binding BaudRateOptions}" SelectedItem="{Binding BaudRate}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="2">
+                                    <TextBlock Style="{StaticResource Label.Field}" Text="Data bits" />
+                                    <ComboBox ItemsSource="{Binding DataBitsOptions}" SelectedItem="{Binding DataBits}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,8,0,0">
+                                    <TextBlock Style="{StaticResource Label.Field}" Text="Paridade" />
+                                    <ComboBox ItemsSource="{Binding ParityOptions}" SelectedItem="{Binding Parity}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,8,0,0">
+                                    <TextBlock Style="{StaticResource Label.Field}" Text="Stop bits" />
+                                    <ComboBox ItemsSource="{Binding StopBitsOptions}" SelectedItem="{Binding StopBits}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,8,0,0">
+                                    <TextBlock Style="{StaticResource Label.Field}" Text="Handshake" />
+                                    <ComboBox ItemsSource="{Binding HandshakeOptions}" SelectedItem="{Binding Handshake}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,8,0,0">
+                                    <TextBlock Style="{StaticResource Label.Field}" Text="Timeout (ms)" />
+                                    <TextBox Text="{Binding TimeoutMs}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <CheckBox Margin="0,12,0,0"
+                                      IsChecked="{Binding ScanAllPorts}"
+                                      Content="Varrer todas as portas (e não só a escolhida)" />
+                            <CheckBox Margin="0,6,0,0"
+                                      IsChecked="{Binding DeepScan}"
+                                      Content="Varredura profunda (mais bauds/paridades/stop bits)" />
+
+                            <WrapPanel Margin="0,12,0,0">
+                                <Button Content="Varrer combinações agora" Style="{StaticResource Button.Base}" Margin="0,0,8,0"
+                                        Command="{Binding StartScanCommand}" />
+                                <Button Content="Parar" Style="{StaticResource Button.Base}"
+                                        Command="{Binding StopScanCommand}" />
+                            </WrapPanel>
+
+                            <TextBlock Style="{StaticResource Section.Header}" Margin="0,16,0,4" Text="Passo a passo" />
+                            <TextBlock Style="{StaticResource Text.Hint}"
+                                       Text="Testa uma combinação por vez, para acompanhar o visor da balança a cada tentativa." />
+                            <TextBlock Text="{Binding CurrentCandidateText}" FontFamily="Consolas" Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding StepProgress}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,0,8" />
+                            <WrapPanel>
+                                <Button Content="Iniciar" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                        Command="{Binding StartStepCommand}" />
+                                <Button Content="Próximo" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                        Command="{Binding NextStepCommand}" />
+                                <Button Content="Usar esta config" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
+                                        Command="{Binding UseCurrentConfigCommand}" />
+                                <Button Content="Parar" Style="{StaticResource Button.Danger}" Margin="0,0,8,8"
+                                        Command="{Binding StopScanCommand}" />
+                            </WrapPanel>
                         </StackPanel>
-
-                        <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,8,0,0">
-                            <TextBlock Style="{StaticResource Label.Field}" Text="Paridade" />
-                            <ComboBox ItemsSource="{Binding ParityOptions}" SelectedItem="{Binding Parity}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,8,0,0">
-                            <TextBlock Style="{StaticResource Label.Field}" Text="Stop bits" />
-                            <ComboBox ItemsSource="{Binding StopBitsOptions}" SelectedItem="{Binding StopBits}" />
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,8,0,0">
-                            <TextBlock Style="{StaticResource Label.Field}" Text="Handshake" />
-                            <ComboBox ItemsSource="{Binding HandshakeOptions}" SelectedItem="{Binding Handshake}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,8,0,0">
-                            <TextBlock Style="{StaticResource Label.Field}" Text="Timeout (ms)" />
-                            <TextBox Text="{Binding TimeoutMs}" />
-                        </StackPanel>
-
-                        <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,12,0,0"
-                                  IsChecked="{Binding ScanOnlySelectedPort}"
-                                  Content="Varrer apenas a porta selecionada"
-                                  Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}" />
-
-                        <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,6,0,0"
-                                  IsChecked="{Binding DeepScan}"
-                                  Content="Varredura profunda (mais bauds/paridades/stop bits)"
-                                  Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}" />
-                    </Grid>
-
-                    <!-- Ações: MANUAL -->
-                    <StackPanel Margin="0,16,0,0"
-                                Visibility="{Binding IsManualMode, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Style="{StaticResource Section.Header}" Text="Teste manual" />
-                        <WrapPanel>
-                            <Button Content="Ativar" Style="{StaticResource Button.Accent}" Margin="0,0,8,8"
-                                    Command="{Binding ActivateCommand}" />
-                            <Button Content="Desativar" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
-                                    Command="{Binding DeactivateCommand}" />
-                            <Button Content="Ler peso" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
-                                    Command="{Binding ReadWeightCommand}" />
-                            <Button Content="{Binding MonitorButtonText}" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
-                                    Command="{Binding ToggleMonitorCommand}" />
-                            <Button Content="Limpar" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
-                                    Command="{Binding ClearCommand}" />
-                        </WrapPanel>
-                    </StackPanel>
-
-                    <!-- Ações: UM A UM -->
-                    <StackPanel Margin="0,16,0,0"
-                                Visibility="{Binding IsUmAUmMode, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Style="{StaticResource Section.Header}" Text="Varredura passo a passo" />
-                        <TextBlock Style="{StaticResource Label.Field}" Text="Combinação atual" />
-                        <TextBlock Text="{Binding CurrentCandidateText}" FontFamily="Consolas" Margin="0,0,0,4" />
-                        <TextBlock Text="{Binding StepProgress}" Foreground="{StaticResource Brush.TextMuted}" Margin="0,0,0,8" />
-                        <WrapPanel>
-                            <Button Content="Iniciar" Style="{StaticResource Button.Accent}" Margin="0,0,8,8"
-                                    Command="{Binding StartStepCommand}" />
-                            <Button Content="Próximo" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
-                                    Command="{Binding NextStepCommand}" />
-                            <Button Content="Usar esta config" Style="{StaticResource Button.Base}" Margin="0,0,8,8"
-                                    Command="{Binding UseCurrentConfigCommand}" />
-                            <Button Content="Parar" Style="{StaticResource Button.Danger}" Margin="0,0,8,8"
-                                    Command="{Binding StopScanCommand}" />
-                        </WrapPanel>
-                    </StackPanel>
-
-                    <!-- Ações: TODAS -->
-                    <StackPanel Margin="0,16,0,0"
-                                Visibility="{Binding IsTodasMode, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Style="{StaticResource Section.Header}" Text="Varredura completa" />
-                        <WrapPanel>
-                            <Button Content="Iniciar varredura" Style="{StaticResource Button.Accent}" Margin="0,0,8,8"
-                                    Command="{Binding StartScanCommand}" />
-                            <Button Content="Parar" Style="{StaticResource Button.Danger}" Margin="0,0,8,8"
-                                    Command="{Binding StopScanCommand}" />
-                        </WrapPanel>
-                    </StackPanel>
+                    </Expander>
                 </StackPanel>
             </ScrollViewer>
         </Border>
@@ -191,13 +248,13 @@
                              TextWrapping="Wrap" />
                     <TextBlock Text="{Binding ScanProgress}"
                                Foreground="{StaticResource Brush.TextMuted}"
-                               Margin="0,8,0,0"
-                               Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}" />
+                               TextWrapping="Wrap"
+                               Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
 
             <Border Grid.Row="2" Style="{StaticResource Badge.Surface}" Padding="0" Margin="0,0,0,0"
-                    Visibility="{Binding IsAutoMode, Converter={StaticResource BoolToVis}}">
+                    Visibility="{Binding HasScanResults, Converter={StaticResource BoolToVis}}">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section.Header}"
                                Margin="14,10,0,6" Text="Configurações que responderam" />

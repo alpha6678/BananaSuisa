@@ -58,7 +58,8 @@ public sealed class SerialPortWatcher : IDisposable
     private void RaiseChanged()
     {
         IReadOnlyList<SerialPortInfo> ports;
-        try { ports = SerialPortEnumerator.Enumerate(); }
+        // O watcher só compara presença; sondar ocupação aqui abriria portas a cada evento.
+        try { ports = SerialPortEnumerator.Enumerate(probeOccupancy: false); }
         catch { return; }
         PortsChanged?.Invoke(ports);
     }
