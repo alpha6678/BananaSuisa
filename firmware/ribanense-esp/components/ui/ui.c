@@ -147,6 +147,14 @@ static void style_row(lv_obj_t *obj)
     lv_obj_set_style_transform_height(obj, 0, 0);
     lv_obj_set_style_border_color(obj, ui_color_yellow(), LV_STATE_PRESSED);
     lv_obj_set_style_border_width(obj, 2, LV_STATE_PRESSED);
+    lv_obj_set_flex_flow(obj, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(obj, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+}
+
+static void label_left(lv_obj_t *lab)
+{
+    lv_obj_set_style_text_align(lab, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_align(lab, LV_ALIGN_LEFT_MID, 0, 0);
 }
 
 static void style_keys(lv_obj_t *kb, lv_style_selector_t sel, bool pressed)
@@ -199,6 +207,7 @@ static lv_obj_t *make_scroll_list(lv_obj_t *parent)
     lv_obj_set_width(list, lv_pct(100));
     lv_obj_set_flex_grow(list, 1);
     lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(list, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_style_pad_row(list, 4, 0);
     lv_obj_set_scroll_dir(list, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_AUTO);
@@ -386,7 +395,7 @@ static void refresh_home_apps(void)
         lv_obj_t *lab = lv_label_create(row);
         lv_label_set_text(lab, s_home_apps[i].name);
         lv_obj_set_style_text_color(lab, ui_color_white(), 0);
-        lv_obj_center(lab);
+        label_left(lab);
     }
 }
 
@@ -436,7 +445,7 @@ static void fill_store_list(void)
         lv_obj_t *lab = lv_label_create(row);
         lv_label_set_text(lab, line);
         lv_obj_set_style_text_color(lab, s_remotes[i].installed ? ui_color_green() : ui_color_white(), 0);
-        lv_obj_center(lab);
+        label_left(lab);
     }
 }
 
@@ -1146,7 +1155,7 @@ static void build_home(void)
     lv_obj_t *cfgl = lv_label_create(cfg);
     lv_label_set_text(cfgl, LV_SYMBOL_SETTINGS "  Configuracoes");
     lv_obj_set_style_text_color(cfgl, ui_color_white(), 0);
-    lv_obj_center(cfgl);
+    label_left(cfgl);
 
     lv_obj_t *cat = lv_button_create(s_home_list);
     style_row(cat);
@@ -1154,7 +1163,7 @@ static void build_home(void)
     lv_obj_t *cl = lv_label_create(cat);
     lv_label_set_text(cl, LV_SYMBOL_LIST "  Catalogo");
     lv_obj_set_style_text_color(cl, ui_color_white(), 0);
-    lv_obj_center(cl);
+    label_left(cl);
 
     refresh_home_apps();
 }
@@ -1194,7 +1203,7 @@ static void build_settings(void)
     s_home_wifi_lab = lv_label_create(wifi);
     lv_label_set_text(s_home_wifi_lab, LV_SYMBOL_WIFI "  Wi-Fi");
     lv_obj_set_style_text_color(s_home_wifi_lab, ui_color_white(), 0);
-    lv_obj_center(s_home_wifi_lab);
+    label_left(s_home_wifi_lab);
 
     lv_obj_t *upd = lv_button_create(list);
     style_row(upd);
@@ -1202,7 +1211,7 @@ static void build_settings(void)
     s_home_upd_lab = lv_label_create(upd);
     lv_label_set_text(s_home_upd_lab, LV_SYMBOL_REFRESH "  Atualizar");
     lv_obj_set_style_text_color(s_home_upd_lab, ui_color_white(), 0);
-    lv_obj_center(s_home_upd_lab);
+    label_left(s_home_upd_lab);
 }
 
 esp_err_t ui_init(void)
