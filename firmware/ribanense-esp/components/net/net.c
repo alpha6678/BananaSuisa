@@ -2,10 +2,12 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_netif_sntp.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -193,6 +195,12 @@ esp_err_t net_init(void)
     if (err != ESP_OK) {
         return err;
     }
+    esp_sntp_config_t sntp = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+    sntp.wait_for_sync = true;
+    err = esp_netif_sntp_init(&sntp);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "SNTP %s", esp_err_to_name(err));
+    }
     err = esp_wifi_set_storage(WIFI_STORAGE_FLASH);
     if (err != ESP_OK) {
         return err;
@@ -358,4 +366,17 @@ uint16_t net_sta_fail_reason(void)
     uint16_t r = s_fail_reason;
     unlock();
     return r;
+}
+
+esp_err_t net_time_wait(int timeout_ms)
+{
+    time_t now = 0;
+    time(&now);
+    if (now > 1700000000) {
+        return ESP_OK;
+    }
+    if (timeout_ms < 0) {
+        timeout_ms = 0;
+    }
+    return esp_netif_sntp_sync_wait(pdMS_TO_TICKS(timeout_ms));
 }

@@ -44,3 +44,4 @@ esp_err_t net_sta_connect(const char *ssid, const char *pass);
 net_sta_state_t net_sta_state(void);
 void net_sta_ip(char *out, size_t max);
 uint16_t net_sta_fail_reason(void);
+esp_err_t net_time_wait(int timeout_ms);

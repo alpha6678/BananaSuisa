@@ -45,7 +45,7 @@ static char s_sel_ssid[NET_SSID_MAX];
 static uint8_t s_sel_auth;
 static net_sta_state_t s_sta_seen = NET_STA_IDLE;
 static lv_obj_t *s_home_wifi_lab;
-static lv_obj_t *s_home_ota_lab;
+static lv_obj_t *s_home_upd_lab;
 static lv_obj_t *s_home_list;
 static lv_obj_t *s_store;
 static lv_obj_t *s_store_status;
@@ -245,15 +245,15 @@ static void set_home_wifi(const char *ip)
 
 static void set_home_ota(const char *msg, lv_color_t color)
 {
-    if (s_home_ota_lab == NULL) {
+    if (s_home_upd_lab == NULL || msg == NULL) {
         return;
     }
-    if (strcmp(lv_label_get_text(s_home_ota_lab), msg) == 0) {
-        lv_obj_set_style_text_color(s_home_ota_lab, color, 0);
-        return;
+    char text[52];
+    snprintf(text, sizeof(text), LV_SYMBOL_REFRESH "  %s", msg);
+    if (strcmp(lv_label_get_text(s_home_upd_lab), text) != 0) {
+        lv_label_set_text(s_home_upd_lab, text);
     }
-    lv_label_set_text(s_home_ota_lab, msg);
-    lv_obj_set_style_text_color(s_home_ota_lab, color, 0);
+    lv_obj_set_style_text_color(s_home_upd_lab, color, 0);
 }
 
 static void on_lan_up(void)
@@ -301,18 +301,16 @@ static void store_poll(void)
 {
     const store_state_t st = store_state();
     const char *msg = store_message();
-    if (st == STORE_BUSY || st == STORE_ERR ||
-        (st == STORE_IDLE && (strcmp(msg, "instalado") == 0 || strcmp(msg, "catalogo ok") == 0))) {
+    if (s_store_status != NULL &&
+        (st == STORE_BUSY || st == STORE_ERR ||
+         (st == STORE_IDLE && (strcmp(msg, "instalado") == 0 || strcmp(msg, "catalogo ok") == 0)))) {
         lv_color_t color = ui_color_white();
         if (st == STORE_ERR) {
             color = ui_color_red();
         } else if (st == STORE_IDLE) {
             color = ui_color_green();
         }
-        set_home_ota(msg, color);
-        if (s_store_status != NULL) {
-            set_store_status(msg, color);
-        }
+        set_store_status(msg, color);
     }
     if (st != s_store_seen) {
         s_store_seen = st;
@@ -974,6 +972,7 @@ static void on_open_ota(lv_event_t *e)
         set_home_ota("sem rede", ui_color_red());
         return;
     }
+    set_home_ota("buscando...", ui_color_white());
     ota_pull_start();
 }
 
@@ -995,10 +994,6 @@ static void build_home(void)
     lv_obj_t *ver = lv_label_create(s_home);
     lv_label_set_text(ver, RIBANENSEESP_VERSION);
 
-    s_home_ota_lab = lv_label_create(s_home);
-    lv_label_set_text(s_home_ota_lab, "OTA");
-    lv_obj_set_style_text_color(s_home_ota_lab, ui_color_white(), 0);
-
     s_home_list = make_scroll_list(s_home);
 
     lv_obj_t *wifi = lv_button_create(s_home_list);
@@ -1012,10 +1007,10 @@ static void build_home(void)
     lv_obj_t *upd = lv_button_create(s_home_list);
     style_row(upd);
     lv_obj_add_event_cb(upd, on_open_ota, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *ul = lv_label_create(upd);
-    lv_label_set_text(ul, LV_SYMBOL_REFRESH "  Atualizar");
-    lv_obj_set_style_text_color(ul, ui_color_white(), 0);
-    lv_obj_center(ul);
+    s_home_upd_lab = lv_label_create(upd);
+    lv_label_set_text(s_home_upd_lab, LV_SYMBOL_REFRESH "  Atualizar");
+    lv_obj_set_style_text_color(s_home_upd_lab, ui_color_white(), 0);
+    lv_obj_center(s_home_upd_lab);
 
     lv_obj_t *cat = lv_button_create(s_home_list);
     style_row(cat);
