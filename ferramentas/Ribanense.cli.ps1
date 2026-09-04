@@ -18,6 +18,12 @@ $script:ProjectRoot = Split-Path -Parent $script:CliRoot
 $script:SolutionPath = Join-Path $script:ProjectRoot 'Ribanense.Solucoes.slnx'
 $script:LauncherProjectPath = Join-Path $script:ProjectRoot 'src\Ribanense.Solucoes.Launcher\Ribanense.Solucoes.Launcher.csproj'
 $script:AppsRoot = Join-Path $script:ProjectRoot 'src\aplicativos'
+$script:EspAppsRoot = Join-Path $script:ProjectRoot 'firmware\apps'
+$script:OsRoot = Join-Path $script:ProjectRoot 'firmware\ribanense-esp'
+$script:EspSdkRoot = Join-Path $script:ProjectRoot 'firmware\esp-sdk'
+$script:OsVersionHeader = Join-Path $script:EspSdkRoot 'components\board\include\ribanense_esp_version.h'
+$script:OsFirmwareJson = Join-Path $script:OsRoot 'firmware.json'
+$script:EspCatalogPath = Join-Path $script:ProjectRoot 'catalog\esp-catalog.json'
 $script:LauncherDataRoot = Join-Path $env:LOCALAPPDATA 'Ribanense Soluções'
 $script:DevLinkRoot = Join-Path $script:LauncherDataRoot 'aplicativos'
 
@@ -540,6 +546,7 @@ function Get-PublishAllCandidates {
         $next = Get-NextPatchVersion -Version $versionState.CsprojVersion
         $plan += [pscustomobject]@{
             App         = $app
+            Kind        = 'win-app'
             Current     = $versionState.CsprojVersion
             Next        = $next
             TagPrefix   = $tagPrefix
@@ -593,6 +600,7 @@ function Get-PublishAllLauncherPlanItem {
 
     return [pscustomobject]@{
         App         = $launcherStub
+        Kind        = 'launcher'
         Current     = $versionState.CsprojVersion
         Next        = $next
         TagPrefix   = $tagPrefix
@@ -611,7 +619,224 @@ function Get-LauncherVersion {
     return $state.CsprojVersion
 }
 
+function Get-OsVersion {
+    if (-not (Test-Path -LiteralPath $script:OsVersionHeader)) {
+        return $null
+    }
+    $content = Get-Content -LiteralPath $script:OsVersionHeader -Raw
+    if ($content -match '#define\s+RIBANENSEESP_VERSION\s+"([^"]+)"') {
+        return $Matches[1]
+    }
+    return $null
+}
+
+function Set-OsVersion {
+    param([Parameter(Mandatory)] [string] $Version)
+    if (-not (Test-SimpleSemVer -Version $Version)) {
+        throw "Versao '$Version' invalida para o OS."
+    }
+    $header = Get-Content -LiteralPath $script:OsVersionHeader -Raw
+    $headerPattern = '(#define\s+RIBANENSEESP_VERSION\s+")[^"]+(")'
+    if (-not [regex]::IsMatch($header, $headerPattern)) {
+        throw "RIBANENSEESP_VERSION nao encontrado em $($script:OsVersionHeader)."
+    }
+    $header = [regex]::Replace($header, $headerPattern, { param($m) "$($m.Groups[1].Value)$Version$($m.Groups[2].Value)" }, 1)
+    Set-Content -LiteralPath $script:OsVersionHeader -Value $header -Encoding UTF8
+
+    if (Test-Path -LiteralPath $script:OsFirmwareJson) {
+        $json = Get-Content -LiteralPath $script:OsFirmwareJson -Raw
+        $json = [regex]::Replace($json, '("version"\s*:\s*")[^"]+(")', { param($m) "$($m.Groups[1].Value)$Version$($m.Groups[2].Value)" }, 1)
+        Set-Content -LiteralPath $script:OsFirmwareJson -Value $json -Encoding UTF8
+    }
+}
+
+function Get-AllEspAppProjects {
+    if (-not (Test-Path -LiteralPath $script:EspAppsRoot)) { return @() }
+    $results = @()
+    foreach ($dir in Get-ChildItem -LiteralPath $script:EspAppsRoot -Directory -ErrorAction SilentlyContinue) {
+        $manifestPath = Join-Path $dir.FullName 'app.json'
+        if (-not (Test-Path -LiteralPath $manifestPath)) { continue }
+        $manifest = $null
+        try { $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json } catch { }
+        if (-not $manifest) { continue }
+        $results += [pscustomobject]@{
+            ShortName       = $dir.Name
+            Kind            = 'esp-app'
+            ManifestVersion = [string] $manifest.version
+            ManifestPath    = $manifestPath
+            PublicName      = if ($manifest.publicName) { $manifest.publicName } else { $manifest.name }
+            GithubTagPrefix = [string] $manifest.githubTagPrefix
+            Id              = [string] $manifest.id
+            Directory       = $dir.FullName
+            CMakeListsPath  = (Join-Path $dir.FullName 'CMakeLists.txt')
+            HasManifest     = $true
+        }
+    }
+    return $results
+}
+
+function Resolve-EspAppShortName {
+    param([Parameter(Mandatory)] [string] $AppInput)
+    $apps = @(Get-AllEspAppProjects)
+    $token = $AppInput.Trim()
+    $exact = @($apps | Where-Object { $_.ShortName.Equals($token, [System.StringComparison]::OrdinalIgnoreCase) })
+    if ($exact.Count -eq 1) { return $exact[0].ShortName }
+    throw "App da placa '$AppInput' nao encontrado em firmware\apps\. Use 'rb list'."
+}
+
+function Test-IsOsTarget {
+    param([string] $Name)
+    return $Name -in @('OS', 'RibanenseESP', 'Esp')
+}
+
+function Set-EspAppVersion {
+    param(
+        [Parameter(Mandatory)] $App,
+        [Parameter(Mandatory)] [string] $Version
+    )
+    if (-not (Test-SimpleSemVer -Version $Version)) {
+        throw "Versao '$Version' invalida para app da placa."
+    }
+    $manifestContent = Get-Content -LiteralPath $App.ManifestPath -Raw
+    $manifestContent = [regex]::Replace(
+        $manifestContent,
+        '("version"\s*:\s*")[^"]+(")',
+        { param($m) "$($m.Groups[1].Value)$Version$($m.Groups[2].Value)" },
+        1
+    )
+    Set-Content -LiteralPath $App.ManifestPath -Value $manifestContent -Encoding UTF8
+
+    if (Test-Path -LiteralPath $App.CMakeListsPath) {
+        $cmake = Get-Content -LiteralPath $App.CMakeListsPath -Raw
+        if ($cmake -match 'set\(PROJECT_VER\s+"[^"]+"\)') {
+            $cmake = [regex]::Replace($cmake, 'set\(PROJECT_VER\s+"[^"]+"\)', "set(PROJECT_VER `"$Version`")", 1)
+            Set-Content -LiteralPath $App.CMakeListsPath -Value $cmake -Encoding UTF8
+        }
+    }
+}
+
+function Get-OsRelevantPathPrefixes {
+    return @(
+        'firmware/ribanense-esp/',
+        'firmware/esp-sdk/'
+    )
+}
+
+function Get-EspAppRelevantPathPrefixes {
+    param([Parameter(Mandatory)] [string] $AppShortName)
+    return @(
+        "firmware/apps/$AppShortName/",
+        'firmware/esp-sdk/'
+    )
+}
+
+function Get-PublishAllOsPlanItem {
+    if (-not (Test-Path -LiteralPath $script:OsRoot)) { return $null }
+    $current = Get-OsVersion
+    if (-not $current) {
+        throw "Versao do OS nao encontrada em ribanense_esp_version.h."
+    }
+    if (-not (Test-SimpleSemVer -Version $current)) {
+        throw "OS com versao '$current' fora de major.minor.patch."
+    }
+    $tagPrefix = 'ribanense-esp-v'
+    $latestTag = Get-LatestTagForPrefix -TagPrefix $tagPrefix
+    $include = $false
+    $matchedFiles = @()
+    $reason = ''
+    if ([string]::IsNullOrWhiteSpace($latestTag)) {
+        $include = $true
+        $reason = 'sem tag anterior para o prefixo'
+    } else {
+        $changedFiles = Get-ChangedFilesSinceTag -Tag $latestTag
+        $matchedFiles = Select-FilesByPrefixes -Files $changedFiles -Prefixes (Get-OsRelevantPathPrefixes)
+        if ($matchedFiles.Count -gt 0) {
+            $include = $true
+            $reason = "arquivos alterados desde $latestTag"
+        }
+    }
+    if (-not $include) { return $null }
+    $next = Get-NextPatchVersion -Version $current
+    return [pscustomobject]@{
+        App         = [pscustomobject]@{ ShortName = 'OS'; Kind = 'os' }
+        Kind        = 'os'
+        Current     = $current
+        Next        = $next
+        TagPrefix   = $tagPrefix
+        Tag         = "$tagPrefix$next"
+        LatestTag   = $latestTag
+        Reason      = $reason
+        ChangedHint = @($matchedFiles | Select-Object -First 5)
+    }
+}
+
+function Get-PublishAllEspAppCandidates {
+    $plan = @()
+    foreach ($app in @(Get-AllEspAppProjects)) {
+        $tagPrefix = if ($app.GithubTagPrefix) { $app.GithubTagPrefix } else { "esp-$($app.ShortName.ToLowerInvariant())-v" }
+        $latestTag = Get-LatestTagForPrefix -TagPrefix $tagPrefix
+        $include = $false
+        $matchedFiles = @()
+        $reason = ''
+        if ([string]::IsNullOrWhiteSpace($latestTag)) {
+            $include = $true
+            $reason = 'sem tag anterior para o prefixo'
+        } else {
+            $changedFiles = Get-ChangedFilesSinceTag -Tag $latestTag
+            $matchedFiles = Select-FilesByPrefixes -Files $changedFiles -Prefixes (Get-EspAppRelevantPathPrefixes -AppShortName $app.ShortName)
+            if ($matchedFiles.Count -gt 0) {
+                $include = $true
+                $reason = "arquivos alterados desde $latestTag"
+            }
+        }
+        if (-not $include) { continue }
+        if (-not $app.ManifestVersion) {
+            throw "Versao do app da placa '$($app.ShortName)' nao encontrada."
+        }
+        if (-not (Test-SimpleSemVer -Version $app.ManifestVersion)) {
+            throw "App da placa '$($app.ShortName)' com versao '$($app.ManifestVersion)' invalida."
+        }
+        $next = Get-NextPatchVersion -Version $app.ManifestVersion
+        $plan += [pscustomobject]@{
+            App         = $app
+            Kind        = 'esp-app'
+            Current     = $app.ManifestVersion
+            Next        = $next
+            TagPrefix   = $tagPrefix
+            Tag         = "$tagPrefix$next"
+            LatestTag   = $latestTag
+            Reason      = $reason
+            ChangedHint = @($matchedFiles | Select-Object -First 5)
+        }
+    }
+    return $plan
+}
+
 # ---------- Comandos ----------
+
+function Invoke-OsBuild {
+    $envScript = Join-Path $script:CliRoot 'esp-idf-env.ps1'
+    Assert-PathExists -Path $envScript -Description 'esp-idf-env.ps1'
+    . $envScript
+    $root = Get-IdfMirrorRoot
+    Invoke-RobocopyMirror -Source $script:OsRoot -Destination (Join-Path $root 'ribanense-esp')
+    Invoke-RobocopyMirror -Source $script:EspSdkRoot -Destination (Join-Path $root 'esp-sdk')
+    Invoke-IdfBuild -ProjectDir (Join-Path $root 'ribanense-esp') -ExtraArgs @('build')
+    Write-Ok "Build do OS concluido em $root\ribanense-esp\build."
+}
+
+function Invoke-OsFlash {
+    $port = if ($script:RestArguments.Count -ge 1) { $script:RestArguments[0] } else { 'COM8' }
+    $mirror = Join-Path $script:CliRoot 'esp-idf-env.ps1'
+    . $mirror
+    $root = Get-IdfMirrorRoot
+    $osMirror = Join-Path $root 'ribanense-esp'
+    if (-not (Test-Path -LiteralPath (Join-Path $osMirror 'build\ribanense_esp.bin'))) {
+        Invoke-OsBuild
+    }
+    Invoke-IdfBuild -ProjectDir $osMirror -ExtraArgs @('-p', $port, 'flash')
+    Write-Ok "Flash do OS enviado para $port."
+}
 
 function Invoke-SolutionBuild {
     Assert-PathExists -Path $script:SolutionPath -Description 'Solution'
@@ -788,7 +1013,29 @@ function Invoke-ListApps {
         Write-Host ("{0,-14} {1,-10} {2,-10} {3}" -f $a.ShortName, $csprojVer, $manifestVer, $pub)
     }
     Write-Host ""
-    Write-Muted "Total: $($apps.Count) app(s)."
+    Write-Muted "Total: $($apps.Count) app(s) Windows."
+
+    $osVer = Get-OsVersion
+    Write-Host ""
+    Write-Host "RibanenseESP (OS)" -ForegroundColor Cyan
+    if ($osVer) {
+        Write-Host ("{0,-14} {1}" -f 'OS', $osVer)
+    } else {
+        Write-Warn2 "OS nao encontrado em firmware\ribanense-esp."
+    }
+
+    $espApps = @(Get-AllEspAppProjects)
+    Write-Host ""
+    Write-Host "Apps da placa" -ForegroundColor Cyan
+    if ($espApps.Count -eq 0) {
+        Write-Muted "Nenhum app em firmware\apps\."
+    } else {
+        Write-Host ("{0,-14} {1,-10} {2}" -f 'ShortName', 'app.json', 'PublicName') -ForegroundColor Gray
+        foreach ($a in $espApps) {
+            Write-Host ("{0,-14} {1,-10} {2}" -f $a.ShortName, $a.ManifestVersion, $a.PublicName)
+        }
+        Write-Muted "Total: $($espApps.Count) app(s) da placa."
+    }
 }
 
 function Invoke-ShowVersions {
@@ -798,10 +1045,15 @@ function Invoke-ShowVersions {
     Write-Host ("{0,-30} {1}" -f 'Launcher (Directory.Build.props)', $launcher) -ForegroundColor Cyan
     Write-Host ("{0,-30} {1}" -f 'PluginSDK.SdkVersion.Current', $sdk) -ForegroundColor Cyan
 
+    $osVer = Get-OsVersion
+    if ($osVer) {
+        Write-Host ("{0,-30} {1}" -f 'RibanenseESP (OS)', $osVer) -ForegroundColor Cyan
+    }
+
     $apps = Get-AllAppProjects
     if ($apps.Count -gt 0) {
         Write-Host ""
-        Write-Host "Apps:" -ForegroundColor Cyan
+        Write-Host "Apps Windows:" -ForegroundColor Cyan
         foreach ($a in $apps) {
             $csprojVer = if ($a.CsprojVersion) { $a.CsprojVersion } else { '?' }
             $manifestVer = if ($a.ManifestVersion) { $a.ManifestVersion } else { '?' }
@@ -812,6 +1064,15 @@ function Invoke-ShowVersions {
             } else {
                 Write-Host $line
             }
+        }
+    }
+
+    $espApps = @(Get-AllEspAppProjects)
+    if ($espApps.Count -gt 0) {
+        Write-Host ""
+        Write-Host "Apps da placa:" -ForegroundColor Cyan
+        foreach ($a in $espApps) {
+            Write-Host ("  {0,-14} manifesto={1}" -f $a.ShortName, $a.ManifestVersion)
         }
     }
     Write-Host ""
@@ -895,6 +1156,26 @@ function Invoke-AppPublish {
         & $publishScript @remaining
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         Write-Ok "Pacote do Launcher gerado em artifacts\publish\Launcher\."
+        return
+    }
+
+    if (Test-IsOsTarget -Name $targetName) {
+        $publishScript = Join-Path $script:CliRoot 'publish-os.ps1'
+        Assert-PathExists -Path $publishScript -Description 'publish-os.ps1'
+        & $publishScript @remaining
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Write-Ok "Pacote do OS gerado em artifacts\publish\RibanenseESP\."
+        return
+    }
+
+    $espApps = @(Get-AllEspAppProjects)
+    $espHit = @($espApps | Where-Object { $_.ShortName.Equals($targetName, [System.StringComparison]::OrdinalIgnoreCase) })
+    if ($espHit.Count -eq 1) {
+        $publishScript = Join-Path $script:CliRoot 'publish-esp-app.ps1'
+        Assert-PathExists -Path $publishScript -Description 'publish-esp-app.ps1'
+        & $publishScript -App $espHit[0].ShortName @remaining
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Write-Ok "Pacote do app da placa '$($espHit[0].ShortName)' gerado em artifacts\publish\Esp$($espHit[0].ShortName)\."
         return
     }
 
@@ -1018,22 +1299,24 @@ function Invoke-PublishAll {
         if ($launcherPlan) {
             $plan += $launcherPlan
         }
+        $osPlan = Get-PublishAllOsPlanItem
+        if ($osPlan) {
+            $plan += $osPlan
+        }
+        $plan += @(Get-PublishAllEspAppCandidates)
 
         if ($plan.Count -eq 0) {
             if ($apps.Count -eq 0) {
                 Write-Warn2 "Nenhum app encontrado em src\aplicativos\."
             }
-            Write-Ok "Nenhum release necessario: nenhuma mudanca relevante desde as ultimas tags (apps e Launcher)."
+            Write-Ok "Nenhum release necessario: nenhuma mudanca relevante desde as ultimas tags (apps, Launcher, OS)."
             return
-        }
-
-        if ($apps.Count -eq 0) {
-            Write-Warn2 "Nenhum app modular em src\aplicativos\; o plano considera apenas o Launcher (se aplicavel)."
         }
 
         Write-Step "Plano publish all"
         foreach ($item in $plan) {
-            Write-Host ("{0,-14} {1} -> {2}  tag={3}" -f $item.App.ShortName, $item.Current, $item.Next, $item.Tag)
+            $kind = if ($item.Kind) { $item.Kind } else { 'win-app' }
+            Write-Host ("{0,-14} {1} -> {2}  tag={3}  ({4})" -f $item.App.ShortName, $item.Current, $item.Next, $item.Tag, $kind)
             Write-Muted ("motivo: {0}" -f $item.Reason)
             if ($item.ChangedHint.Count -gt 0) {
                 foreach ($f in $item.ChangedHint) {
@@ -1050,7 +1333,7 @@ function Invoke-PublishAll {
 
         if (-not $autoYes) {
             Write-Host ""
-            $answer = Read-Host "Continuar e publicar os itens acima (apps e/ou Launcher)? [s/N]"
+            $answer = Read-Host "Continuar e publicar os itens acima (Windows, OS e/ou apps da placa)? [s/N]"
             if ($answer -notin @('s', 'S', 'sim', 'SIM', 'y', 'Y', 'yes', 'YES')) {
                 Write-Warn2 "Operacao cancelada pelo usuario."
                 return
@@ -1060,21 +1343,44 @@ function Invoke-PublishAll {
         Write-Step "Atualizando versoes (patch)"
         $versionFiles = @()
         foreach ($item in $plan) {
-            if ($item.App.ShortName -eq "Launcher") {
-                Set-LauncherVersion -Version $item.Next
-                $versionFiles += (Get-LauncherVersionState).BuildPropsPath
-            } else {
-                Set-AppVersion -App $item.App -Version $item.Next
-                $versionFiles += $item.App.ProjectPath
-                if ($item.App.HasManifest) {
+            $kind = if ($item.Kind) { $item.Kind } else { 'win-app' }
+            switch ($kind) {
+                'launcher' {
+                    Set-LauncherVersion -Version $item.Next
+                    $versionFiles += (Get-LauncherVersionState).BuildPropsPath
+                }
+                'os' {
+                    Set-OsVersion -Version $item.Next
+                    $versionFiles += $script:OsVersionHeader
+                    if (Test-Path -LiteralPath $script:OsFirmwareJson) {
+                        $versionFiles += $script:OsFirmwareJson
+                    }
+                }
+                'esp-app' {
+                    Set-EspAppVersion -App $item.App -Version $item.Next
                     $versionFiles += $item.App.ManifestPath
+                    if (Test-Path -LiteralPath $item.App.CMakeListsPath) {
+                        $versionFiles += $item.App.CMakeListsPath
+                    }
+                }
+                default {
+                    Set-AppVersion -App $item.App -Version $item.Next
+                    $versionFiles += $item.App.ProjectPath
+                    if ($item.App.HasManifest) {
+                        $versionFiles += $item.App.ManifestPath
+                    }
                 }
             }
             Write-Ok "$($item.App.ShortName): $($item.Current) -> $($item.Next)"
         }
 
-        Write-Step "Validacao"
-        Invoke-FullCheck
+        $needsDotnet = @($plan | Where-Object { $_.Kind -in @('win-app', 'launcher') -or (-not $_.Kind) }).Count -gt 0
+        if ($needsDotnet) {
+            Write-Step "Validacao (.NET)"
+            Invoke-FullCheck
+        } else {
+            Write-Muted "publish all so com OS/apps da placa: rb check (.NET) omitido."
+        }
 
         Write-Step "Commit das versoes"
         Invoke-PublishAllVersionCommit -Plan $plan -VersionFiles $versionFiles
@@ -1100,13 +1406,17 @@ function Invoke-PublishAll {
 
 function Invoke-AppRelease {
     if ($script:RestArguments.Count -lt 2) {
-        throw "Uso: rb release <App|Launcher> <semver>. Exemplos: rb release Winget 0.2.0 ; rb release Launcher 0.1.0"
+        throw "Uso: rb release <App|Launcher|OS> <semver>. Exemplos: rb release Winget 0.2.0 ; rb release Launcher 0.1.0 ; rb release OS 0.0.3"
     }
     $appName = $script:RestArguments[0]
     $version = $script:RestArguments[1]
-    if ($appName -ine 'Launcher') {
+    $isOs = Test-IsOsTarget -Name $appName
+    $isEsp = @(Get-AllEspAppProjects | Where-Object { $_.ShortName.Equals($appName, [System.StringComparison]::OrdinalIgnoreCase) }).Count -eq 1
+    if ($appName -ine 'Launcher' -and -not $isOs -and -not $isEsp) {
         Get-AppProjectPath -AppName $appName | Out-Null
     }
+    if ($isOs) { $appName = 'OS' }
+    if ($isEsp) { $appName = Resolve-EspAppShortName -AppInput $appName }
 
     $releaseScript = Join-Path $script:CliRoot 'release.ps1'
     Assert-PathExists -Path $releaseScript -Description 'release.ps1'
@@ -1225,8 +1535,8 @@ $script:Commands = @(
     [pscustomobject]@{ Verb = 'test';    Aliases = @('testar');            Handler = 'Invoke-SolutionTests'; Usage = 'rb test [args]';                     Help = 'Executa dotnet test.' },
     [pscustomobject]@{ Verb = 'check';   Aliases = @('validar');           Handler = 'Invoke-FullCheck';     Usage = 'rb check';                           Help = 'Build + test em sequencia.' },
     [pscustomobject]@{ Verb = 'clean';   Aliases = @('limpar');            Handler = 'Invoke-Clean';         Usage = 'rb clean';                           Help = 'Remove bin/, obj/, artifacts/ e encerra processos Ribanense do repo.' },
-    [pscustomobject]@{ Verb = 'list';    Aliases = @('apps', 'ls');        Handler = 'Invoke-ListApps';      Usage = 'rb list';                            Help = 'Lista apps disponiveis em src\aplicativos\.' },
-    [pscustomobject]@{ Verb = 'version'; Aliases = @('versao');            Handler = 'Invoke-ShowVersions';  Usage = 'rb version';                         Help = 'Mostra versoes de Launcher, SDK e cada app (alerta se csproj e app.json divergem).' },
+    [pscustomobject]@{ Verb = 'list';    Aliases = @('apps', 'ls');        Handler = 'Invoke-ListApps';      Usage = 'rb list';                            Help = 'Lista apps Windows, o OS RibanenseESP e os apps da placa.' },
+    [pscustomobject]@{ Verb = 'version'; Aliases = @('versao');            Handler = 'Invoke-ShowVersions';  Usage = 'rb version';                         Help = 'Mostra versoes de Launcher, SDK, OS e cada app.' },
     [pscustomobject]@{ Verb = 'devlink'; Aliases = @('link');              Handler = 'Invoke-DevLink';       Usage = 'rb devlink <App>';                   Help = 'Compila um app e copia para %LOCALAPPDATA%\Ribanense Solucoes\aplicativos\ para o Launcher ver como instalado.' },
     [pscustomobject]@{ Verb = 'unlink';  Aliases = @('devunlink');         Handler = 'Invoke-DevUnlink';     Usage = 'rb unlink <App>';                    Help = 'Remove o devlink de um app.' },
     [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher|all> [...]'; Help = 'Empacota App/Launcher ou executa publish all (bump patch + check + releases do Launcher e/ou apps com mudancas desde a ultima tag).' },
@@ -1247,6 +1557,9 @@ function Normalize-GroupToken {
         'solution' { return 'solution' }
         'sln'      { return 'solution' }
         'repo'     { return 'solution' }
+        'os'       { return 'os' }
+        'esp'      { return 'os' }
+        'ribanenseesp' { return 'os' }
         default    { return $null }
     }
 }
@@ -1256,7 +1569,7 @@ function Show-GroupHelp {
 
     $group = Normalize-GroupToken -Token $GroupName
     if ($null -eq $group) {
-        throw "Grupo desconhecido: '$GroupName'. Use: app, launcher, solution."
+        throw "Grupo desconhecido: '$GroupName'. Use: app, launcher, solution, os."
     }
 
     Write-Host ""
@@ -1323,6 +1636,29 @@ function Show-GroupHelp {
             Write-Host "  .\rb.cmd solution clean"
             Write-Host "  .\rb.cmd solution list"
         }
+        'os' {
+            Write-Host "Grupo: os (RibanenseESP)" -ForegroundColor Cyan
+            Write-Host "------------------------" -ForegroundColor DarkCyan
+            Write-Host "Uso base: rb os <acao> [args]"
+            Write-Host ""
+            Write-Host "Acoes:" -ForegroundColor Gray
+            Write-Host "  build | compilar"
+            Write-Host "  publish | empacotar | pack"
+            Write-Host "  release | soltar"
+            Write-Host "  flash | gravar"
+            Write-Host "  version | versao"
+            Write-Host "  app publish <App>"
+            Write-Host "  app release <App> <semver>"
+            Write-Host ""
+            Write-Host "Exemplos:" -ForegroundColor Gray
+            Write-Host "  .\rb.cmd os build"
+            Write-Host "  .\rb.cmd os publish -Version 0.0.3"
+            Write-Host "  .\rb.cmd os release 0.0.3"
+            Write-Host "  .\rb.cmd os flash COM8"
+            Write-Host "  .\rb.cmd os app publish Sobre -Version 0.1.0"
+            Write-Host "  .\rb.cmd os app release Sobre 0.1.0"
+            Write-Host "  .\rb.cmd esp version"
+        }
     }
     Write-Host ""
 }
@@ -1343,8 +1679,9 @@ function Show-RibananseCliHelp {
     Write-Host "Sintaxe por dominio (estilo pc):" -ForegroundColor Gray
     Write-Host "  rb app <acao> <App> [args]"
     Write-Host "  rb launcher <acao> [args]"
+    Write-Host "  rb os <acao> [args]"
     Write-Host "  rb solution <acao> [args]"
-    Write-Host "  rb help app|launcher|solution"
+    Write-Host "  rb help app|launcher|os|solution"
     Write-Host ""
     Write-Host "Comandos:" -ForegroundColor Gray
     foreach ($c in $script:Commands) {
@@ -1539,6 +1876,66 @@ function TryInvoke-GroupedCommand {
                 'logs' {
                     $script:RestArguments = $actionArgs
                     Invoke-Logs
+                    return $true
+                }
+            }
+        }
+        'os' {
+            if ($actionInput -eq 'app') {
+                if ($actionArgs.Count -lt 2) {
+                    throw "Uso: rb os app publish|release <App> [...]."
+                }
+                $sub = $actionArgs[0].ToLowerInvariant()
+                $tail = @()
+                if ($actionArgs.Count -gt 1) {
+                    $tail = $actionArgs[1..($actionArgs.Count - 1)]
+                }
+                if ($sub -in @('publish', 'empacotar', 'pack')) {
+                    $script:RestArguments = $tail
+                    Invoke-AppPublish
+                    return $true
+                }
+                if ($sub -in @('release', 'soltar')) {
+                    $script:RestArguments = $tail
+                    Invoke-AppRelease
+                    return $true
+                }
+                throw "Acao desconhecida para rb os app: '$sub'."
+            }
+
+            $action = switch ($actionInput) {
+                { $_ -in @('build', 'compilar') } { 'build'; break }
+                { $_ -in @('publish', 'empacotar', 'pack') } { 'publish'; break }
+                { $_ -in @('release', 'soltar') } { 'release'; break }
+                { $_ -in @('flash', 'gravar') } { 'flash'; break }
+                { $_ -in @('version', 'versao') } { 'version'; break }
+                default { $null }
+            }
+            if ($null -eq $action) {
+                throw "Acao desconhecida para grupo os: '$actionInput'. Use 'rb help os'."
+            }
+            switch ($action) {
+                'build' {
+                    Invoke-OsBuild
+                    return $true
+                }
+                'publish' {
+                    $script:RestArguments = @('OS') + $actionArgs
+                    Invoke-AppPublish
+                    return $true
+                }
+                'release' {
+                    $script:RestArguments = @('OS') + $actionArgs
+                    Invoke-AppRelease
+                    return $true
+                }
+                'flash' {
+                    $script:RestArguments = $actionArgs
+                    Invoke-OsFlash
+                    return $true
+                }
+                'version' {
+                    Invoke-ShowVersions
                     return $true
                 }
             }

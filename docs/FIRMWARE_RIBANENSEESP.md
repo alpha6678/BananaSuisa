@@ -4,7 +4,7 @@ Casca de firmware da placa E32R28T-1 (ESP32-32E 2,8"). Não é um sistema
 operacional completo e **não entra** na solution .NET. Vive em
 [`firmware/ribanense-esp/`](../firmware/ribanense-esp/).
 
-Versão inicial: **0.0.1**. Tag de release: `ribanense-esp-v<semver>`.
+Versão atual: **0.0.2**. Tag de release: `ribanense-esp-v<semver>`.
 
 O dossiê da unidade (fotos, pinout, o que veio na caixa) continua em
 [`../hardware/esp32-2432s028r/README.md`](../hardware/esp32-2432s028r/README.md).
@@ -60,8 +60,8 @@ amostras. O firmware força o timer do ponteiro para **20 ms**
 chama `lv_timer_handler` a cada 5 ms. O flush do painel continua em 3 Hz.
 
 Home: título + lista com scroll. O primeiro item abre a tela **Wi-Fi**
-(scan STA, SSID e potência em dBm, sem travar o handler). Teclado no TFT
-volta quando a senha da rede entrar. Não há USB Host nesta placa.
+(scan STA, SSID + dBm atualizado 1 Hz, toque abre a senha no teclado do
+TFT e `esp_wifi_connect` em STA). Não há USB Host nesta placa.
 
 ## Toque (XPT2046)
 
@@ -83,21 +83,58 @@ Calibração medida nesta E32R28T-1 (4 cantos + centro, 2026-09-03), em
 | `SWAP_XY` | 0 |
 | `INV_X` / `INV_Y` | 1 / 0 |
 
-## Rede e OTA (fases)
+## Rede e OTA
 
-| Fase | Conteúdo |
-|------|----------|
+| Fase | Estado |
+|------|--------|
 | F0 | Bring-up: pinout desta unidade, UI, mount do SD |
-| F1 | Lista na home; tela Wi-Fi com scan (SSID + dBm). SoftAP + senha + STA + NVS em seguida |
-| F2 | HTTP: status JSON, upload em chunks para o SD |
-| F3 | Pull `firmware.json` + `esp_https_ota` + `POST /update` + rollback |
+| F1 | Home; scan 1 Hz; senha no TFT; STA + IP; volta à home |
+| F2 | `GET /status` e `POST /update` na LAN (chunks, nunca o `.bin` na SRAM) |
+| F3 | Pull `firmware.json` (HTTPS + SHA256) + rollback no boot |
 
-SoftAP sozinho não alcança o GitHub. OTA pull exige STA com IP.
+Após `GOT_IP` a UI volta à lista inicial. O item Wi-Fi passa a mostrar o IP.
+O item **Atualizar** dispara o pull. SoftAP sozinho não alcança o GitHub.
 
-Manifesto de release (`firmware.json`): `schemaVersion`, `product` =
-`RibanenseESP`, `version`, `minFlashMb`, `url`, `sha256`.
+SSID/senha ficam na flash (`WIFI_STORAGE_FLASH`). No boot o STA reconecta
+sozinho — necessário depois de um reboot OTA.
 
-Assets: `ribanense-esp-<ver>.bin` + `.sha256`.
+Servidor HTTP (porta 80) sobe só com IP. Auth do push: cabeçalho
+`X-Ribanense-Key: ribanense-esp`.
+
+```bat
+curl http://192.168.0.230/status
+curl -H "X-Ribanense-Key: ribanense-esp" --data-binary @ribanense_esp.bin http://192.168.0.230/update
+```
+
+Manifesto (`firmware/ribanense-esp/firmware.json`): `schemaVersion`,
+`product` = `RibanenseESP`, `version`, `minFlashMb`, `url`, `sha256`.
+O pull recusa `product` diferente, versão ≤ à gravada, `url` vazio ou
+SHA256 divergente. URL do manifesto no firmware:
+
+`https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/firmware/ribanense-esp/firmware.json`
+
+Assets de release: `ribanense-esp-<ver>.bin` + `.sha256`. O `rb os release`
+(ou `rb publish all`) preenche `url` e `sha256` e sobe o JSON — é assim
+que a placa passa a ver a versão nova. Enquanto `url` estiver vazio,
+**Atualizar** responde `sem binario` (ou `atual` se a versão do JSON não
+for maior). USB-C / CH340 só no primeiro flash do root com OTA.
+
+## Apps no microSD
+
+O OS é o launcher da placa. Apps nativos (projetos IDF em
+`firmware/apps/`) instalam-se em `/sdcard/apps/<id>/` a partir de
+[`catalog/esp-catalog.json`](../catalog/esp-catalog.json). A home lista o
+que já está no cartão; **Catalogo** baixa e instala. Abrir um app grava
+o `.bin` no slot OTA inativo e reinicia; **Voltar** devolve o boot ao OS
+(NVS `rib_os`/`slot`). Contrato: [`ESP_APP_SDK.md`](ESP_APP_SDK.md).
+
+```bat
+rb os build
+rb os publish
+rb os release 0.0.3
+rb os app publish Sobre
+rb publish all --dry-run
+```
 
 ## Limites deste silício
 
@@ -112,7 +149,8 @@ Assets: `ribanense-esp-<ver>.bin` + `.sha256`.
 
 Requer [ESP-IDF](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/)
 5.3.1. A solution `Ribanense.Solucoes.slnx` e o `rb.cmd` **não** compilam
-este projeto.
+este projeto no `rb check`. O `rb os build` / `rb publish all` compilam
+o IDF por uma cópia em `C:\fw` (ou `RIBANENSE_IDF_MIRROR`).
 
 **Atenção (Windows com acento no nome de usuário):** o kconfiglib do IDF
 quebra com caracteres não-ASCII no caminho do projeto. Se o seu caminho

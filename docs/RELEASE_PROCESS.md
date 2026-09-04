@@ -1,10 +1,12 @@
 # Processo de release
 
-Como publicar uma nova versão do **Launcher** ou de um **app** do catálogo Ribanense Soluções via GitHub Releases.
+Como publicar uma nova versão do **Launcher**, de um **app Windows**, do **OS**
+RibanenseESP ou de um **app da placa** via GitHub Releases.
 
 ## Convenções
 
-- **Tag**: `<slug>-v<semver>`. Exemplos: `launcher-v1.0.0`, `winget-v1.2.3`, `uwp-v0.1.0-beta.1`.
+- **Tag**: `<slug>-v<semver>`. Exemplos: `launcher-v1.0.0`, `winget-v1.2.3`,
+  `ribanense-esp-v0.0.3`, `esp-sobre-v0.1.0`.
 - **Nome do release**: `<PublicName> <Version>`. Exemplo: `Gestor WinGet 1.2.3`.
 - **Branch-base**: `main` (ou a branch estável definida).
 - **SemVer** 2.0, incluindo pre-releases (`-beta.1`, `-rc.2`).
@@ -44,11 +46,18 @@ rb.cmd publish all -Yes
 
 O `publish all`:
 
-1. Busca tags (`git fetch --tags`) e detecta **cada app** e o **Launcher** alterados desde a última tag do prefixo correspondente (`<slug>-v` ou `app.json.githubTagPrefix`; Launcher usa `launcher-v`).
+1. Busca tags (`git fetch --tags`) e detecta **cada app Windows**, o **Launcher**,
+   o **OS** (`ribanense-esp-v`) e os **apps da placa** (`esp-<slug>-v`) alterados
+   desde a última tag do prefixo correspondente.
 2. Calcula próxima versão com bump patch (`x.y.z -> x.y.(z+1)`).
-3. Atualiza versões: nos `.csproj` e `app.json` de cada app afetado; no **`Directory.Build.props`** quando o Launcher entra no plano.
-4. Executa `rb.cmd check`.
-5. Publica release no GitHub para cada app e/ou o Launcher necessário (tags + assets).
+3. Atualiza versões: `.csproj` + `app.json` (Windows); `Directory.Build.props`
+   (Launcher); `ribanense_esp_version.h` + `firmware.json` (OS); `app.json` do
+   app da placa.
+4. Executa `rb.cmd check` **somente** se o plano tiver item .NET. IDF não entra
+   no check.
+5. Publica release no GitHub. No OS, preenche `url`/`sha256` em
+   `firmware.json` e faz push (a placa passa a ver a versão nova). No app da
+   placa, atualiza `catalog/esp-catalog.json`.
 
 Observações:
 
@@ -63,7 +72,11 @@ Observações:
 | `<nome>-<ver>-win-x64.zip.sha256` | `SHA256  <nome-do-arquivo>` em ASCII. |
 | `launcher-<ver>-win-x64.exe` | Launcher: publish **self-contained + PublishSingleFile** (`win-x64`). Um único `.exe` para baixar e executar. |
 | `launcher-<ver>-win-x64.exe.sha256` | `SHA256  <nome-do-arquivo>` em ASCII. |
-| `app.json` | Cópia do manifesto do app (não se aplica ao Launcher). |
+| `app.json` | Cópia do manifesto do app (não se aplica ao Launcher nem ao OS). |
+| `ribanense-esp-<ver>.bin` | OS da placa (IDF). |
+| `ribanense-esp-<ver>.bin.sha256` | SHA256 do OS. |
+| `esp-<slug>-<ver>.zip` | App da placa: `app.bin` + `app.json` (store, sem deflate). |
+| `esp-<slug>-<ver>.zip.sha256` | SHA256 do zip da placa. |
 
 ## Rollback
 

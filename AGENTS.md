@@ -6,9 +6,12 @@ Este arquivo orienta agentes de IA que trabalhem no repositório **Ribanense Sol
 
 Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows (C# WPF, .NET 10). Ele exibe um catálogo de **aplicativos modulares**, cada um distribuído como `.exe` independente via **GitHub Releases**. O usuário final baixa só o launcher; cada app é instalado sob demanda. Atualizações são granulares por app.
 
-Na placa E32R28T-1 existe a casca **RibanenseESP** (ESP-IDF), independente da
-solution .NET: UI no TFT, dados no microSD, OTA por GitHub Releases. USB só
-no primeiro flash. Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md).
+Na placa E32R28T-1 o **OS** é a casca **RibanenseESP** (ESP-IDF, flash). Os
+**apps da placa** são firmwares nativos independentes em `firmware/apps/`,
+instalados no microSD. O `rb publish all` trata o OS como o Launcher e os
+apps da placa como os apps Windows. USB só no primeiro flash do OS.
+Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md),
+[`docs/ESP_APP_SDK.md`](docs/ESP_APP_SDK.md).
 
 ## Mapa rápido do código
 
@@ -21,11 +24,14 @@ no primeiro flash. Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANEN
 | `src/Ribanense.Solucoes.UI/` | Estilos, breakpoints responsivos, base MVVM e controles comuns. |
 | `src/aplicativos/Ribanense.Solucoes.App.<Nome>/` | Cada app do catálogo vive aqui como `.exe` independente. |
 | `tests/` | Projetos de teste por camada e por app. |
-| `ferramentas/` | CLI do monorepo (`Ribanense.cli.ps1`, `publish-module.ps1`, `release.ps1`). |
-| `catalog/catalog.json` | Catálogo público consumido pelo Launcher via `raw.githubusercontent.com`. |
+| `ferramentas/` | CLI do monorepo (`Ribanense.cli.ps1`, `publish-module.ps1`, `publish-os.ps1`, `release.ps1`). |
+| `catalog/catalog.json` | Catálogo público do Launcher Windows. |
+| `catalog/esp-catalog.json` | Catálogo dos apps da placa (o Launcher Windows não lista). |
 | `docs/` | Arquitetura, processo de release, contrato do SDK, etc. |
 | `hardware/` | Dossiês de equipamentos físicos (fotos, identificação, pinout). |
-| `firmware/ribanense-esp/` | Casca **RibanenseESP** (ESP-IDF) da E32R28T-1. Fora da slnx. |
+| `firmware/ribanense-esp/` | **OS** RibanenseESP (ESP-IDF). Fora da slnx. |
+| `firmware/esp-sdk/` | Componentes compartilhados (board, storage, paleta, shell). |
+| `firmware/apps/<Slug>/` | Apps nativos da placa (projeto IDF + `app.json`). |
 
 ## Regras de naming
 
@@ -33,10 +39,11 @@ no primeiro flash. Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANEN
 - **Namespaces, pastas, IDs, tags, ASCII-only**: `Ribanense.Solucoes`.
 - **IDs de app**: `com.ribanense.<slug>` (ex.: `com.ribanense.winget`).
 - **Prefixo de tag de release**: `<slug>-v<semver>` (ex.: `winget-v1.0.0`, `launcher-v1.0.0`).
-- **Firmware da placa**: nome público **RibanenseESP**; pasta/tag `ribanense-esp-v<semver>`.
+- **Firmware da placa (OS)**: nome público **RibanenseESP**; tag `ribanense-esp-v<semver>`.
+- **Apps da placa**: `id` `com.ribanense.esp.<slug>`; tag `esp-<slug>-v<semver>`.
   Pinout só o da E32R28T-1. UI: fundo preto, tintas branco/azul/verde/vermelho,
   widgets simples, sem animações, flush ≤ 3 FPS. Sem dependência de compilação
-  com projetos C#.
+  com projetos C# nem entre apps da placa.
 
 ## Como trabalhar neste repositório
 
@@ -59,6 +66,9 @@ no primeiro flash. Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANEN
 .\rb.cmd check
 .\rb.cmd publish Winget -Version 1.0.0
 .\rb.cmd release Winget 1.0.0
+.\rb.cmd os build
+.\rb.cmd os publish
+.\rb.cmd os release 0.0.3
 .\rb.cmd publish all --dry-run
 ```
 
@@ -72,7 +82,7 @@ no primeiro flash. Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANEN
 
 - Documentação: revisar links e coerência com os arquivos reais.
 - Código .NET: `.\rb.cmd compilar`, `.\rb.cmd test` ou `.\rb.cmd check`.
-- Firmware RibanenseESP: `idf.py build` em `firmware/ribanense-esp/` (não entra no `rb.cmd check`). Tela e toque exigem validação na unidade física.
+- Firmware RibanenseESP: `rb os build` (espelha para `C:\fw` e chama IDF). Não entra no `rb.cmd check`. Tela, toque, loja e troca de slot exigem a unidade física.
 - Mudanças de runtime (winget, UWP, drivers): indicar claramente que resta validação manual no Windows, idealmente com privilégios elevados.
 
 ## Documentação de apoio
@@ -82,6 +92,7 @@ no primeiro flash. Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANEN
 - [`docs/INDICE.md`](docs/INDICE.md)
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md)
 - [`docs/PLUGIN_SDK.md`](docs/PLUGIN_SDK.md)
+- [`docs/ESP_APP_SDK.md`](docs/ESP_APP_SDK.md)
 - [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - [`docs/AMBIENTE.md`](docs/AMBIENTE.md)
 - [`docs/FERRAMENTAS_CLI.md`](docs/FERRAMENTAS_CLI.md)

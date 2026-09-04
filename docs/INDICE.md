@@ -17,6 +17,7 @@ Ponto de entrada da documentação do **Ribanense Soluções**. Use como mapa an
 |-----------|------|
 | [`ARQUITETURA.md`](ARQUITETURA.md) | Visão do sistema: Launcher, apps, catálogo, GitHub Releases, fluxo de atualização. |
 | [`PLUGIN_SDK.md`](PLUGIN_SDK.md) | Contrato `app.json`, CLI obrigatório dos apps, variáveis de ambiente. |
+| [`ESP_APP_SDK.md`](ESP_APP_SDK.md) | Contrato dos apps nativos da placa (SD, tag `esp-<slug>-v`). |
 | [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) | Tag, publish, SHA256, `gh release create`. |
 
 ## Operação

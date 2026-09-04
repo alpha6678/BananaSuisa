@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "apps": [
+    {
+      "id": "com.ribanense.esp.sobre",
+      "name": "Sobre",
+      "publicName": "Sobre",
+      "description": "Versao, MAC e retorno ao OS.",
+      "category": "Sistema",
+      "githubOwner": "desenvolvimentoLocatelli",
+      "githubRepo": "BananaSuisa",
+      "githubTagPrefix": "esp-sobre-v",
+      "minimumOsVersion": "0.0.2",
+      "version": "0.1.0",
+      "url": "",
+      "sha256": ""
+    }
+  ]
+}

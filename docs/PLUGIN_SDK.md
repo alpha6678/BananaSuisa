@@ -1,6 +1,10 @@
 # Plugin SDK
 
-Contrato entre o **Launcher** e cada **app** do catálogo. Como os apps são `.exe` independentes, o contrato é um **protocolo** baseado em três pilares: manifesto, CLI e variáveis de ambiente.
+Contrato entre o **Launcher** e cada **app** do catálogo Windows. Como os
+apps são `.exe` independentes, o contrato é um **protocolo** baseado em
+três pilares: manifesto, CLI e variáveis de ambiente.
+
+Apps da placa: [`ESP_APP_SDK.md`](ESP_APP_SDK.md).
 
 ## 1. Manifesto `app.json`
 

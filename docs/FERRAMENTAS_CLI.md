@@ -12,7 +12,9 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | [`ferramentas/install-rb-command.ps1`](../ferramentas/install-rb-command.ps1) | Instala o comando global `rb` no PATH do usuário (uso sem `.\`). |
 | [`ferramentas/publish-module.ps1`](../ferramentas/publish-module.ps1) | Empacota um app em zip + SHA256 + `app.json`. |
 | [`ferramentas/publish-launcher.ps1`](../ferramentas/publish-launcher.ps1) | Empacota o Launcher em `.exe` único (self-contained + single-file) + SHA256 (versão de `Directory.Build.props` se omitir `-Version`). |
-| [`ferramentas/release.ps1`](../ferramentas/release.ps1) | Publica release no GitHub via `gh`. |
+| [`ferramentas/publish-os.ps1`](../ferramentas/publish-os.ps1) | Compila o OS RibanenseESP (espelho `C:\fw`) e gera `.bin` + SHA256. |
+| [`ferramentas/publish-esp-app.ps1`](../ferramentas/publish-esp-app.ps1) | Compila um app da placa e gera zip store + SHA256 + `app.json`. |
+| [`ferramentas/release.ps1`](../ferramentas/release.ps1) | Publica release no GitHub via `gh` (Windows, OS ou app da placa). |
 
 ### Comandos
 
@@ -25,13 +27,13 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `test` | `testar` | `dotnet test Ribanense.Solucoes.slnx`. |
 | `check` | `validar` | `build` + `test` em sequência. |
 | `clean` | `limpar` | Remove todos os `bin/`, `obj/` e `artifacts/` do repo. Encerra processos Ribanense primeiro. |
-| `list` | `apps`, `ls` | Lista os apps em `src/aplicativos/` com versão do `.csproj` e do `app.json`. |
-| `version` | `versao` | Mostra versões do Launcher, do SDK e de cada app. Alerta quando `csproj` e `app.json` divergem. |
+| `list` | `apps`, `ls` | Lista apps Windows, o OS RibanenseESP e os apps da placa. |
+| `version` | `versao` | Mostra versões do Launcher, do SDK, do OS e de cada app. |
 | `devlink <App>` | `link` | Compila um app e copia para `%LOCALAPPDATA%\Ribanense Soluções\aplicativos\<App>\` para o Launcher reconhecê-lo como "instalado" sem precisar publicar release. |
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
-| `publish <App ou Launcher> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (app: zip + sha256 + app.json; Launcher: `.exe` single-file self-contained + sha256). |
-| `publish all [-Yes] [--dry-run]` | — | Detecta **apps** e o **Launcher** alterados desde a última tag de cada prefixo (`<slug>-v` / `launcher-v`), faz bump patch automático (`csproj` + `app.json` para apps; `Directory.Build.props` para o Launcher), roda `rb check` e publica releases no GitHub. |
-| `release <App ou Launcher> <semver>` | — | Publica GitHub Release via `gh` (tag + assets). Launcher usa prefixo de tag `launcher-v`. |
+| `publish <App, Launcher ou OS> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (Windows: zip; Launcher: `.exe`; OS: `.bin`; app da placa: zip store). |
+| `publish all [-Yes] [--dry-run]` | — | Detecta apps Windows, Launcher, **OS** (`ribanense-esp-v`) e **apps da placa** (`esp-<slug>-v`) alterados desde a última tag, faz bump patch, roda `rb check` só se houver item .NET, e publica releases. O release do OS preenche `firmware.json`; o do app da placa preenche `catalog/esp-catalog.json`. |
+| `release <App, Launcher ou OS> <semver>` | — | Publica GitHub Release via `gh`. OS: `ribanense-esp-v`. App da placa: `esp-<slug>-v`. |
 | `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
 | `crashlog` | `crash` | Mostra as últimas 200 linhas do `crash.log` (texto plano). Inclui `crash.old.log` rotacionado se existir. |
 | `crashlog-clear` | `crash-clear` | Remove `crash.log` e `crash.old.log`. |
@@ -45,12 +47,14 @@ Além dos comandos legados (`rb run Winget`, `rb publish Winget ...`), o `rb` ac
 |---|---|---|
 | `app` (`module`) | `rb app <acao> <App> [args]` | `rb app run winget`, `rb app publish-run chocolatey`, `rb app release winget 0.2.0`, `rb app publish all --dry-run` |
 | `launcher` | `rb launcher <acao> [args]` | `rb launcher run`, `rb launcher publish-run`, `rb launcher release 0.1.0` |
+| `os` (`esp`) | `rb os <acao> [args]` | `rb os build`, `rb os publish`, `rb os release 0.0.3`, `rb os flash COM8`, `rb os app publish Sobre` |
 | `solution` (`sln`, `repo`) | `rb solution <acao> [args]` | `rb solution build`, `rb solution test`, `rb sln list`, `rb solution version` |
 
 Ajuda por grupo:
 
 - `rb help app`
 - `rb help launcher`
+- `rb help os`
 - `rb help solution`
 - `rb app help` (equivalente)
 
