@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
   "product": "RibanenseESP",
-  "version": "0.0.2",
+  "version": "0.3.0",
   "minFlashMb": 4,
   "url": "",
   "sha256": ""
 }
+
