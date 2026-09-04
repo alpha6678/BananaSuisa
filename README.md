@@ -15,6 +15,7 @@ Launcher e catálogo de aplicativos modulares para Windows, inspirado no modelo 
 | [`ferramentas/`](ferramentas/) | CLI de desenvolvimento e scripts de release. |
 | [`docs/`](docs/) | Documentação de arquitetura, SDK e processo de release. |
 | [`hardware/`](hardware/) | Dossiês de equipamentos físicos (fotos, identificação, pinout). |
+| [`firmware/ribanense-esp/`](firmware/ribanense-esp/) | Casca **RibanenseESP** (ESP-IDF) da placa E32R28T-1. |
 
 ## Build e execução
 
@@ -53,6 +54,7 @@ Detalhes: [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md).
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — fluxo de contribuição.
 - [`AGENTS.md`](AGENTS.md) — regras para agentes de IA no repositório.
 - [`hardware/README.md`](hardware/README.md) — inventário de hardware documentado.
+- [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md) — casca RibanenseESP (placa).
 
 ## WinGet (referência upstream)
 

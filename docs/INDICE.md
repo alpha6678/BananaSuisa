@@ -36,6 +36,7 @@ Ponto de entrada da documentação do **Ribanense Soluções**. Use como mapa an
 |-----------|------|
 | [`../hardware/README.md`](../hardware/README.md) | Inventário de equipamentos físicos documentados. |
 | [`../hardware/esp32-2432s028r/README.md`](../hardware/esp32-2432s028r/README.md) | Display ESP32-32E 2,8" (SKU `E32R28T-1`, família CYD): fotos, identificação e pinout. |
+| [`FIRMWARE_RIBANENSEESP.md`](FIRMWARE_RIBANENSEESP.md) | Casca RibanenseESP: UI, SD, OTA, limites da E32R28T-1. |
 
 ## Agentes e decisões
 

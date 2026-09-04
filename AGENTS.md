@@ -6,6 +6,10 @@ Este arquivo orienta agentes de IA que trabalhem no repositório **Ribanense Sol
 
 Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows (C# WPF, .NET 10). Ele exibe um catálogo de **aplicativos modulares**, cada um distribuído como `.exe` independente via **GitHub Releases**. O usuário final baixa só o launcher; cada app é instalado sob demanda. Atualizações são granulares por app.
 
+Na placa E32R28T-1 existe a casca **RibanenseESP** (ESP-IDF), independente da
+solution .NET: UI no TFT, dados no microSD, OTA por GitHub Releases. USB só
+no primeiro flash. Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md).
+
 ## Mapa rápido do código
 
 | Caminho | Papel |
@@ -21,6 +25,7 @@ Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows
 | `catalog/catalog.json` | Catálogo público consumido pelo Launcher via `raw.githubusercontent.com`. |
 | `docs/` | Arquitetura, processo de release, contrato do SDK, etc. |
 | `hardware/` | Dossiês de equipamentos físicos (fotos, identificação, pinout). |
+| `firmware/ribanense-esp/` | Casca **RibanenseESP** (ESP-IDF) da E32R28T-1. Fora da slnx. |
 
 ## Regras de naming
 
@@ -28,6 +33,10 @@ Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows
 - **Namespaces, pastas, IDs, tags, ASCII-only**: `Ribanense.Solucoes`.
 - **IDs de app**: `com.ribanense.<slug>` (ex.: `com.ribanense.winget`).
 - **Prefixo de tag de release**: `<slug>-v<semver>` (ex.: `winget-v1.0.0`, `launcher-v1.0.0`).
+- **Firmware da placa**: nome público **RibanenseESP**; pasta/tag `ribanense-esp-v<semver>`.
+  Pinout só o da E32R28T-1. UI: fundo preto, tintas branco/azul/verde/vermelho,
+  widgets simples, sem animações, flush ≤ 3 FPS. Sem dependência de compilação
+  com projetos C#.
 
 ## Como trabalhar neste repositório
 
@@ -63,6 +72,7 @@ Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows
 
 - Documentação: revisar links e coerência com os arquivos reais.
 - Código .NET: `.\rb.cmd compilar`, `.\rb.cmd test` ou `.\rb.cmd check`.
+- Firmware RibanenseESP: `idf.py build` em `firmware/ribanense-esp/` (não entra no `rb.cmd check`). Tela e toque exigem validação na unidade física.
 - Mudanças de runtime (winget, UWP, drivers): indicar claramente que resta validação manual no Windows, idealmente com privilégios elevados.
 
 ## Documentação de apoio
@@ -77,3 +87,4 @@ Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows
 - [`docs/FERRAMENTAS_CLI.md`](docs/FERRAMENTAS_CLI.md)
 - [`docs/FERRAMENTAS_IA.md`](docs/FERRAMENTAS_IA.md)
 - [`hardware/README.md`](hardware/README.md)
+- [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md)
