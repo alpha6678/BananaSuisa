@@ -3,8 +3,11 @@
   "product": "RibanenseESP",
   "version": "0.3.2",
   "minFlashMb": 4,
-  "url": "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/firmware/ribanense-esp/dist/ribanense-esp-0.3.1.bin",
-  "sha256": "1970fc78e828ed67eb581280bdf645825fc05e0d8b469b5e9b2b41edef020238"
+  "url": "https://github.com/desenvolvimentoLocatelli/BananaSuisa/releases/download/ribanense-esp-v0.3.2/ribanense-esp-0.3.2.bin",
+  "sha256": "07ddc62c9349b61b86f721a1439afcc4ba872b710294f678039dcb9631e24349"
 }
+
+
+
 
 
