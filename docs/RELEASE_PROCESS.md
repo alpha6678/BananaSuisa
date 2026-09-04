@@ -56,7 +56,8 @@ O `publish all`:
 4. Executa `rb.cmd check` **somente** se o plano tiver item .NET. IDF não entra
    no check.
 5. Publica release no GitHub. No OS, preenche `url`/`sha256` em
-   `firmware.json` (raw) e faz push — a placa atualiza sozinha pelo GitHub.
+   `firmware.json` (raw), troca o `.bin` em `dist/` (inclui o delete do
+   anterior no mesmo commit) e faz push — a placa atualiza sozinha pelo GitHub.
    No app da placa, atualiza `catalog/esp-catalog.json`. O `publish all` **não**
    grava USB nem faz `POST /update` na LAN.
 

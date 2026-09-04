@@ -43,13 +43,22 @@ function Set-JsonField {
 }
 
 function Invoke-PointerCommit {
-    param([string[]] $Files, [string] $Message)
+    param(
+        [string[]] $Files = @(),
+        [string[]] $TreePaths = @(),
+        [string] $Message
+    )
     Push-Location $ProjectRoot
     try {
         foreach ($f in $Files) {
             if (-not (Test-Path -LiteralPath $f)) { throw "Arquivo ausente para commit: $f" }
             & git add -- $f
             if ($LASTEXITCODE -ne 0) { throw "git add falhou: $f" }
+        }
+        foreach ($p in $TreePaths) {
+            if (-not (Test-Path -LiteralPath $p)) { throw "Caminho ausente para commit: $p" }
+            & git add -A -- $p
+            if ($LASTEXITCODE -ne 0) { throw "git add -A falhou: $p" }
         }
         $staged = @(& git diff --cached --name-only | Where-Object { $_ })
         if ($staged.Count -eq 0) {
@@ -199,7 +208,7 @@ try {
         Set-JsonField -Path $fw -Name 'version' -Value $Version
         Set-JsonField -Path $fw -Name 'url' -Value $url
         Set-JsonField -Path $fw -Name 'sha256' -Value $hash
-        Invoke-PointerCommit -Files @($fw, $distBin) -Message "chore(release): firmware.json $Version"
+        Invoke-PointerCommit -Files @($fw) -TreePaths @($distDir) -Message "chore(release): firmware.json $Version"
     }
     elseif ($kind -eq 'esp-app') {
         $cat = Join-Path $ProjectRoot 'catalog\esp-catalog.json'
