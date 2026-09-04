@@ -1,11 +1,16 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include "esp_err.h"
 
 #define STORAGE_MOUNT "/sdcard"
+#define STORAGE_APPS_DIR "apps"
 
 /* Monta FAT32 no microSD (SPI2). false se o cartão não estiver presente. */
 bool storage_mount(void);
 bool storage_ready(void);
 esp_err_t storage_write_text(const char *rel_path, const char *text);
+esp_err_t storage_mkdir(const char *rel_dir);
+esp_err_t storage_abs(const char *rel_path, char *out, size_t max);
+int storage_list_dirs(const char *rel_dir, char names[][64], int max);

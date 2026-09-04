@@ -7,8 +7,11 @@
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
 
+#include <dirent.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 static const char *TAG = "storage";
 static bool s_ready;
@@ -40,7 +43,7 @@ bool storage_mount(void)
 
     esp_vfs_fat_sdmmc_mount_config_t mount = {
         .format_if_mount_failed = false,
-        .max_files = 4,
+        .max_files = 8,
         .allocation_unit_size = 16 * 1024,
     };
 
@@ -52,6 +55,7 @@ bool storage_mount(void)
     }
     s_ready = true;
     ESP_LOGI(TAG, "SD montado em %s", STORAGE_MOUNT);
+    (void)storage_mkdir(STORAGE_APPS_DIR);
     return true;
 }
 
@@ -60,13 +64,44 @@ bool storage_ready(void)
     return s_ready;
 }
 
+esp_err_t storage_abs(const char *rel_path, char *out, size_t max)
+{
+    if (out == NULL || max == 0 || rel_path == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (rel_path[0] == '/') {
+        strncpy(out, rel_path, max - 1);
+        out[max - 1] = 0;
+        return ESP_OK;
+    }
+    int n = snprintf(out, max, "%s/%s", STORAGE_MOUNT, rel_path);
+    return (n > 0 && (size_t)n < max) ? ESP_OK : ESP_ERR_INVALID_SIZE;
+}
+
+esp_err_t storage_mkdir(const char *rel_dir)
+{
+    if (!s_ready || rel_dir == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    char path[160];
+    if (storage_abs(rel_dir, path, sizeof(path)) != ESP_OK) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    if (mkdir(path, 0775) != 0 && errno != EEXIST) {
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
 esp_err_t storage_write_text(const char *rel_path, const char *text)
 {
     if (!s_ready || rel_path == NULL || text == NULL) {
         return ESP_ERR_INVALID_STATE;
     }
     char path[160];
-    snprintf(path, sizeof(path), "%s/%s", STORAGE_MOUNT, rel_path);
+    if (storage_abs(rel_path, path, sizeof(path)) != ESP_OK) {
+        return ESP_ERR_INVALID_SIZE;
+    }
     FILE *f = fopen(path, "w");
     if (f == NULL) {
         return ESP_FAIL;
@@ -75,4 +110,37 @@ esp_err_t storage_write_text(const char *rel_path, const char *text)
     fflush(f);
     fclose(f);
     return n == strlen(text) ? ESP_OK : ESP_FAIL;
+}
+
+int storage_list_dirs(const char *rel_dir, char names[][64], int max)
+{
+    if (!s_ready || names == NULL || max <= 0) {
+        return 0;
+    }
+    char path[160];
+    if (storage_abs(rel_dir ? rel_dir : "", path, sizeof(path)) != ESP_OK) {
+        return 0;
+    }
+    DIR *d = opendir(path);
+    if (d == NULL) {
+        return 0;
+    }
+    int n = 0;
+    struct dirent *ent;
+    while ((ent = readdir(d)) != NULL && n < max) {
+        if (ent->d_name[0] == '.') {
+            continue;
+        }
+        char child[420];
+        snprintf(child, sizeof(child), "%s/%s", path, ent->d_name);
+        struct stat st;
+        if (stat(child, &st) != 0 || !S_ISDIR(st.st_mode)) {
+            continue;
+        }
+        strncpy(names[n], ent->d_name, 63);
+        names[n][63] = 0;
+        n++;
+    }
+    closedir(d);
+    return n;
 }

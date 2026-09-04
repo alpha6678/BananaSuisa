@@ -1,6 +1,7 @@
 #include "board.h"
 #include "net.h"
 #include "nvs_flash.h"
+#include "ota.h"
 #include "ribanense_esp_version.h"
 #include "storage.h"
 #include "ui.h"
@@ -21,6 +22,7 @@ void app_main(void)
         err = nvs_flash_init();
     }
     ESP_ERROR_CHECK(err);
+    ESP_ERROR_CHECK(ota_init());
 
     ESP_ERROR_CHECK(board_init());
     (void)storage_mount();
