@@ -5,7 +5,8 @@ integração com os apps do launcher — só o que a placa é, o que veio na cai
 como os pinos estão documentados.
 
 > Estado: identificação e pinout **observados nesta unidade** + manuais do
-> fabricante. Nenhum GPIO interno foi confirmado com firmware nesta sessão.
+> fabricante. LCD, SD e toque XPT2046 confirmados pelo firmware RibanenseESP
+> (2026-09-03).
 
 ## Identificação
 
@@ -118,9 +119,9 @@ E32R28T-1. Consumo e dimensões de gabarito não foram medidos nesta unidade.
 
 ### Mapa interno (fabricante E32R28T-1 / LCD Wiki)
 
-Não lido com multímetro nem com firmware nesta unidade. Fonte:
-[atribuição de pinos da LCD Wiki](https://www.lcdwiki.com/2.8inch_ESP32-32E_Display)
-e manual E32R28T-1.
+Fonte: [atribuição de pinos da LCD Wiki](https://www.lcdwiki.com/2.8inch_ESP32-32E_Display)
+e manual E32R28T-1. LCD (ST7789), microSD e toque (XPT2046 nos pinos abaixo)
+confirmados pelo firmware RibanenseESP nesta unidade.
 
 | Bloco | GPIO | Nota |
 |-------|------|------|
@@ -175,6 +176,22 @@ Livres de verdade, se o JST SPI e o microSD estiverem ociosos:
 Ocupados o tempo todo pelo LCD, toque, LED, áudio, UART0 ou ADC: 0, 1, 2, 3, 4,
 5, 12–17, 21, 22, 25, 26, 32, 33, 34, 36, 39, EN.
 
+### Calibração do toque (esta unidade)
+
+Medida em 2026-09-03 (4 cantos + centro). Constantes em
+[`../../firmware/ribanense-esp/components/board/include/board_pins.h`](../../firmware/ribanense-esp/components/board/include/board_pins.h).
+
+| Item | Valor |
+|------|--------|
+| raw X (esquerda → direita) | 3780 → 360 (`INV_X`) |
+| raw Y (cima → baixo) | 250 → 3650 |
+| `SWAP_XY` | não |
+| Pressão `z = z1 + 4095 - z2` | ócio ~6; toque 600–2600; limiar 400 |
+| PENIRQ (IO36) | alto no ócio, baixo no toque |
+
+Comandos SPI do XPT2046 nesta placa usam PD1:PD0 = 00. PD0 = 1 desliga o
+PENIRQ até o próximo comando com PD0 = 0.
+
 Cuidados:
 
 - Toque é **resistivo** (caneta ou unha; sem multitouch).
@@ -201,7 +218,9 @@ Cuidados:
   e os GPIOs da tabela acima — não copiar um `User_Setup` de CYD ILI9341 sem
   ajustar driver e LED.
 
-Sem tutorial de firmware de produto neste dossiê.
+Sem tutorial de firmware de produto neste dossiê. A casca **RibanenseESP**
+vive em [`../../firmware/ribanense-esp/`](../../firmware/ribanense-esp/);
+papel e limites: [`../../docs/FIRMWARE_RIBANENSEESP.md`](../../docs/FIRMWARE_RIBANENSEESP.md).
 
 ## Referências
 
