@@ -1,0 +1,20 @@
+---
+description: OTA na flash e dados no SD — sem cabo no dia a dia
+globs: firmware/ribanense-esp/**/*.{c,h,yml,csv,json}
+alwaysApply: false
+---
+
+# OTA e armazenamento
+
+- Firmware cabe em slot OTA (~1,6 MB em 4 MB). Dados grandes vão para o
+  microSD FAT32, não para LittleFS na flash.
+- OTA pull: `firmware.json` + SHA256 + `esp_https_ota` só em STA com IP.
+  SoftAP sozinho não alcança o GitHub.
+- OTA push (`POST /update`) é plano B na LAN, com auth. Nunca desligar OTA
+  de firmware sem outro caminho.
+- Após boot OTA: selfcheck → `esp_ota_mark_app_valid_cancel_rollback()`.
+- Upload HTTP em **chunks**. Arquivo inteiro nunca na SRAM.
+- SD: um writer, `fsync` em checkpoints, arquivo &lt; 4 GB, sem NTFS.
+  Firmware **não** boota do cartão.
+- NVS só para Wi-Fi, flags e offset de OTA.
+- Sem USB Mass Storage / gadget nesta placa (CH340 = UART).

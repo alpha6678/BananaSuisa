@@ -1,0 +1,28 @@
+---
+description: Pinout obrigatório da E32R28T-1 — não usar o CYD clássico
+globs: firmware/**/*.{c,h,cmake,yml,txt,md}
+alwaysApply: false
+---
+
+# Pinout E32R28T-1
+
+Fonte: [`hardware/esp32-2432s028r/README.md`](hardware/esp32-2432s028r/README.md).
+Único mapa de GPIO no firmware: `firmware/ribanense-esp/components/board/`.
+
+## Usar
+
+- LCD ST7789: CS 15, DC 2, SCK 14, MOSI 13, MISO 12, RST = EN, backlight 21
+- Toque XPT2046: CLK 25, MOSI 32, MISO 39, CS 33, IRQ 36
+- SD SPI: CS 5, MOSI 23, SCK 18, MISO 19
+- LED RGB ânodo comum (ativo em baixo): R **22**, G 16, B 17
+- Áudio enable: **IO4** (ativo em baixo)
+- ADC bateria: **IO34**
+- UART0: TX 1, RX 3 (mesmo do USB-C / CH340)
+
+## Proibido
+
+- Copiar `PINS.md` / `User_Setup` do `ESP32-2432S028R` (ILI9341, LED no GPIO 4, LDR no 34)
+- Tratar GPIO 4 como LED vermelho ou GPIO 34 como LDR
+- USB gadget, USB Host ou boot pelo SD — este silício não tem
+
+TFT, toque e SD: um CS ativo por vez. `IO5` alto quando o SD não fala.

@@ -1,0 +1,45 @@
+---
+description: UI RibanenseESP — tema escuro, widgets simples, 3 FPS
+globs: firmware/ribanense-esp/**/*.{c,h}
+alwaysApply: false
+---
+
+# UI RibanenseESP
+
+Produto na placa: **RibanenseESP**. Versão inicial `0.0.1`.
+
+## Paleta
+
+Fundo sempre `#000000`. Tintas:
+
+- Branco `#FFFFFF` — texto, borda de tecla
+- Azul `#2E6FDB` — ação, foco, título
+- Verde `#27864E` — OK
+- Vermelho `#C23B22` — erro
+- Amarelo `#FFCC00` — só borda da tecla pressionada (sem grow/elevação)
+
+Sem cinzas, PNG, ícones bitmap, fotos ou gradientes. Ícones: `LV_SYMBOL_*`.
+
+## Widgets (v0.0.1)
+
+Permitidos: `label`, `button`, `buttonmatrix`, `textarea`, `keyboard`,
+`switch`, `bar`, `checkbox`.
+
+Proibidos: `img`, `chart`, `canvas`, `tabview`, `win`, `calendar`, `anim`,
+Lottie, temas com grow/sombra/opacidade.
+
+## Desempenho
+
+- RGB565, buffer parcial (não framebuffer de 150 KB)
+- Uma fonte subset ASCII
+- Sem animações: `TRANSITION_TIME=0`, `GROW=0`, sem elevação de tecla
+- Teclado: fundo preto, letra/borda branca; no toque só a borda fica amarela
+- Teclado sem popovers, flutuando na borda de baixo, **35%** da altura
+- Teclado só abre no clique de um `textarea`; laterais (ABC/123/setas) pretas
+- Flush do painel ≤ **3 Hz** (`LV_DEF_REFR_PERIOD` = 333)
+- Toque a 50 Hz: `lv_timer_set_period(lv_indev_get_read_timer(indev), 20)`
+  (LVGL 9 amarra o indev ao mesmo período do flush)
+- `lv_obj_invalidate` só quando o modelo muda
+- Não bloquear o handler de UI com SD ou OTA
+
+Teclado só no TFT. Visual moderno = layout (flex, padding), não efeitos.

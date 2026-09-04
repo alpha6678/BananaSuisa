@@ -17,3 +17,11 @@ artifacts/
 
 # Pasta local de IA (insumo de desenvolvimento, nao versionada)
 IA/
+
+# ESP-IDF (RibanenseESP)
+firmware/backup-fabrica/
+firmware/ribanense-esp/build/
+firmware/ribanense-esp/managed_components/
+firmware/ribanense-esp/sdkconfig
+firmware/ribanense-esp/sdkconfig.old
+firmware/ribanense-esp/dependencies.lock
