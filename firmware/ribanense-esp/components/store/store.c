@@ -139,6 +139,10 @@ int store_catalog_copy(store_remote_t *out, int max)
 }
 
 #define HTTP_UA "RibanenseESP"
+#define HTTP_URL_MAX 768
+
+static char s_http_url[HTTP_URL_MAX];
+static char s_http_host[128];
 
 typedef struct {
     FILE *f;
@@ -150,14 +154,24 @@ static void http_fill(esp_http_client_config_t *c, const char *url, int timeout_
                       http_event_handle_cb cb, void *user)
 {
     memset(c, 0, sizeof(*c));
-    c->url = url;
+    const char *use_url = url;
+    const char *use_host = NULL;
+    if (net_http_force_ipv4(url, s_http_url, sizeof(s_http_url), s_http_host, sizeof(s_http_host)) == ESP_OK) {
+        use_url = s_http_url;
+        use_host = s_http_host;
+    }
+    c->url = use_url;
     c->timeout_ms = timeout_ms;
     c->crt_bundle_attach = esp_crt_bundle_attach;
+    c->common_name = use_host;
     c->max_redirection_count = 8;
     c->user_agent = HTTP_UA;
     c->event_handler = cb;
     c->user_data = user;
-    c->buffer_size = 1024;
+    c->buffer_size = 2048;
+    if (strncmp(use_url, "https://", 8) == 0) {
+        c->transport_type = HTTP_TRANSPORT_OVER_SSL;
+    }
 }
 
 static esp_err_t on_http_file(esp_http_client_event_t *e)
@@ -177,13 +191,23 @@ static esp_err_t on_http_file(esp_http_client_event_t *e)
 static esp_err_t http_get_text(const char *url, char *out, int cap)
 {
     out[0] = 0;
+    char host[128];
+    char ipv4[HTTP_URL_MAX];
+    const char *use_url = url;
+    const char *use_host = NULL;
+    if (net_http_force_ipv4(url, ipv4, sizeof(ipv4), host, sizeof(host)) == ESP_OK) {
+        use_url = ipv4;
+        use_host = host;
+    }
     esp_http_client_config_t c = {
-        .url = url,
+        .url = use_url,
         .timeout_ms = 20000,
         .crt_bundle_attach = esp_crt_bundle_attach,
+        .common_name = use_host,
         .user_agent = HTTP_UA,
         .disable_auto_redirect = true,
-        .buffer_size = 1024,
+        .buffer_size = 2048,
+        .transport_type = HTTP_TRANSPORT_OVER_SSL,
     };
     esp_http_client_handle_t cli = esp_http_client_init(&c);
     if (cli == NULL) {
@@ -370,7 +394,7 @@ static void catalog_task(void *arg)
         return;
     }
     set_msg(STORE_BUSY, "catalogo...");
-    (void)net_time_wait(8000);
+    (void)net_time_wait(20000);
     if (http_get_text(RIBANENSEESP_CATALOG_URL, json, 4096) != ESP_OK) {
         free(json);
         set_msg(STORE_ERR, "sem catalogo");

@@ -12,6 +12,9 @@
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "lwip/inet.h"
+#include "lwip/netdb.h"
+#include "lwip/sockets.h"
 
 static const char *TAG = "net";
 
@@ -226,8 +229,9 @@ esp_err_t net_init(void)
     if (err != ESP_OK) {
         return err;
     }
-    esp_sntp_config_t sntp = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
-    sntp.wait_for_sync = true;
+    esp_sntp_config_t sntp = ESP_NETIF_SNTP_DEFAULT_CONFIG_MULTIPLE(3,
+        ESP_SNTP_SERVER_LIST("pool.ntp.org", "time.google.com", "time.cloudflare.com"));
+    sntp.wait_for_sync = false;
     err = esp_netif_sntp_init(&sntp);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "SNTP %s", esp_err_to_name(err));
@@ -519,15 +523,85 @@ uint16_t net_sta_fail_reason(void)
     return r;
 }
 
-esp_err_t net_time_wait(int timeout_ms)
+bool net_time_ok(void)
 {
     time_t now = 0;
     time(&now);
-    if (now > 1700000000) {
+    return now > 1700000000;
+}
+
+esp_err_t net_time_wait(int timeout_ms)
+{
+    if (net_time_ok()) {
         return ESP_OK;
     }
     if (timeout_ms < 0) {
         timeout_ms = 0;
     }
     return esp_netif_sntp_sync_wait(pdMS_TO_TICKS(timeout_ms));
+}
+
+esp_err_t net_http_force_ipv4(const char *url, char *out_url, size_t url_max, char *out_host, size_t host_max)
+{
+    if (url == NULL || out_url == NULL || out_host == NULL || url_max < 16 || host_max < 2) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    const char *scheme_end = strstr(url, "://");
+    if (scheme_end == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    const bool https = (scheme_end - url == 5 && strncmp(url, "https", 5) == 0);
+    const char *host = scheme_end + 3;
+    const char *end = host;
+    while (*end != 0 && *end != '/' && *end != ':' && *end != '?' && *end != '#') {
+        end++;
+    }
+    const size_t n = (size_t)(end - host);
+    if (n == 0 || n >= host_max) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    memcpy(out_host, host, n);
+    out_host[n] = 0;
+    if (*end == ':') {
+        end++;
+        while (*end != 0 && *end != '/' && *end != '?' && *end != '#') {
+            end++;
+        }
+    }
+    const char *rest = (*end == 0) ? "/" : end;
+
+    ip4_addr_t already;
+    if (ip4addr_aton(out_host, &already)) {
+        if (strlen(url) >= url_max) {
+            return ESP_ERR_INVALID_SIZE;
+        }
+        strncpy(out_url, url, url_max - 1);
+        out_url[url_max - 1] = 0;
+        return ESP_OK;
+    }
+
+    struct addrinfo hints = {
+        .ai_family = AF_INET,
+        .ai_socktype = SOCK_STREAM,
+    };
+    struct addrinfo *res = NULL;
+    const int g = getaddrinfo(out_host, https ? "443" : "80", &hints, &res);
+    if (g != 0 || res == NULL) {
+        ESP_LOGE(TAG, "dns %s %d", out_host, g);
+        return ESP_ERR_NOT_FOUND;
+    }
+    char ip[16];
+    const struct sockaddr_in *sa = (const struct sockaddr_in *)res->ai_addr;
+    if (inet_ntop(AF_INET, &sa->sin_addr, ip, sizeof(ip)) == NULL) {
+        freeaddrinfo(res);
+        return ESP_FAIL;
+    }
+    freeaddrinfo(res);
+
+    const int w = snprintf(out_url, url_max, "%s://%s%s", https ? "https" : "http", ip, rest);
+    if (w < 0 || (size_t)w >= url_max) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    ESP_LOGI(TAG, "dns %s -> %s", out_host, ip);
+    return ESP_OK;
 }

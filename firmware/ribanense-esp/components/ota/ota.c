@@ -222,15 +222,43 @@ static bool http_is_redirect(int status)
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
 }
 
-static void http_cfg(esp_http_client_config_t *c, const char *url, int timeout_ms)
+static void http_cfg(esp_http_client_config_t *c, const char *url, int timeout_ms, const char *host)
 {
     memset(c, 0, sizeof(*c));
     c->url = url;
     c->timeout_ms = timeout_ms;
     c->crt_bundle_attach = esp_crt_bundle_attach;
+    c->common_name = host;
     c->user_agent = HTTP_UA;
     c->disable_auto_redirect = true;
-    c->buffer_size = 1024;
+    c->buffer_size = 2048;
+    if (strncmp(url, "https://", 8) == 0) {
+        c->transport_type = HTTP_TRANSPORT_OVER_SSL;
+    }
+}
+
+static esp_http_client_handle_t http_open_url(const char *url, int timeout_ms, const char *host, esp_err_t *out_err)
+{
+    *out_err = ESP_FAIL;
+    for (int i = 0; i < 3; i++) {
+        esp_http_client_config_t c;
+        http_cfg(&c, url, timeout_ms, host);
+        esp_http_client_handle_t cli = esp_http_client_init(&c);
+        if (cli == NULL) {
+            *out_err = ESP_ERR_NO_MEM;
+            return NULL;
+        }
+        esp_err_t err = esp_http_client_open(cli, 0);
+        if (err == ESP_OK) {
+            *out_err = ESP_OK;
+            return cli;
+        }
+        *out_err = err;
+        ESP_LOGE(TAG, "open %s %s (%d)", url, esp_err_to_name(err), i + 1);
+        esp_http_client_cleanup(cli);
+        vTaskDelay(pdMS_TO_TICKS(400));
+    }
+    return NULL;
 }
 
 static esp_err_t http_follow(esp_http_client_handle_t cli, char *url, size_t max)
@@ -269,18 +297,17 @@ static esp_err_t http_get_text(const char *url, char *out, int cap, int *out_n)
     current[sizeof(current) - 1] = 0;
 
     for (int hop = 0; hop < HTTP_HOPS; hop++) {
-        esp_http_client_config_t c;
-        http_cfg(&c, current, 20000);
-        esp_http_client_handle_t cli = esp_http_client_init(&c);
-        if (cli == NULL) {
-            s_http_err = ESP_ERR_NO_MEM;
-            return ESP_ERR_NO_MEM;
-        }
-        esp_err_t err = esp_http_client_open(cli, 0);
+        char host[128];
+        char ipv4[HTTP_URL_MAX];
+        esp_err_t err = net_http_force_ipv4(current, ipv4, sizeof(ipv4), host, sizeof(host));
         if (err != ESP_OK) {
             s_http_err = err;
+            return err;
+        }
+        esp_http_client_handle_t cli = http_open_url(ipv4, 20000, host, &err);
+        if (cli == NULL) {
+            s_http_err = err;
             ESP_LOGE(TAG, "GET open %s %s", current, esp_err_to_name(err));
-            esp_http_client_cleanup(cli);
             return err;
         }
         (void)esp_http_client_fetch_headers(cli);
@@ -327,20 +354,20 @@ static esp_err_t http_stream_bin(const char *url, const char *want_sha)
     s_http_err = ESP_OK;
 
     for (int hop = 0; hop < HTTP_HOPS; hop++) {
-        esp_http_client_config_t c;
-        http_cfg(&c, current, 60000);
-        esp_http_client_handle_t cli = esp_http_client_init(&c);
-        if (cli == NULL) {
-            set_state(OTA_ERR, "sem RAM");
-            return ESP_ERR_NO_MEM;
-        }
-        set_state(OTA_DOWNLOADING, "baixando...");
-        esp_err_t err = esp_http_client_open(cli, 0);
+        char host[128];
+        char ipv4[HTTP_URL_MAX];
+        esp_err_t err = net_http_force_ipv4(current, ipv4, sizeof(ipv4), host, sizeof(host));
         if (err != ESP_OK) {
             s_http_err = err;
+            set_state(OTA_ERR, err == ESP_ERR_NOT_FOUND ? "sem dns" : "falha no download");
+            return err;
+        }
+        set_state(OTA_DOWNLOADING, "baixando...");
+        esp_http_client_handle_t cli = http_open_url(ipv4, 60000, host, &err);
+        if (cli == NULL) {
+            s_http_err = err;
             ESP_LOGE(TAG, "BIN open %s %s", current, esp_err_to_name(err));
-            esp_http_client_cleanup(cli);
-            set_http_err(0, "falha no download");
+            set_http_err(0, err == ESP_ERR_NO_MEM ? "sem RAM" : "falha no download");
             return err;
         }
         int len = (int)esp_http_client_fetch_headers(cli);
@@ -434,13 +461,17 @@ static void pull_task(void *arg)
     }
 
     set_state(OTA_CHECKING, "relogio...");
-    (void)net_time_wait(8000);
+    (void)net_time_wait(20000);
     set_state(OTA_CHECKING, "buscando...");
     int n = 0;
     esp_err_t err = http_get_text(RIBANENSEESP_MANIFEST_URL, json, 2048, &n);
     if (err != ESP_OK) {
         free(json);
-        if (s_http_err == ESP_ERR_HTTP_CONNECT) {
+        if (s_http_err == ESP_ERR_NOT_FOUND) {
+            set_state(OTA_ERR, "sem dns");
+        } else if (s_http_err == ESP_ERR_HTTP_CONNECT && !net_time_ok()) {
+            set_state(OTA_ERR, "sem relogio");
+        } else if (s_http_err == ESP_ERR_HTTP_CONNECT) {
             set_state(OTA_ERR, "sem tls");
         } else if (s_http_err == ESP_ERR_NO_MEM) {
             set_state(OTA_ERR, "sem RAM");
@@ -641,7 +672,7 @@ void ota_pull_start(void)
     }
     s_pull_busy = true;
     set_state(OTA_CHECKING, "buscando...");
-    if (xTaskCreate(pull_task, "ota_pull", 20480, NULL, 4, NULL) != pdPASS) {
+    if (xTaskCreate(pull_task, "ota_pull", 32768, NULL, 4, NULL) != pdPASS) {
         s_pull_busy = false;
         set_state(OTA_ERR, "sem tarefa");
     }
