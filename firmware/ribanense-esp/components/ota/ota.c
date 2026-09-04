@@ -211,89 +211,40 @@ static esp_err_t on_update(httpd_req_t *req)
 }
 
 #define HTTP_UA "RibanenseESP"
+#define HTTP_URL_MAX 768
+#define HTTP_HOPS 8
 
-typedef struct {
-    char *buf;
-    int cap;
-    int acc;
-} text_acc_t;
+static int s_http_status;
+static esp_err_t s_http_err;
 
-typedef struct {
-    const esp_partition_t *part;
-    esp_ota_handle_t h;
-    mbedtls_sha256_context sha;
-    int total;
-    bool began;
-    esp_err_t err;
-} bin_acc_t;
-
-static esp_err_t on_http_text(esp_http_client_event_t *e)
+static bool http_is_redirect(int status)
 {
-    if (e->event_id != HTTP_EVENT_ON_DATA || e->data == NULL || e->data_len <= 0) {
-        return ESP_OK;
-    }
-    text_acc_t *a = e->user_data;
-    int n = e->data_len;
-    if (a->acc + n > a->cap - 1) {
-        n = a->cap - 1 - a->acc;
-    }
-    if (n > 0) {
-        memcpy(a->buf + a->acc, e->data, (size_t)n);
-        a->acc += n;
-        a->buf[a->acc] = 0;
-    }
-    return ESP_OK;
+    return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
 }
 
-static esp_err_t on_http_bin(esp_http_client_event_t *e)
-{
-    bin_acc_t *a = e->user_data;
-    if (e->event_id != HTTP_EVENT_ON_DATA || a->err != ESP_OK || e->data == NULL || e->data_len <= 0) {
-        return ESP_OK;
-    }
-    if (!a->began) {
-        int len = (int)esp_http_client_get_content_length(e->client);
-        if (len > (int)SLOT_MAX) {
-            a->err = ESP_ERR_INVALID_SIZE;
-            return ESP_OK;
-        }
-        a->err = esp_ota_begin(a->part, len > 0 ? (size_t)len : OTA_WITH_SEQUENTIAL_WRITES, &a->h);
-        if (a->err != ESP_OK) {
-            return ESP_OK;
-        }
-        mbedtls_sha256_init(&a->sha);
-        mbedtls_sha256_starts(&a->sha, 0);
-        a->began = true;
-        set_state(OTA_DOWNLOADING, "baixando...");
-    }
-    if ((size_t)(a->total + e->data_len) > SLOT_MAX) {
-        a->err = ESP_ERR_INVALID_SIZE;
-        return ESP_OK;
-    }
-    a->err = write_stream(a->h, &a->sha, e->data, e->data_len);
-    if (a->err == ESP_OK) {
-        a->total += e->data_len;
-        if ((a->total & 0xffff) < e->data_len) {
-            char m[24];
-            snprintf(m, sizeof(m), "baixando %dk", a->total / 1024);
-            set_state(OTA_DOWNLOADING, m);
-        }
-    }
-    return ESP_OK;
-}
-
-static void http_fill(esp_http_client_config_t *c, const char *url, int timeout_ms,
-                      http_event_handle_cb cb, void *user)
+static void http_cfg(esp_http_client_config_t *c, const char *url, int timeout_ms)
 {
     memset(c, 0, sizeof(*c));
     c->url = url;
     c->timeout_ms = timeout_ms;
     c->crt_bundle_attach = esp_crt_bundle_attach;
-    c->max_redirection_count = 8;
     c->user_agent = HTTP_UA;
-    c->event_handler = cb;
-    c->user_data = user;
+    c->disable_auto_redirect = true;
     c->buffer_size = 1024;
+}
+
+static esp_err_t http_follow(esp_http_client_handle_t cli, char *url, size_t max)
+{
+    char *loc = NULL;
+    if (esp_http_client_get_header(cli, "Location", &loc) != ESP_OK || loc == NULL || loc[0] == 0) {
+        return ESP_FAIL;
+    }
+    if (strncmp(loc, "http://", 7) != 0 && strncmp(loc, "https://", 8) != 0) {
+        return ESP_FAIL;
+    }
+    strncpy(url, loc, max - 1);
+    url[max - 1] = 0;
+    return ESP_OK;
 }
 
 static void set_http_err(int status, const char *fallback)
@@ -311,26 +262,55 @@ static esp_err_t http_get_text(const char *url, char *out, int cap, int *out_n)
 {
     out[0] = 0;
     *out_n = 0;
-    text_acc_t acc = {.buf = out, .cap = cap, .acc = 0};
-    esp_http_client_config_t c;
-    http_fill(&c, url, 20000, on_http_text, &acc);
-    esp_http_client_handle_t cli = esp_http_client_init(&c);
-    if (cli == NULL) {
-        return ESP_FAIL;
+    s_http_status = 0;
+    s_http_err = ESP_OK;
+    char current[HTTP_URL_MAX];
+    strncpy(current, url, sizeof(current) - 1);
+    current[sizeof(current) - 1] = 0;
+
+    for (int hop = 0; hop < HTTP_HOPS; hop++) {
+        esp_http_client_config_t c;
+        http_cfg(&c, current, 20000);
+        esp_http_client_handle_t cli = esp_http_client_init(&c);
+        if (cli == NULL) {
+            s_http_err = ESP_ERR_NO_MEM;
+            return ESP_ERR_NO_MEM;
+        }
+        esp_err_t err = esp_http_client_open(cli, 0);
+        if (err != ESP_OK) {
+            s_http_err = err;
+            ESP_LOGE(TAG, "GET open %s %s", current, esp_err_to_name(err));
+            esp_http_client_cleanup(cli);
+            return err;
+        }
+        (void)esp_http_client_fetch_headers(cli);
+        int status = esp_http_client_get_status_code(cli);
+        s_http_status = status;
+        if (http_is_redirect(status)) {
+            err = http_follow(cli, current, sizeof(current));
+            esp_http_client_close(cli);
+            esp_http_client_cleanup(cli);
+            if (err != ESP_OK) {
+                return ESP_FAIL;
+            }
+            continue;
+        }
+        int acc = 0;
+        int n;
+        while (acc < cap - 1 && (n = esp_http_client_read(cli, out + acc, cap - 1 - acc)) > 0) {
+            acc += n;
+            out[acc] = 0;
+        }
+        *out_n = acc;
+        esp_http_client_close(cli);
+        esp_http_client_cleanup(cli);
+        if (status != 200 || acc <= 0) {
+            ESP_LOGE(TAG, "GET %s status=%d n=%d", current, status, acc);
+            return ESP_FAIL;
+        }
+        return ESP_OK;
     }
-    esp_err_t err = esp_http_client_perform(cli);
-    int status = esp_http_client_get_status_code(cli);
-    *out_n = acc.acc;
-    esp_http_client_cleanup(cli);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "GET %s %s", url, esp_err_to_name(err));
-        return err;
-    }
-    if (status != 200 || acc.acc <= 0) {
-        ESP_LOGE(TAG, "GET %s status=%d n=%d", url, status, acc.acc);
-        return ESP_FAIL;
-    }
-    return ESP_OK;
+    return ESP_FAIL;
 }
 
 static esp_err_t http_stream_bin(const char *url, const char *want_sha)
@@ -340,45 +320,106 @@ static esp_err_t http_stream_bin(const char *url, const char *want_sha)
         return ESP_ERR_NOT_FOUND;
     }
 
-    bin_acc_t acc = {
-        .part = part,
-        .err = ESP_OK,
-    };
-    esp_http_client_config_t c;
-    http_fill(&c, url, 60000, on_http_bin, &acc);
-    esp_http_client_handle_t cli = esp_http_client_init(&c);
-    if (cli == NULL) {
-        return ESP_FAIL;
-    }
-    set_state(OTA_DOWNLOADING, "baixando...");
-    esp_err_t err = esp_http_client_perform(cli);
-    int status = esp_http_client_get_status_code(cli);
-    esp_http_client_cleanup(cli);
-    if (err != ESP_OK || status != 200 || acc.err != ESP_OK || !acc.began) {
-        ESP_LOGE(TAG, "BIN %s err=%s status=%d acc=%s began=%d", url, esp_err_to_name(err), status,
-                 esp_err_to_name(acc.err), (int)acc.began);
-        if (acc.began) {
-            (void)esp_ota_abort(acc.h);
-            mbedtls_sha256_free(&acc.sha);
+    char current[HTTP_URL_MAX];
+    strncpy(current, url, sizeof(current) - 1);
+    current[sizeof(current) - 1] = 0;
+    s_http_status = 0;
+    s_http_err = ESP_OK;
+
+    for (int hop = 0; hop < HTTP_HOPS; hop++) {
+        esp_http_client_config_t c;
+        http_cfg(&c, current, 60000);
+        esp_http_client_handle_t cli = esp_http_client_init(&c);
+        if (cli == NULL) {
+            set_state(OTA_ERR, "sem RAM");
+            return ESP_ERR_NO_MEM;
+        }
+        set_state(OTA_DOWNLOADING, "baixando...");
+        esp_err_t err = esp_http_client_open(cli, 0);
+        if (err != ESP_OK) {
+            s_http_err = err;
+            ESP_LOGE(TAG, "BIN open %s %s", current, esp_err_to_name(err));
+            esp_http_client_cleanup(cli);
+            set_http_err(0, "falha no download");
+            return err;
+        }
+        int len = (int)esp_http_client_fetch_headers(cli);
+        int status = esp_http_client_get_status_code(cli);
+        s_http_status = status;
+        if (http_is_redirect(status)) {
+            err = http_follow(cli, current, sizeof(current));
+            esp_http_client_close(cli);
+            esp_http_client_cleanup(cli);
+            if (err != ESP_OK) {
+                set_state(OTA_ERR, "http redirect");
+                return ESP_FAIL;
+            }
+            continue;
         }
         if (status != 200) {
+            esp_http_client_close(cli);
+            esp_http_client_cleanup(cli);
             set_http_err(status, "falha no download");
-        } else if (acc.err != ESP_OK) {
-            set_state(OTA_ERR, "falha ao gravar");
-        } else {
-            set_state(OTA_ERR, "falha no download");
+            return ESP_FAIL;
         }
-        return ESP_FAIL;
-    }
+        if (len > (int)SLOT_MAX) {
+            esp_http_client_close(cli);
+            esp_http_client_cleanup(cli);
+            set_state(OTA_ERR, "bin grande");
+            return ESP_ERR_INVALID_SIZE;
+        }
 
-    err = finish_ota(acc.h, part, &acc.sha, want_sha);
-    mbedtls_sha256_free(&acc.sha);
-    if (err == ESP_ERR_INVALID_CRC) {
-        set_state(OTA_ERR, "sha256");
-    } else if (err != ESP_OK) {
-        set_state(OTA_ERR, "falha OTA");
+        esp_ota_handle_t h = 0;
+        err = esp_ota_begin(part, len > 0 ? (size_t)len : OTA_WITH_SEQUENTIAL_WRITES, &h);
+        if (err != ESP_OK) {
+            esp_http_client_close(cli);
+            esp_http_client_cleanup(cli);
+            set_state(OTA_ERR, "falha OTA");
+            return err;
+        }
+        mbedtls_sha256_context sha;
+        mbedtls_sha256_init(&sha);
+        mbedtls_sha256_starts(&sha, 0);
+        int n;
+        int total = 0;
+        while ((n = esp_http_client_read(cli, (char *)s_chunk, CHUNK)) > 0) {
+            total += n;
+            if ((size_t)total > SLOT_MAX) {
+                err = ESP_ERR_INVALID_SIZE;
+                break;
+            }
+            err = write_stream(h, &sha, s_chunk, n);
+            if (err != ESP_OK) {
+                break;
+            }
+            if ((total & 0xffff) < n) {
+                char m[24];
+                snprintf(m, sizeof(m), "baixando %dk", total / 1024);
+                set_state(OTA_DOWNLOADING, m);
+            }
+        }
+        if (n < 0 && err == ESP_OK) {
+            err = ESP_FAIL;
+        }
+        esp_http_client_close(cli);
+        esp_http_client_cleanup(cli);
+        if (err != ESP_OK) {
+            (void)esp_ota_abort(h);
+            mbedtls_sha256_free(&sha);
+            set_state(OTA_ERR, "falha ao gravar");
+            return err;
+        }
+        err = finish_ota(h, part, &sha, want_sha);
+        mbedtls_sha256_free(&sha);
+        if (err == ESP_ERR_INVALID_CRC) {
+            set_state(OTA_ERR, "sha256");
+        } else if (err != ESP_OK) {
+            set_state(OTA_ERR, "falha OTA");
+        }
+        return err;
     }
-    return err;
+    set_state(OTA_ERR, "http redirect");
+    return ESP_FAIL;
 }
 
 static void pull_task(void *arg)
@@ -399,7 +440,15 @@ static void pull_task(void *arg)
     esp_err_t err = http_get_text(RIBANENSEESP_MANIFEST_URL, json, 2048, &n);
     if (err != ESP_OK) {
         free(json);
-        set_state(OTA_ERR, "sem manifesto");
+        if (s_http_err == ESP_ERR_HTTP_CONNECT) {
+            set_state(OTA_ERR, "sem tls");
+        } else if (s_http_err == ESP_ERR_NO_MEM) {
+            set_state(OTA_ERR, "sem RAM");
+        } else if (s_http_status > 0 && s_http_status != 200) {
+            set_http_err(s_http_status, "sem manifesto");
+        } else {
+            set_state(OTA_ERR, "sem manifesto");
+        }
         s_pull_busy = false;
         vTaskDelete(NULL);
         return;

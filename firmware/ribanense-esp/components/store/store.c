@@ -141,12 +141,6 @@ int store_catalog_copy(store_remote_t *out, int max)
 #define HTTP_UA "RibanenseESP"
 
 typedef struct {
-    char *buf;
-    int cap;
-    int acc;
-} text_acc_t;
-
-typedef struct {
     FILE *f;
     mbedtls_sha256_context *sha;
     esp_err_t err;
@@ -166,24 +160,6 @@ static void http_fill(esp_http_client_config_t *c, const char *url, int timeout_
     c->buffer_size = 1024;
 }
 
-static esp_err_t on_http_text(esp_http_client_event_t *e)
-{
-    if (e->event_id != HTTP_EVENT_ON_DATA || e->data == NULL || e->data_len <= 0) {
-        return ESP_OK;
-    }
-    text_acc_t *a = e->user_data;
-    int n = e->data_len;
-    if (a->acc + n > a->cap - 1) {
-        n = a->cap - 1 - a->acc;
-    }
-    if (n > 0) {
-        memcpy(a->buf + a->acc, e->data, (size_t)n);
-        a->acc += n;
-        a->buf[a->acc] = 0;
-    }
-    return ESP_OK;
-}
-
 static esp_err_t on_http_file(esp_http_client_event_t *e)
 {
     file_acc_t *a = e->user_data;
@@ -201,17 +177,34 @@ static esp_err_t on_http_file(esp_http_client_event_t *e)
 static esp_err_t http_get_text(const char *url, char *out, int cap)
 {
     out[0] = 0;
-    text_acc_t acc = {.buf = out, .cap = cap, .acc = 0};
-    esp_http_client_config_t c;
-    http_fill(&c, url, 20000, on_http_text, &acc);
+    esp_http_client_config_t c = {
+        .url = url,
+        .timeout_ms = 20000,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .user_agent = HTTP_UA,
+        .disable_auto_redirect = true,
+        .buffer_size = 1024,
+    };
     esp_http_client_handle_t cli = esp_http_client_init(&c);
     if (cli == NULL) {
         return ESP_FAIL;
     }
-    esp_err_t err = esp_http_client_perform(cli);
+    esp_err_t err = esp_http_client_open(cli, 0);
+    if (err != ESP_OK) {
+        esp_http_client_cleanup(cli);
+        return err;
+    }
+    (void)esp_http_client_fetch_headers(cli);
     int status = esp_http_client_get_status_code(cli);
+    int acc = 0;
+    int n;
+    while (acc < cap - 1 && (n = esp_http_client_read(cli, out + acc, cap - 1 - acc)) > 0) {
+        acc += n;
+        out[acc] = 0;
+    }
+    esp_http_client_close(cli);
     esp_http_client_cleanup(cli);
-    return (err == ESP_OK && status == 200 && acc.acc > 0) ? ESP_OK : ESP_FAIL;
+    return (status == 200 && acc > 0) ? ESP_OK : ESP_FAIL;
 }
 
 static esp_err_t http_to_file(const char *url, const char *abs, char *sha_out)

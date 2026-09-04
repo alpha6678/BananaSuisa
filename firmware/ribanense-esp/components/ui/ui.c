@@ -31,6 +31,7 @@
 static const char *TAG = "ui";
 static lv_display_t *s_disp;
 static lv_obj_t *s_home;
+static lv_obj_t *s_settings;
 static lv_obj_t *s_wifi;
 static lv_obj_t *s_wifi_status;
 static lv_obj_t *s_wifi_list;
@@ -65,6 +66,8 @@ static store_state_t s_store_seen = STORE_IDLE;
 
 static void show_wifi(void);
 static void show_home(void);
+static void show_settings(void);
+static void build_settings(void);
 static void show_store(void);
 static void show_pass(const char *ssid, uint8_t auth);
 static void wifi_poll(void);
@@ -371,7 +374,7 @@ static void refresh_home_apps(void)
         return;
     }
     const uint32_t n = lv_obj_get_child_count(s_home_list);
-    for (int i = (int)n - 1; i >= 3; i--) {
+    for (int i = (int)n - 1; i >= 2; i--) {
         lv_obj_t *row = lv_obj_get_child(s_home_list, (uint32_t)i);
         lv_obj_delete(row);
     }
@@ -699,7 +702,7 @@ static void wifi_poll(void)
 static void on_wifi_back(lv_event_t *e)
 {
     (void)e;
-    show_home();
+    show_settings();
 }
 
 static void on_wifi_refresh(lv_event_t *e)
@@ -1064,8 +1067,40 @@ static void show_home(void)
         s_wifi = NULL;
         s_wifi_status = NULL;
         s_wifi_list = NULL;
+        s_wifi_forget = NULL;
+        s_wifi_forget_lab = NULL;
     }
     refresh_home_apps();
+}
+
+static void show_settings(void)
+{
+    s_wifi_live = false;
+    s_scan_pending = false;
+    (void)net_scan_stop();
+    destroy_pass();
+    if (s_settings == NULL) {
+        build_settings();
+    }
+    char ip[NET_IP_MAX];
+    ip[0] = 0;
+    if (net_sta_state() == NET_STA_GOT_IP) {
+        net_sta_ip(ip, sizeof(ip));
+    }
+    set_home_wifi(ip[0] ? ip : NULL);
+    lv_screen_load(s_settings);
+}
+
+static void on_open_settings(lv_event_t *e)
+{
+    (void)e;
+    show_settings();
+}
+
+static void on_settings_back(lv_event_t *e)
+{
+    (void)e;
+    show_home();
 }
 
 static void on_open_wifi(lv_event_t *e)
@@ -1105,21 +1140,13 @@ static void build_home(void)
 
     s_home_list = make_scroll_list(s_home);
 
-    lv_obj_t *wifi = lv_button_create(s_home_list);
-    style_row(wifi);
-    lv_obj_add_event_cb(wifi, on_open_wifi, LV_EVENT_CLICKED, NULL);
-    s_home_wifi_lab = lv_label_create(wifi);
-    lv_label_set_text(s_home_wifi_lab, LV_SYMBOL_WIFI "  Wi-Fi");
-    lv_obj_set_style_text_color(s_home_wifi_lab, ui_color_white(), 0);
-    lv_obj_center(s_home_wifi_lab);
-
-    lv_obj_t *upd = lv_button_create(s_home_list);
-    style_row(upd);
-    lv_obj_add_event_cb(upd, on_open_ota, LV_EVENT_CLICKED, NULL);
-    s_home_upd_lab = lv_label_create(upd);
-    lv_label_set_text(s_home_upd_lab, LV_SYMBOL_REFRESH "  Atualizar");
-    lv_obj_set_style_text_color(s_home_upd_lab, ui_color_white(), 0);
-    lv_obj_center(s_home_upd_lab);
+    lv_obj_t *cfg = lv_button_create(s_home_list);
+    style_row(cfg);
+    lv_obj_add_event_cb(cfg, on_open_settings, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *cfgl = lv_label_create(cfg);
+    lv_label_set_text(cfgl, LV_SYMBOL_SETTINGS "  Configuracoes");
+    lv_obj_set_style_text_color(cfgl, ui_color_white(), 0);
+    lv_obj_center(cfgl);
 
     lv_obj_t *cat = lv_button_create(s_home_list);
     style_row(cat);
@@ -1130,6 +1157,52 @@ static void build_home(void)
     lv_obj_center(cl);
 
     refresh_home_apps();
+}
+
+static void build_settings(void)
+{
+    s_settings = lv_obj_create(NULL);
+    style_screen(s_settings);
+
+    lv_obj_t *bar = lv_obj_create(s_settings);
+    lv_obj_remove_style_all(bar);
+    lv_obj_set_width(bar, lv_pct(100));
+    lv_obj_set_height(bar, 36);
+    lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(bar, 8, 0);
+
+    lv_obj_t *back = lv_button_create(bar);
+    style_row(back);
+    lv_obj_set_width(back, 72);
+    lv_obj_set_height(back, 32);
+    lv_obj_add_event_cb(back, on_settings_back, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *bl = lv_label_create(back);
+    lv_label_set_text(bl, LV_SYMBOL_LEFT " voltar");
+    lv_obj_set_style_text_color(bl, ui_color_white(), 0);
+    lv_obj_center(bl);
+
+    lv_obj_t *title = lv_label_create(bar);
+    lv_label_set_text(title, "Configuracoes");
+    lv_obj_set_style_text_color(title, ui_color_blue(), 0);
+
+    lv_obj_t *list = make_scroll_list(s_settings);
+
+    lv_obj_t *wifi = lv_button_create(list);
+    style_row(wifi);
+    lv_obj_add_event_cb(wifi, on_open_wifi, LV_EVENT_CLICKED, NULL);
+    s_home_wifi_lab = lv_label_create(wifi);
+    lv_label_set_text(s_home_wifi_lab, LV_SYMBOL_WIFI "  Wi-Fi");
+    lv_obj_set_style_text_color(s_home_wifi_lab, ui_color_white(), 0);
+    lv_obj_center(s_home_wifi_lab);
+
+    lv_obj_t *upd = lv_button_create(list);
+    style_row(upd);
+    lv_obj_add_event_cb(upd, on_open_ota, LV_EVENT_CLICKED, NULL);
+    s_home_upd_lab = lv_label_create(upd);
+    lv_label_set_text(s_home_upd_lab, LV_SYMBOL_REFRESH "  Atualizar");
+    lv_obj_set_style_text_color(s_home_upd_lab, ui_color_white(), 0);
+    lv_obj_center(s_home_upd_lab);
 }
 
 esp_err_t ui_init(void)
@@ -1162,7 +1235,7 @@ esp_err_t ui_init(void)
     ESP_ERROR_CHECK(esp_timer_start_periodic(tick, 5000));
 
     build_home();
-    ESP_LOGI(TAG, "UI pronta (lista + Wi-Fi + OTA + catalogo)");
+    ESP_LOGI(TAG, "UI pronta (home + configuracoes + catalogo)");
     return ESP_OK;
 }
 

@@ -59,9 +59,10 @@ amostras. O firmware força o timer do ponteiro para **20 ms**
 (`lv_timer_set_period(lv_indev_get_read_timer(indev), 20)`) e o laço
 chama `lv_timer_handler` a cada 5 ms. O flush do painel continua em 3 Hz.
 
-Home: título + lista com scroll. O primeiro item abre a tela **Wi-Fi**
-(scan STA, SSID + dBm atualizado 1 Hz, toque abre a senha no teclado do
-TFT e `esp_wifi_connect` em STA). Não há USB Host nesta placa.
+Home: título + lista com scroll. O primeiro item é **Configurações**
+(Wi-Fi e Atualizar). O catálogo e os apps instalados continuam na raiz.
+A tela Wi-Fi faz scan STA (SSID + dBm a 1 Hz); toque abre a senha no
+teclado do TFT e `esp_wifi_connect`. Não há USB Host nesta placa.
 
 ## Toque (XPT2046)
 
@@ -92,8 +93,9 @@ Calibração medida nesta E32R28T-1 (4 cantos + centro, 2026-09-03), em
 | F2 | `GET /status` e `POST /update` na LAN (chunks, nunca o `.bin` na SRAM) |
 | F3 | Pull `firmware.json` (HTTPS + SHA256) + rollback no boot |
 
-Após `GOT_IP` a UI volta à lista inicial. O item Wi-Fi passa a mostrar o IP.
-O item **Atualizar** dispara o pull. SoftAP sozinho não alcança o GitHub.
+Após `GOT_IP` a UI volta à home. Em **Configurações**, o item Wi-Fi
+mostra o IP e **Atualizar** dispara o pull. SoftAP sozinho não alcança
+o GitHub.
 
 SSID/senha ficam no microSD em `/sdcard/os/wifi/networks.json` (até 8
 redes; `last` é a última que ganhou IP). No boot o STA reconecta essa
