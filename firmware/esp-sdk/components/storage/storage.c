@@ -8,10 +8,11 @@
 #include "sdmmc_cmd.h"
 
 #include <dirent.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <errno.h>
+#include <unistd.h>
 
 static const char *TAG = "storage";
 static bool s_ready;
@@ -56,6 +57,8 @@ bool storage_mount(void)
     s_ready = true;
     ESP_LOGI(TAG, "SD montado em %s", STORAGE_MOUNT);
     (void)storage_mkdir(STORAGE_APPS_DIR);
+    (void)storage_mkdir(STORAGE_OS_DIR);
+    (void)storage_mkdir(STORAGE_WIFI_DIR);
     return true;
 }
 
@@ -110,6 +113,40 @@ esp_err_t storage_write_text(const char *rel_path, const char *text)
     fflush(f);
     fclose(f);
     return n == strlen(text) ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t storage_read_text(const char *rel_path, char *out, size_t max)
+{
+    if (!s_ready || rel_path == NULL || out == NULL || max == 0) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    char path[160];
+    if (storage_abs(rel_path, path, sizeof(path)) != ESP_OK) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    FILE *f = fopen(path, "r");
+    if (f == NULL) {
+        return ESP_ERR_NOT_FOUND;
+    }
+    size_t n = fread(out, 1, max - 1, f);
+    fclose(f);
+    out[n] = 0;
+    return ESP_OK;
+}
+
+esp_err_t storage_remove(const char *rel_path)
+{
+    if (!s_ready || rel_path == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    char path[160];
+    if (storage_abs(rel_path, path, sizeof(path)) != ESP_OK) {
+        return ESP_ERR_INVALID_SIZE;
+    }
+    if (unlink(path) != 0 && errno != ENOENT) {
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 int storage_list_dirs(const char *rel_dir, char names[][64], int max)

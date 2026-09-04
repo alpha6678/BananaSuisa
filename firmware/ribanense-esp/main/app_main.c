@@ -28,6 +28,8 @@ void app_main(void)
     (void)storage_mount();
     if (net_init() != ESP_OK) {
         ESP_LOGE(TAG, "Wi-Fi nao iniciou; scan fica indisponivel");
+    } else {
+        (void)net_sta_restore();
     }
     ESP_ERROR_CHECK(ui_init());
 

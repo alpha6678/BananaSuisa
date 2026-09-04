@@ -7,7 +7,7 @@ sem um app enxergar o outro.
 | Componente | Papel |
 |------------|--------|
 | `board` | Pinout E32R28T-1, LCD, toque, versão do OS |
-| `storage` | microSD FAT32 |
+| `storage` | microSD FAT32 (`/sdcard/apps`, `/sdcard/os`) |
 | `ui_palette` | Cores da casca |
 | `shell` | NVS `os_slot` e voltar ao OS |
 

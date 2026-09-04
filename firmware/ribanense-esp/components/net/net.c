@@ -1,4 +1,5 @@
 #include "net.h"
+#include "wifi_store.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -21,6 +22,13 @@ static net_ap_t s_aps[NET_AP_MAX];
 static wifi_ap_record_t s_rec[NET_AP_MAX];
 static int s_count;
 static char s_ip[NET_IP_MAX];
+static char s_ssid[NET_SSID_MAX];
+static char s_pending_psk[NET_PASS_MAX];
+static uint8_t s_pending_auth;
+static char s_flash_ssid[NET_SSID_MAX];
+static char s_flash_psk[NET_PASS_MAX];
+static uint8_t s_flash_auth;
+static bool s_retry_when_seen;
 static uint16_t s_fail_reason;
 static SemaphoreHandle_t s_lock;
 
@@ -96,16 +104,6 @@ static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
     (void)base;
 
     if (id == WIFI_EVENT_STA_START) {
-        wifi_config_t cfg;
-        if (esp_wifi_get_config(WIFI_IF_STA, &cfg) == ESP_OK && cfg.sta.ssid[0] != 0) {
-            lock();
-            if (s_sta == NET_STA_IDLE) {
-                s_sta = NET_STA_CONNECTING;
-            }
-            unlock();
-            ESP_LOGI(TAG, "reconectando a %s", (const char *)cfg.sta.ssid);
-            (void)esp_wifi_connect();
-        }
         return;
     }
 
@@ -126,7 +124,24 @@ static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
             s_scan = NET_SCAN_ERR;
             ESP_LOGE(TAG, "scan falhou (%s)", esp_err_to_name(err));
         }
+        const bool retry = s_retry_when_seen && s_sta != NET_STA_CONNECTING && s_sta != NET_STA_GOT_IP;
         unlock();
+        if (retry) {
+            const char *last = wifi_store_last();
+            if (last != NULL) {
+                for (int i = 0; i < s_count; i++) {
+                    if (strcmp(s_aps[i].ssid, last) == 0) {
+                        wifi_cred_t cred;
+                        if (wifi_store_find(last, &cred)) {
+                            s_retry_when_seen = false;
+                            ESP_LOGI(TAG, "ultima rede visivel, reconectando");
+                            (void)net_sta_connect(cred.ssid, cred.psk);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
         return;
     }
 
@@ -137,6 +152,11 @@ static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
             s_sta = NET_STA_FAIL;
             s_fail_reason = ev ? ev->reason : 0;
             s_ip[0] = 0;
+            const uint16_t why = s_fail_reason;
+            if (why != WIFI_REASON_AUTH_FAIL && why != WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT &&
+                why != WIFI_REASON_MIC_FAILURE && wifi_store_last() != NULL) {
+                s_retry_when_seen = true;
+            }
             ESP_LOGW(TAG, "STA caiu reason=%u", (unsigned)s_fail_reason);
         }
         unlock();
@@ -155,8 +175,19 @@ static void on_ip(void *arg, esp_event_base_t base, int32_t id, void *data)
     snprintf(s_ip, sizeof(s_ip), IPSTR, IP2STR(&ev->ip_info.ip));
     s_sta = NET_STA_GOT_IP;
     s_fail_reason = 0;
+    s_retry_when_seen = false;
+    char remembered[NET_SSID_MAX];
+    strncpy(remembered, s_ssid, sizeof(remembered) - 1);
+    remembered[sizeof(remembered) - 1] = 0;
+    char psk[NET_PASS_MAX];
+    strncpy(psk, s_pending_psk, sizeof(psk) - 1);
+    psk[sizeof(psk) - 1] = 0;
+    uint8_t auth = s_pending_auth;
     unlock();
-    ESP_LOGI(TAG, "STA IP %s", s_ip);
+    if (remembered[0] != 0) {
+        (void)wifi_store_remember(remembered, psk, auth);
+    }
+    ESP_LOGI(TAG, "STA IP %s ssid=%s", s_ip, remembered);
 }
 
 esp_err_t net_init(void)
@@ -202,6 +233,19 @@ esp_err_t net_init(void)
         ESP_LOGW(TAG, "SNTP %s", esp_err_to_name(err));
     }
     err = esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+    if (err != ESP_OK) {
+        return err;
+    }
+    wifi_config_t flash = {0};
+    if (esp_wifi_get_config(WIFI_IF_STA, &flash) == ESP_OK && flash.sta.ssid[0] != 0) {
+        strncpy(s_flash_ssid, (const char *)flash.sta.ssid, sizeof(s_flash_ssid) - 1);
+        strncpy(s_flash_psk, (const char *)flash.sta.password, sizeof(s_flash_psk) - 1);
+        s_flash_auth = (uint8_t)flash.sta.threshold.authmode;
+        ESP_LOGI(TAG, "migrando rede da flash: %s", s_flash_ssid);
+        wifi_config_t empty = {0};
+        (void)esp_wifi_set_config(WIFI_IF_STA, &empty);
+    }
+    err = esp_wifi_set_storage(WIFI_STORAGE_RAM);
     if (err != ESP_OK) {
         return err;
     }
@@ -317,10 +361,26 @@ esp_err_t net_sta_connect(const char *ssid, const char *pass)
     cfg.sta.pmf_cfg.capable = true;
     cfg.sta.pmf_cfg.required = false;
 
+    wifi_cred_t known;
+    uint8_t auth = 0;
+    if (wifi_store_find(ssid, &known)) {
+        auth = known.auth;
+    } else if (pass != NULL && pass[0] != 0) {
+        auth = (uint8_t)WIFI_AUTH_WPA2_PSK;
+    }
+
     lock();
     s_sta = NET_STA_CONNECTING;
     s_fail_reason = 0;
     s_ip[0] = 0;
+    strncpy(s_ssid, ssid, sizeof(s_ssid) - 1);
+    s_ssid[sizeof(s_ssid) - 1] = 0;
+    s_pending_psk[0] = 0;
+    if (pass != NULL) {
+        strncpy(s_pending_psk, pass, sizeof(s_pending_psk) - 1);
+        s_pending_psk[sizeof(s_pending_psk) - 1] = 0;
+    }
+    s_pending_auth = auth;
     unlock();
 
     esp_err_t err = esp_wifi_set_config(WIFI_IF_STA, &cfg);
@@ -358,6 +418,97 @@ void net_sta_ip(char *out, size_t max)
     strncpy(out, s_ip, max - 1);
     out[max - 1] = 0;
     unlock();
+}
+
+void net_sta_ssid(char *out, size_t max)
+{
+    if (out == NULL || max == 0) {
+        return;
+    }
+    lock();
+    strncpy(out, s_ssid, max - 1);
+    out[max - 1] = 0;
+    unlock();
+}
+
+esp_err_t net_sta_restore(void)
+{
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    (void)wifi_store_load();
+    const char *last = wifi_store_last();
+    wifi_cred_t cred;
+    if (last != NULL && wifi_store_find(last, &cred)) {
+        ESP_LOGI(TAG, "restaurando ultima rede %s", cred.ssid);
+        return net_sta_connect(cred.ssid, cred.psk);
+    }
+    if (s_flash_ssid[0] != 0) {
+        ESP_LOGI(TAG, "restaurando rede da flash %s", s_flash_ssid);
+        (void)wifi_store_remember(s_flash_ssid, s_flash_psk, s_flash_auth);
+        return net_sta_connect(s_flash_ssid, s_flash_psk);
+    }
+    return ESP_OK;
+}
+
+esp_err_t net_sta_disconnect(void)
+{
+    if (!s_ready) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    wifi_config_t cfg = {0};
+    (void)esp_wifi_set_config(WIFI_IF_STA, &cfg);
+    (void)esp_wifi_disconnect();
+    lock();
+    s_sta = NET_STA_IDLE;
+    s_fail_reason = 0;
+    s_ip[0] = 0;
+    s_ssid[0] = 0;
+    s_pending_psk[0] = 0;
+    s_pending_auth = 0;
+    s_retry_when_seen = false;
+    unlock();
+    return ESP_OK;
+}
+
+bool net_wifi_known(const char *ssid)
+{
+    return wifi_store_find(ssid, NULL);
+}
+
+bool net_wifi_get(const char *ssid, char *psk, size_t psk_max, uint8_t *auth)
+{
+    wifi_cred_t cred;
+    if (!wifi_store_find(ssid, &cred)) {
+        return false;
+    }
+    if (psk != NULL && psk_max > 0) {
+        strncpy(psk, cred.psk, psk_max - 1);
+        psk[psk_max - 1] = 0;
+    }
+    if (auth != NULL) {
+        *auth = cred.auth;
+    }
+    return true;
+}
+
+const char *net_wifi_last(void)
+{
+    return wifi_store_last();
+}
+
+esp_err_t net_wifi_forget(const char *ssid)
+{
+    if (ssid == NULL || ssid[0] == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    char cur[NET_SSID_MAX];
+    net_sta_ssid(cur, sizeof(cur));
+    esp_err_t err = wifi_store_forget(ssid);
+    if (cur[0] == 0 || strcmp(cur, ssid) == 0) {
+        (void)net_sta_disconnect();
+    }
+    return err;
 }
 
 uint16_t net_sta_fail_reason(void)

@@ -50,7 +50,8 @@ o `esp-sdk` (board, storage, paleta, shell).
 
 O release preenche `url` e `sha256` em [`catalog/esp-catalog.json`](../catalog/esp-catalog.json).
 A placa baixa o zip para `/sdcard/tmp`, confere SHA256, extrai para
-`/sdcard/apps/<id>/`.
+`/sdcard/apps/<id>/`. Dados do OS (Wi-Fi salvo) ficam em `/sdcard/os/`;
+os apps não devem gravar aí.
 
 ## Abrir e voltar
 

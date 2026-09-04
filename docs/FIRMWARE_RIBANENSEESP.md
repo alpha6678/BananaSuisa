@@ -95,8 +95,12 @@ Calibração medida nesta E32R28T-1 (4 cantos + centro, 2026-09-03), em
 Após `GOT_IP` a UI volta à lista inicial. O item Wi-Fi passa a mostrar o IP.
 O item **Atualizar** dispara o pull. SoftAP sozinho não alcança o GitHub.
 
-SSID/senha ficam na flash (`WIFI_STORAGE_FLASH`). No boot o STA reconecta
-sozinho — necessário depois de um reboot OTA.
+SSID/senha ficam no microSD em `/sdcard/os/wifi/networks.json` (até 8
+redes; `last` é a última que ganhou IP). No boot o STA reconecta essa
+rede se ela existir; se o AP ainda não apareceu, tenta de novo quando o
+scan a vir. **Esquecer** na tela Wi-Fi apaga a entrada e desconecta.
+A flash do Wi-Fi (`WIFI_STORAGE_RAM`) não guarda senha — o cartão é a
+fonte. Sem SD, a sessão vale só até o reboot.
 
 Servidor HTTP (porta 80) sobe só com IP. Auth do push: cabeçalho
 `X-Ribanense-Key: ribanense-esp`.

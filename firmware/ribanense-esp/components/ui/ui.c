@@ -8,6 +8,7 @@
 #include "store.h"
 #include "ui_palette.h"
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,6 +48,9 @@ static net_sta_state_t s_sta_seen = NET_STA_IDLE;
 static lv_obj_t *s_home_wifi_lab;
 static lv_obj_t *s_home_upd_lab;
 static lv_obj_t *s_home_list;
+static lv_obj_t *s_wifi_forget;
+static lv_obj_t *s_wifi_forget_lab;
+static bool s_join_home;
 static lv_obj_t *s_store;
 static lv_obj_t *s_store_status;
 static lv_obj_t *s_store_list;
@@ -264,7 +268,8 @@ static void on_lan_up(void)
     (void)ota_start_httpd();
     set_home_wifi(ip);
     ESP_LOGI(TAG, "LAN %s", ip);
-    if (s_pass != NULL) {
+    if (s_pass != NULL || s_join_home) {
+        s_join_home = false;
         show_home();
     }
 }
@@ -443,6 +448,58 @@ static lv_color_t rssi_color(int8_t rssi)
     return ui_color_red();
 }
 
+static void forget_target(char *out, size_t max)
+{
+    if (out == NULL || max == 0) {
+        return;
+    }
+    out[0] = 0;
+    net_sta_ssid(out, max);
+    if (out[0] != 0) {
+        return;
+    }
+    const char *last = net_wifi_last();
+    if (last != NULL) {
+        strncpy(out, last, max - 1);
+        out[max - 1] = 0;
+    }
+}
+
+static void refresh_forget_row(void)
+{
+    if (s_wifi_forget == NULL || s_wifi_forget_lab == NULL) {
+        return;
+    }
+    char ssid[NET_SSID_MAX];
+    forget_target(ssid, sizeof(ssid));
+    if (ssid[0] == 0 || !net_wifi_known(ssid)) {
+        lv_obj_add_flag(s_wifi_forget, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_height(s_wifi_forget, 0);
+        return;
+    }
+    char text[48];
+    snprintf(text, sizeof(text), "esquecer %s", ssid);
+    if (strcmp(lv_label_get_text(s_wifi_forget_lab), text) != 0) {
+        lv_label_set_text(s_wifi_forget_lab, text);
+    }
+    lv_obj_set_height(s_wifi_forget, ROW_H);
+    lv_obj_remove_flag(s_wifi_forget, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void on_wifi_forget(lv_event_t *e)
+{
+    (void)e;
+    char ssid[NET_SSID_MAX];
+    forget_target(ssid, sizeof(ssid));
+    if (ssid[0] == 0) {
+        return;
+    }
+    (void)net_wifi_forget(ssid);
+    set_home_wifi(NULL);
+    set_wifi_status("rede esquecida", ui_color_white());
+    refresh_forget_row();
+}
+
 static void on_ap_click(lv_event_t *e)
 {
     lv_obj_t *row = lv_event_get_target(e);
@@ -453,6 +510,18 @@ static void on_ap_click(lv_event_t *e)
     const char *ssid = lv_label_get_text(lab);
     uint8_t auth = (uint8_t)(uintptr_t)lv_obj_get_user_data(row);
     ESP_LOGI(TAG, "ssid %s", ssid);
+    if (net_wifi_known(ssid) || auth == NET_AUTH_OPEN) {
+        char psk[NET_PASS_MAX];
+        psk[0] = 0;
+        (void)net_wifi_get(ssid, psk, sizeof(psk), NULL);
+        s_join_home = true;
+        set_wifi_status("conectando...", ui_color_white());
+        if (net_sta_connect(ssid, psk) != ESP_OK) {
+            s_join_home = false;
+            set_wifi_status("falha ao conectar", ui_color_red());
+        }
+        return;
+    }
     show_pass(ssid, auth);
 }
 
@@ -484,7 +553,7 @@ static void add_ap_row(const net_ap_t *ap)
     lv_label_set_text(ssid, ap->ssid);
     lv_label_set_long_mode(ssid, LV_LABEL_LONG_CLIP);
     lv_obj_set_flex_grow(ssid, 1);
-    lv_obj_set_style_text_color(ssid, ui_color_white(), 0);
+    lv_obj_set_style_text_color(ssid, net_wifi_known(ap->ssid) ? ui_color_green() : ui_color_white(), 0);
 
     char dbm[12];
     snprintf(dbm, sizeof(dbm), "%d dBm", (int)ap->rssi);
@@ -518,6 +587,11 @@ static void apply_ap_list(void)
             continue;
         }
         lv_obj_set_user_data(row, (void *)(uintptr_t)aps[i].auth);
+        lv_obj_t *name = lv_obj_get_child(row, 0);
+        if (name != NULL) {
+            lv_obj_set_style_text_color(name, net_wifi_known(aps[i].ssid) ? ui_color_green() : ui_color_white(),
+                                        0);
+        }
         lv_obj_t *sig = lv_obj_get_child(row, 1);
         if (sig == NULL) {
             continue;
@@ -619,6 +693,7 @@ static void wifi_poll(void)
     if (now >= s_scan_due_us) {
         request_scan();
     }
+    refresh_forget_row();
 }
 
 static void on_wifi_back(lv_event_t *e)
@@ -677,6 +752,17 @@ static void build_wifi(void)
     lv_label_set_text(s_wifi_status, "");
     lv_obj_set_style_text_color(s_wifi_status, ui_color_white(), 0);
 
+    s_wifi_forget = lv_button_create(s_wifi);
+    style_row(s_wifi_forget);
+    lv_obj_add_event_cb(s_wifi_forget, on_wifi_forget, LV_EVENT_CLICKED, NULL);
+    s_wifi_forget_lab = lv_label_create(s_wifi_forget);
+    lv_label_set_text(s_wifi_forget_lab, "esquecer");
+    lv_label_set_long_mode(s_wifi_forget_lab, LV_LABEL_LONG_CLIP);
+    lv_obj_set_style_text_color(s_wifi_forget_lab, ui_color_white(), 0);
+    lv_obj_center(s_wifi_forget_lab);
+    lv_obj_add_flag(s_wifi_forget, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_height(s_wifi_forget, 0);
+
     s_wifi_list = make_scroll_list(s_wifi);
 }
 
@@ -709,7 +795,9 @@ static void do_connect(void)
     kb_hide();
     set_pass_status("conectando...", ui_color_white());
     s_sta_seen = NET_STA_CONNECTING;
+    s_join_home = true;
     if (net_sta_connect(s_sel_ssid, pass ? pass : "") != ESP_OK) {
+        s_join_home = false;
         set_pass_status("falha ao conectar", ui_color_red());
         s_sta_seen = NET_STA_FAIL;
     }
@@ -725,6 +813,15 @@ static void on_pass_connect(lv_event_t *e)
 {
     (void)e;
     do_connect();
+}
+
+static void on_pass_forget(lv_event_t *e)
+{
+    (void)e;
+    (void)net_wifi_forget(s_sel_ssid);
+    set_home_wifi(NULL);
+    show_wifi();
+    set_wifi_status("rede esquecida", ui_color_white());
 }
 
 static void on_ta_open_kb(lv_event_t *e)
@@ -802,6 +899,17 @@ static void build_pass(void)
     lv_obj_set_style_text_color(tl, ui_color_white(), 0);
     lv_obj_center(tl);
 
+    if (net_wifi_known(s_sel_ssid)) {
+        lv_obj_t *forget = lv_button_create(s_pass);
+        style_row(forget);
+        lv_obj_set_height(forget, 40);
+        lv_obj_add_event_cb(forget, on_pass_forget, LV_EVENT_CLICKED, NULL);
+        lv_obj_t *fl = lv_label_create(forget);
+        lv_label_set_text(fl, "Esquecer");
+        lv_obj_set_style_text_color(fl, ui_color_white(), 0);
+        lv_obj_center(fl);
+    }
+
     s_kb = lv_keyboard_create(s_pass);
     lv_obj_add_flag(s_kb, LV_OBJ_FLAG_FLOATING);
     lv_obj_set_size(s_kb, BOARD_LCD_H, UI_KB_H);
@@ -851,6 +959,7 @@ static void show_wifi(void)
     }
     s_wifi_live = true;
     s_scan_due_us = 0;
+    refresh_forget_row();
     lv_screen_load(s_wifi);
     if (!s_scan_pending) {
         request_scan();
