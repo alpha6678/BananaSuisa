@@ -1,11 +1,12 @@
 {
   "schemaVersion": 1,
   "product": "RibanenseESP",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "minFlashMb": 4,
   "url": "https://github.com/desenvolvimentoLocatelli/BananaSuisa/releases/download/ribanense-esp-v0.3.0/ribanense-esp-0.3.0.bin",
   "sha256": "cb3cf1a2858a16c20a8f3b99aa07cb0625e4e1ef68c933c913b985b084de32b9"
 }
+
 
 
 
