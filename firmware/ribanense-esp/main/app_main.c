@@ -1,4 +1,5 @@
 #include "board.h"
+#include "net.h"
 #include "nvs_flash.h"
 #include "ribanense_esp_version.h"
 #include "storage.h"
@@ -22,8 +23,11 @@ void app_main(void)
     ESP_ERROR_CHECK(err);
 
     ESP_ERROR_CHECK(board_init());
-    bool sd_ok = storage_mount();
-    ESP_ERROR_CHECK(ui_init(sd_ok));
+    (void)storage_mount();
+    if (net_init() != ESP_OK) {
+        ESP_LOGE(TAG, "Wi-Fi nao iniciou; scan fica indisponivel");
+    }
+    ESP_ERROR_CHECK(ui_init());
 
     while (1) {
         ui_tick();

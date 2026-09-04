@@ -59,7 +59,9 @@ amostras. O firmware força o timer do ponteiro para **20 ms**
 (`lv_timer_set_period(lv_indev_get_read_timer(indev), 20)`) e o laço
 chama `lv_timer_handler` a cada 5 ms. O flush do painel continua em 3 Hz.
 
-Teclado só no TFT. Não há USB Host nesta placa.
+Home: título + lista com scroll. O primeiro item abre a tela **Wi-Fi**
+(scan STA, SSID e potência em dBm, sem travar o handler). Teclado no TFT
+volta quando a senha da rede entrar. Não há USB Host nesta placa.
 
 ## Toque (XPT2046)
 
@@ -86,7 +88,7 @@ Calibração medida nesta E32R28T-1 (4 cantos + centro, 2026-09-03), em
 | Fase | Conteúdo |
 |------|----------|
 | F0 | Bring-up: pinout desta unidade, UI, mount do SD |
-| F1 | SoftAP + teclado SSID/senha + STA + NVS |
+| F1 | Lista na home; tela Wi-Fi com scan (SSID + dBm). SoftAP + senha + STA + NVS em seguida |
 | F2 | HTTP: status JSON, upload em chunks para o SD |
 | F3 | Pull `firmware.json` + `esp_https_ota` + `POST /update` + rollback |
 

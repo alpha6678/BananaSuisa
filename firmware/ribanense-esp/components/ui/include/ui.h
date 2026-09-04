@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdbool.h>
 #include "esp_err.h"
 
-esp_err_t ui_init(bool sd_ok);
+esp_err_t ui_init(void);
 void ui_tick(void);
