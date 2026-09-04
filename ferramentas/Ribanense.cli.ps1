@@ -333,7 +333,8 @@ function Get-LauncherRelevantPathPrefixes {
     return @(
         "src/Ribanense.Solucoes.Launcher/",
         "tests/Ribanense.Solucoes.Launcher.Tests/",
-        "catalog/",
+        "catalog/catalog.json",
+        "catalog/icons/",
         "src/Ribanense.Solucoes.PluginSDK/",
         "src/Ribanense.Solucoes.Infrastructure/",
         "src/Ribanense.Solucoes.UI/",
@@ -341,19 +342,47 @@ function Get-LauncherRelevantPathPrefixes {
     )
 }
 
+function Get-OsIrrelevantPathPrefixes {
+    return @(
+        'firmware/ribanense-esp/firmware.json',
+        'firmware/ribanense-esp/dist/'
+    )
+}
+
+function Get-EspAppIrrelevantPathPrefixes {
+    return @(
+        'firmware/esp-sdk/components/board/include/ribanense_esp_version.h'
+    )
+}
+
+function Test-PathMatchesAnyPrefix {
+    param(
+        [Parameter(Mandatory)] [string] $Path,
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $Prefixes
+    )
+    foreach ($prefix in $Prefixes) {
+        if ([string]::IsNullOrWhiteSpace($prefix)) { continue }
+        if ($Path.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
+}
+
 function Select-FilesByPrefixes {
     param(
         [Parameter(Mandatory)] [string[]] $Files,
-        [Parameter(Mandatory)] [string[]] $Prefixes
+        [Parameter(Mandatory)] [string[]] $Prefixes,
+        [string[]] $Excludes = @()
     )
     $matched = @()
     foreach ($file in $Files) {
         $normalized = $file.Replace('\', '/')
-        foreach ($prefix in $Prefixes) {
-            if ($normalized.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $matched += $normalized
-                break
-            }
+        if (($Excludes.Count -gt 0) -and (Test-PathMatchesAnyPrefix -Path $normalized -Prefixes $Excludes)) {
+            continue
+        }
+        if (Test-PathMatchesAnyPrefix -Path $normalized -Prefixes $Prefixes) {
+            $matched += $normalized
         }
     }
     return @($matched | Select-Object -Unique)
@@ -749,7 +778,7 @@ function Get-PublishAllOsPlanItem {
         $reason = 'sem tag anterior para o prefixo'
     } else {
         $changedFiles = Get-ChangedFilesSinceTag -Tag $latestTag
-        $matchedFiles = Select-FilesByPrefixes -Files $changedFiles -Prefixes (Get-OsRelevantPathPrefixes)
+        $matchedFiles = Select-FilesByPrefixes -Files $changedFiles -Prefixes (Get-OsRelevantPathPrefixes) -Excludes (Get-OsIrrelevantPathPrefixes)
         if ($matchedFiles.Count -gt 0) {
             $include = $true
             $reason = "arquivos alterados desde $latestTag"
@@ -783,7 +812,7 @@ function Get-PublishAllEspAppCandidates {
             $reason = 'sem tag anterior para o prefixo'
         } else {
             $changedFiles = Get-ChangedFilesSinceTag -Tag $latestTag
-            $matchedFiles = Select-FilesByPrefixes -Files $changedFiles -Prefixes (Get-EspAppRelevantPathPrefixes -AppShortName $app.ShortName)
+            $matchedFiles = Select-FilesByPrefixes -Files $changedFiles -Prefixes (Get-EspAppRelevantPathPrefixes -AppShortName $app.ShortName) -Excludes (Get-EspAppIrrelevantPathPrefixes)
             if ($matchedFiles.Count -gt 0) {
                 $include = $true
                 $reason = "arquivos alterados desde $latestTag"
@@ -1654,7 +1683,7 @@ function Show-GroupHelp {
             Write-Host "  .\rb.cmd os build"
             Write-Host "  .\rb.cmd os publish -Version 0.0.3"
             Write-Host "  .\rb.cmd os release 0.0.3"
-            Write-Host "  .\rb.cmd os flash COM8"
+            Write-Host "  .\rb.cmd os flash COM8          # so o 1o flash USB; OTA e pela placa no GitHub"
             Write-Host "  .\rb.cmd os app publish Sobre -Version 0.1.0"
             Write-Host "  .\rb.cmd os app release Sobre 0.1.0"
             Write-Host "  .\rb.cmd esp version"

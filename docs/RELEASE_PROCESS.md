@@ -56,13 +56,19 @@ O `publish all`:
 4. Executa `rb.cmd check` **somente** se o plano tiver item .NET. IDF não entra
    no check.
 5. Publica release no GitHub. No OS, preenche `url`/`sha256` em
-   `firmware.json` e faz push (a placa passa a ver a versão nova). No app da
-   placa, atualiza `catalog/esp-catalog.json`.
+   `firmware.json` (raw) e faz push — a placa atualiza sozinha pelo GitHub.
+   No app da placa, atualiza `catalog/esp-catalog.json`. O `publish all` **não**
+   grava USB nem faz `POST /update` na LAN.
 
 Observações:
 
 - Use `--dry-run` para inspecionar o plano sem alterar arquivos.
 - Por padrão há confirmação interativa; `-Yes` confirma automaticamente.
+- O Launcher só entra no plano se mudou código do Launcher/SDK Windows,
+  `catalog/catalog.json` ou `catalog/icons/`. Alterar `catalog/esp-catalog.json`
+  (loja da placa) não republica o Launcher.
+- Ponteiro pós-release (`firmware.json`, `firmware/ribanense-esp/dist/`) e o
+  header de versão do OS no SDK não republicam OS/apps da placa sozinhos.
 
 ## Formato dos assets
 
