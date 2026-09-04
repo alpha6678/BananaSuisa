@@ -6,9 +6,9 @@
     <RootNamespace>Ribanense.Solucoes.App.Scripts</RootNamespace>
     <AssemblyName>Ribanense.Solucoes.App.Scripts</AssemblyName>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>0.1.1</Version>
-    <AssemblyVersion>0.1.1.0</AssemblyVersion>
-    <FileVersion>0.1.1.0</FileVersion>
+    <Version>0.1.2</Version>
+    <AssemblyVersion>0.1.2.0</AssemblyVersion>
+    <FileVersion>0.1.2.0</FileVersion>
     <Product>Scripts — Ribanense Soluções</Product>
   </PropertyGroup>
   <ItemGroup>
@@ -28,4 +28,5 @@
     <InternalsVisibleTo Include="Ribanense.Solucoes.App.Scripts.Tests" />
   </ItemGroup>
 </Project>
+
 

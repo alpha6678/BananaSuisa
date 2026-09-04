@@ -7,9 +7,9 @@
     <RootNamespace>Ribanense.Solucoes.App.Farol</RootNamespace>
     <AssemblyName>Ribanense.Solucoes.App.Farol</AssemblyName>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.1.1</Version>
+    <AssemblyVersion>0.1.1.0</AssemblyVersion>
+    <FileVersion>0.1.1.0</FileVersion>
     <Product>Farol — Ribanense Soluções</Product>
   </PropertyGroup>
   <ItemGroup>
@@ -42,3 +42,4 @@
     <InternalsVisibleTo Include="Ribanense.Solucoes.App.Farol.Tests" />
   </ItemGroup>
 </Project>
+

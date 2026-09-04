@@ -2,7 +2,7 @@
   "id": "com.ribanense.scripts",
   "name": "Scripts",
   "publicName": "Scripts",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minimumLauncherVersion": "0.1.0",
   "entryExecutable": "Ribanense.Solucoes.App.Scripts.exe",
   "icon": "icon.png",
@@ -10,4 +10,5 @@
   "requiresElevation": false,
   "githubTagPrefix": "scripts-v"
 }
+
 
