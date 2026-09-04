@@ -188,11 +188,18 @@ try {
     $hash = ((Get-Content -LiteralPath $shaPath -Raw).Trim() -split '\s+')[0]
     if ($kind -eq 'os') {
         $fw = Join-Path $ProjectRoot 'firmware\ribanense-esp\firmware.json'
-        $url = "https://github.com/$($gh.Owner)/$($gh.Repo)/releases/download/$tag/$assetBaseName"
+        $distDir = Join-Path $ProjectRoot 'firmware\ribanense-esp\dist'
+        New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+        Get-ChildItem -LiteralPath $distDir -Filter 'ribanense-esp-*.bin' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne $assetBaseName } |
+            Remove-Item -Force
+        $distBin = Join-Path $distDir $assetBaseName
+        Copy-Item -LiteralPath $assetPath -Destination $distBin -Force
+        $url = "https://raw.githubusercontent.com/$($gh.Owner)/$($gh.Repo)/main/firmware/ribanense-esp/dist/$assetBaseName"
         Set-JsonField -Path $fw -Name 'version' -Value $Version
         Set-JsonField -Path $fw -Name 'url' -Value $url
         Set-JsonField -Path $fw -Name 'sha256' -Value $hash
-        Invoke-PointerCommit -Files @($fw) -Message "chore(release): firmware.json $Version"
+        Invoke-PointerCommit -Files @($fw, $distBin) -Message "chore(release): firmware.json $Version"
     }
     elseif ($kind -eq 'esp-app') {
         $cat = Join-Path $ProjectRoot 'catalog\esp-catalog.json'
