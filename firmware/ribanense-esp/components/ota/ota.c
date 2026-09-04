@@ -11,6 +11,7 @@
 #include "cJSON.h"
 #include "esp_crt_bundle.h"
 #include "esp_http_client.h"
+#include "esp_heap_caps.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
@@ -163,10 +164,13 @@ static esp_err_t on_status(httpd_req_t *req)
     net_sta_ip(ip, sizeof(ip));
     snprintf(body, sizeof(body),
              "{\"product\":\"%s\",\"version\":\"%s\",\"ip\":\"%s\",\"ota\":\"%s\","
-             "\"err\":\"%s\",\"http\":%d,\"errno\":%d,\"time\":%d,\"url\":\"%s\"}",
+             "\"err\":\"%s\",\"http\":%d,\"errno\":%d,\"time\":%d,\"heap\":%u,\"blk\":%u,\"url\":\"%s\"}",
              RIBANENSEESP_PRODUCT, RIBANENSEESP_VERSION, ip, s_msg,
              s_last_err[0] ? s_last_err : "", s_http_status, s_last_errno,
-             net_time_ok() ? 1 : 0, s_last_url);
+             net_time_ok() ? 1 : 0,
+             (unsigned)esp_get_free_heap_size(),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+             s_last_url);
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, body, HTTPD_RESP_USE_STRLEN);
 }
