@@ -27,6 +27,31 @@ function Invoke-RobocopyMirror {
     }
 }
 
+function Sync-IdfSdkconfigFromDefaults {
+    param([Parameter(Mandatory)] [string] $ProjectDir)
+    $defaults = Join-Path $ProjectDir 'sdkconfig.defaults'
+    if (-not (Test-Path -LiteralPath $defaults)) {
+        return
+    }
+    $parent = Split-Path -Parent $ProjectDir
+    $leaf = Split-Path -Leaf $ProjectDir
+    $stamp = Join-Path $parent "$leaf.sdkconfig.defaults.sha256"
+    $hash = (Get-FileHash -LiteralPath $defaults -Algorithm SHA256).Hash.ToLowerInvariant()
+    $prev = ''
+    if (Test-Path -LiteralPath $stamp) {
+        $prev = (Get-Content -LiteralPath $stamp -Raw).Trim()
+    }
+    if ($hash -eq $prev) {
+        return
+    }
+    $sdk = Join-Path $ProjectDir 'sdkconfig'
+    if (Test-Path -LiteralPath $sdk) {
+        Remove-Item -LiteralPath $sdk -Force
+        Write-Host "[!!] sdkconfig.defaults mudou; sdkconfig do espelho sera regenerado." -ForegroundColor Yellow
+    }
+    Set-Content -LiteralPath $stamp -Value $hash -Encoding ASCII
+}
+
 function Invoke-IdfBuild {
     param(
         [Parameter(Mandatory)] [string] $ProjectDir,

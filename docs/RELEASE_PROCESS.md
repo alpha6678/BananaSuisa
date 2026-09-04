@@ -69,6 +69,8 @@ Observações:
   (loja da placa) não republica o Launcher.
 - Ponteiro pós-release (`firmware.json`, `firmware/ribanense-esp/dist/`) e o
   header de versão do OS no SDK não republicam OS/apps da placa sozinhos.
+- Se o atualizador já gravado na placa não alcança o GitHub, a recuperação é
+  `rb os flash COM8` (USB). O `rb` não faz isso sozinho.
 
 ## Formato dos assets
 

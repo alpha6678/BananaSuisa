@@ -33,6 +33,7 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
 | `publish <App, Launcher ou OS> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (Windows: zip; Launcher: `.exe`; OS: `.bin`; app da placa: zip store). |
 | `publish all [-Yes] [--dry-run]` | — | Detecta apps Windows, Launcher, **OS** (`ribanense-esp-v`) e **apps da placa** (`esp-<slug>-v`) com mudança **de código** desde a última tag, faz bump patch, roda `rb check` só se houver item .NET, e publica no GitHub. Não grava USB nem empurra OTA pela LAN: a placa baixa pelo `firmware.json` (raw no GitHub). O Launcher só reage a `catalog/catalog.json` e `catalog/icons/` — `catalog/esp-catalog.json` e o ponteiro `firmware.json`/`dist/` não disparam release. |
+| `os flash [COMx]` | `gravar` | **Recuperação / primeiro gravar.** Espelha, recompila e grava bootloader + tabela + OS via USB-C/CH340. Não é o caminho normal: depois disso a placa atualiza sozinha pelo GitHub. |
 | `release <App, Launcher ou OS> <semver>` | — | Publica GitHub Release via `gh`. OS: `ribanense-esp-v`. App da placa: `esp-<slug>-v`. |
 | `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
 | `crashlog` | `crash` | Mostra as últimas 200 linhas do `crash.log` (texto plano). Inclui `crash.old.log` rotacionado se existir. |

@@ -848,21 +848,23 @@ function Invoke-OsBuild {
     Assert-PathExists -Path $envScript -Description 'esp-idf-env.ps1'
     . $envScript
     $root = Get-IdfMirrorRoot
-    Invoke-RobocopyMirror -Source $script:OsRoot -Destination (Join-Path $root 'ribanense-esp')
+    $osMirror = Join-Path $root 'ribanense-esp'
+    Invoke-RobocopyMirror -Source $script:OsRoot -Destination $osMirror
     Invoke-RobocopyMirror -Source $script:EspSdkRoot -Destination (Join-Path $root 'esp-sdk')
-    Invoke-IdfBuild -ProjectDir (Join-Path $root 'ribanense-esp') -ExtraArgs @('build')
+    Sync-IdfSdkconfigFromDefaults -ProjectDir $osMirror
+    Invoke-IdfBuild -ProjectDir $osMirror -ExtraArgs @('build')
     Write-Ok "Build do OS concluido em $root\ribanense-esp\build."
 }
 
 function Invoke-OsFlash {
     $port = if ($script:RestArguments.Count -ge 1) { $script:RestArguments[0] } else { 'COM8' }
+    Write-Warn2 "Recuperacao USB: grava bootloader, tabela de particoes e OS em $port."
+    Write-Warn2 "Isto NAO e o caminho normal. Depois do gravar, a placa atualiza pelo GitHub."
     $mirror = Join-Path $script:CliRoot 'esp-idf-env.ps1'
     . $mirror
     $root = Get-IdfMirrorRoot
     $osMirror = Join-Path $root 'ribanense-esp'
-    if (-not (Test-Path -LiteralPath (Join-Path $osMirror 'build\ribanense_esp.bin'))) {
-        Invoke-OsBuild
-    }
+    Invoke-OsBuild
     Invoke-IdfBuild -ProjectDir $osMirror -ExtraArgs @('-p', $port, 'flash')
     Write-Ok "Flash do OS enviado para $port."
 }
@@ -1683,7 +1685,7 @@ function Show-GroupHelp {
             Write-Host "  .\rb.cmd os build"
             Write-Host "  .\rb.cmd os publish -Version 0.0.3"
             Write-Host "  .\rb.cmd os release 0.0.3"
-            Write-Host "  .\rb.cmd os flash COM8          # so o 1o flash USB; OTA e pela placa no GitHub"
+            Write-Host "  .\rb.cmd os flash COM8          # 1o gravar OU recuperacao; OTA normal e GitHub"
             Write-Host "  .\rb.cmd os app publish Sobre -Version 0.1.0"
             Write-Host "  .\rb.cmd os app release Sobre 0.1.0"
             Write-Host "  .\rb.cmd esp version"

@@ -123,7 +123,9 @@ Assets de release: `ribanense-esp-<ver>.bin` + `.sha256`. O `rb os release`
 (ou `rb publish all`) preenche `url` e `sha256` e sobe o JSON — é assim
 que a placa passa a ver a versão nova. Enquanto `url` estiver vazio,
 **Atualizar** responde `sem binario` (ou `atual` se a versão do JSON não
-for maior). USB-C / CH340 só no primeiro flash do root com OTA.
+for maior). USB-C / CH340 só no **primeiro** flash e na **recuperação**
+se o atualizador da placa não conseguir o GitHub (`rb os flash COM8`).
+O `publish all` nunca grava cabo nem LAN.
 
 ## Apps no microSD
 

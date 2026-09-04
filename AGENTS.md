@@ -9,7 +9,8 @@ Ribanense Soluções é um **launcher** estilo Adobe Creative Cloud para Windows
 Na placa E32R28T-1 o **OS** é a casca **RibanenseESP** (ESP-IDF, flash). Os
 **apps da placa** são firmwares nativos independentes em `firmware/apps/`,
 instalados no microSD. O `rb publish all` trata o OS como o Launcher e os
-apps da placa como os apps Windows. USB só no primeiro flash do OS.
+apps da placa como os apps Windows. USB só no primeiro flash do OS e
+na recuperação se o OTA pelo GitHub estiver quebrado.
 Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md),
 [`docs/ESP_APP_SDK.md`](docs/ESP_APP_SDK.md).
 

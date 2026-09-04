@@ -48,6 +48,7 @@ Invoke-RobocopyMirror -Source $osSrc -Destination (Join-Path $mirror 'ribanense-
 Invoke-RobocopyMirror -Source $sdkSrc -Destination (Join-Path $mirror 'esp-sdk')
 
 $osMirror = Join-Path $mirror 'ribanense-esp'
+Sync-IdfSdkconfigFromDefaults -ProjectDir $osMirror
 Write-Host "Compilando RibanenseESP $Version ..." -ForegroundColor Cyan
 Invoke-IdfBuild -ProjectDir $osMirror -ExtraArgs @('build')
 
