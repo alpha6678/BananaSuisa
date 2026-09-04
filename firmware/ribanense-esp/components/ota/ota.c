@@ -19,16 +19,48 @@
 #include "freertos/task.h"
 #include "mbedtls/sha256.h"
 
+#include <stdarg.h>
+
 #define TAG "ota"
 #define CHUNK 1024
 #define MSG_MAX 48
 #define SLOT_MAX 0x190000u
+#define LOG_RING 10
+#define LOG_LINE 88
 
 static httpd_handle_t s_httpd;
 static volatile ota_state_t s_state = OTA_IDLE;
 static char s_msg[MSG_MAX] = "OTA";
 static volatile bool s_pull_busy;
 static uint8_t s_chunk[CHUNK];
+static char s_last_err[24];
+static char s_last_url[96];
+static int s_last_errno;
+static int s_http_status;
+static esp_err_t s_http_err;
+static char s_log[LOG_RING][LOG_LINE];
+static uint8_t s_log_w;
+static uint8_t s_log_n;
+
+static void probe_task(void *arg);
+
+static int ota_log_vprintf(const char *fmt, va_list ap)
+{
+    va_list copy;
+    va_copy(copy, ap);
+    vsnprintf(s_log[s_log_w], LOG_LINE, fmt, copy);
+    va_end(copy);
+    char *p = s_log[s_log_w];
+    size_t n = strlen(p);
+    while (n > 0 && (p[n - 1] == '\n' || p[n - 1] == '\r')) {
+        p[--n] = 0;
+    }
+    s_log_w = (uint8_t)((s_log_w + 1) % LOG_RING);
+    if (s_log_n < LOG_RING) {
+        s_log_n++;
+    }
+    return vprintf(fmt, ap);
+}
 
 static void set_state(ota_state_t st, const char *msg)
 {
@@ -127,13 +159,57 @@ static esp_err_t finish_ota(esp_ota_handle_t h, const esp_partition_t *part, mbe
 static esp_err_t on_status(httpd_req_t *req)
 {
     char ip[NET_IP_MAX];
-    char body[192];
+    char body[384];
     net_sta_ip(ip, sizeof(ip));
     snprintf(body, sizeof(body),
-             "{\"product\":\"%s\",\"version\":\"%s\",\"ip\":\"%s\",\"ota\":\"%s\"}",
-             RIBANENSEESP_PRODUCT, RIBANENSEESP_VERSION, ip, s_msg);
+             "{\"product\":\"%s\",\"version\":\"%s\",\"ip\":\"%s\",\"ota\":\"%s\","
+             "\"err\":\"%s\",\"http\":%d,\"errno\":%d,\"time\":%d,\"url\":\"%s\"}",
+             RIBANENSEESP_PRODUCT, RIBANENSEESP_VERSION, ip, s_msg,
+             s_last_err[0] ? s_last_err : "", s_http_status, s_last_errno,
+             net_time_ok() ? 1 : 0, s_last_url);
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, body, HTTPD_RESP_USE_STRLEN);
+}
+
+static esp_err_t on_log(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/plain");
+    if (s_log_n == 0) {
+        return httpd_resp_sendstr(req, "");
+    }
+    const uint8_t start = (s_log_n < LOG_RING) ? 0 : s_log_w;
+    for (uint8_t i = 0; i < s_log_n; i++) {
+        const uint8_t idx = (uint8_t)((start + i) % LOG_RING);
+        httpd_resp_sendstr_chunk(req, s_log[idx]);
+        httpd_resp_sendstr_chunk(req, "\n");
+    }
+    return httpd_resp_sendstr_chunk(req, NULL);
+}
+
+static esp_err_t on_probe(httpd_req_t *req)
+{
+    if (!s_pull_busy) {
+        s_pull_busy = true;
+        set_state(OTA_CHECKING, "probe...");
+        if (xTaskCreate(probe_task, "ota_probe", 32768, NULL, 4, NULL) != pdPASS) {
+            s_pull_busy = false;
+            set_state(OTA_ERR, "sem tarefa");
+        }
+    }
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_sendstr(req, "{\"ok\":1}");
+}
+
+static esp_err_t on_pull(httpd_req_t *req)
+{
+    if (!key_ok(req)) {
+        httpd_resp_set_status(req, "401 Unauthorized");
+        httpd_resp_sendstr(req, "key");
+        return ESP_OK;
+    }
+    ota_pull_start();
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_sendstr(req, "{\"ok\":1}");
 }
 
 static esp_err_t on_update(httpd_req_t *req)
@@ -214,21 +290,29 @@ static esp_err_t on_update(httpd_req_t *req)
 #define HTTP_URL_MAX 768
 #define HTTP_HOPS 8
 
-static int s_http_status;
-static esp_err_t s_http_err;
-
 static bool http_is_redirect(int status)
 {
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
 }
 
-static void http_cfg(esp_http_client_config_t *c, const char *url, int timeout_ms, const char *host)
+static void note_http(const char *url, esp_err_t err, esp_http_client_handle_t cli)
+{
+    s_http_err = err;
+    s_last_errno = (cli != NULL) ? esp_http_client_get_errno(cli) : 0;
+    snprintf(s_last_err, sizeof(s_last_err), "%s", esp_err_to_name(err));
+    if (url != NULL) {
+        strncpy(s_last_url, url, sizeof(s_last_url) - 1);
+        s_last_url[sizeof(s_last_url) - 1] = 0;
+    }
+    ESP_LOGE(TAG, "http %s err=%s errno=%d", url ? url : "", s_last_err, s_last_errno);
+}
+
+static void http_cfg(esp_http_client_config_t *c, const char *url, int timeout_ms)
 {
     memset(c, 0, sizeof(*c));
     c->url = url;
     c->timeout_ms = timeout_ms;
     c->crt_bundle_attach = esp_crt_bundle_attach;
-    c->common_name = host;
     c->user_agent = HTTP_UA;
     c->disable_auto_redirect = true;
     c->buffer_size = 2048;
@@ -237,24 +321,29 @@ static void http_cfg(esp_http_client_config_t *c, const char *url, int timeout_m
     }
 }
 
-static esp_http_client_handle_t http_open_url(const char *url, int timeout_ms, const char *host, esp_err_t *out_err)
+static esp_http_client_handle_t http_open_url(const char *url, int timeout_ms, esp_err_t *out_err)
 {
     *out_err = ESP_FAIL;
     for (int i = 0; i < 3; i++) {
         esp_http_client_config_t c;
-        http_cfg(&c, url, timeout_ms, host);
+        http_cfg(&c, url, timeout_ms);
         esp_http_client_handle_t cli = esp_http_client_init(&c);
         if (cli == NULL) {
             *out_err = ESP_ERR_NO_MEM;
+            note_http(url, ESP_ERR_NO_MEM, NULL);
             return NULL;
         }
         esp_err_t err = esp_http_client_open(cli, 0);
         if (err == ESP_OK) {
             *out_err = ESP_OK;
+            if (url != NULL) {
+                strncpy(s_last_url, url, sizeof(s_last_url) - 1);
+                s_last_url[sizeof(s_last_url) - 1] = 0;
+            }
             return cli;
         }
         *out_err = err;
-        ESP_LOGE(TAG, "open %s %s (%d)", url, esp_err_to_name(err), i + 1);
+        note_http(url, err, cli);
         esp_http_client_cleanup(cli);
         vTaskDelay(pdMS_TO_TICKS(400));
     }
@@ -297,17 +386,9 @@ static esp_err_t http_get_text(const char *url, char *out, int cap, int *out_n)
     current[sizeof(current) - 1] = 0;
 
     for (int hop = 0; hop < HTTP_HOPS; hop++) {
-        char host[128];
-        char ipv4[HTTP_URL_MAX];
-        esp_err_t err = net_http_force_ipv4(current, ipv4, sizeof(ipv4), host, sizeof(host));
-        if (err != ESP_OK) {
-            s_http_err = err;
-            return err;
-        }
-        esp_http_client_handle_t cli = http_open_url(ipv4, 20000, host, &err);
+        esp_err_t err = ESP_OK;
+        esp_http_client_handle_t cli = http_open_url(current, 20000, &err);
         if (cli == NULL) {
-            s_http_err = err;
-            ESP_LOGE(TAG, "GET open %s %s", current, esp_err_to_name(err));
             return err;
         }
         (void)esp_http_client_fetch_headers(cli);
@@ -354,19 +435,10 @@ static esp_err_t http_stream_bin(const char *url, const char *want_sha)
     s_http_err = ESP_OK;
 
     for (int hop = 0; hop < HTTP_HOPS; hop++) {
-        char host[128];
-        char ipv4[HTTP_URL_MAX];
-        esp_err_t err = net_http_force_ipv4(current, ipv4, sizeof(ipv4), host, sizeof(host));
-        if (err != ESP_OK) {
-            s_http_err = err;
-            set_state(OTA_ERR, err == ESP_ERR_NOT_FOUND ? "sem dns" : "falha no download");
-            return err;
-        }
+        esp_err_t err = ESP_OK;
         set_state(OTA_DOWNLOADING, "baixando...");
-        esp_http_client_handle_t cli = http_open_url(ipv4, 60000, host, &err);
+        esp_http_client_handle_t cli = http_open_url(current, 60000, &err);
         if (cli == NULL) {
-            s_http_err = err;
-            ESP_LOGE(TAG, "BIN open %s %s", current, esp_err_to_name(err));
             set_http_err(0, err == ESP_ERR_NO_MEM ? "sem RAM" : "falha no download");
             return err;
         }
@@ -449,6 +521,63 @@ static esp_err_t http_stream_bin(const char *url, const char *want_sha)
     return ESP_FAIL;
 }
 
+static void map_get_fail(void)
+{
+    if (s_http_err == ESP_ERR_NOT_FOUND) {
+        set_state(OTA_ERR, "sem dns");
+    } else if (s_http_err == ESP_ERR_HTTP_CONNECT && !net_time_ok()) {
+        set_state(OTA_ERR, "sem relogio");
+    } else if (s_http_err == ESP_ERR_HTTP_CONNECT) {
+        set_state(OTA_ERR, "https");
+    } else if (s_http_err == ESP_ERR_NO_MEM) {
+        set_state(OTA_ERR, "sem RAM");
+    } else if (s_http_status > 0 && s_http_status != 200) {
+        set_http_err(s_http_status, "sem manifesto");
+    } else {
+        set_state(OTA_ERR, "sem manifesto");
+    }
+}
+
+static void probe_task(void *arg)
+{
+    (void)arg;
+    char *json = malloc(2048);
+    if (json == NULL) {
+        set_state(OTA_ERR, "sem RAM");
+        s_pull_busy = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    set_state(OTA_CHECKING, "relogio...");
+    (void)net_time_wait(20000);
+    set_state(OTA_CHECKING, "probe...");
+    int n = 0;
+    if (http_get_text(RIBANENSEESP_MANIFEST_URL, json, 2048, &n) != ESP_OK) {
+        free(json);
+        map_get_fail();
+        s_pull_busy = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    cJSON *root = cJSON_Parse(json);
+    free(json);
+    const char *ver = "";
+    if (root != NULL) {
+        const cJSON *v = cJSON_GetObjectItem(root, "version");
+        if (cJSON_IsString(v) && v->valuestring != NULL) {
+            ver = v->valuestring;
+        }
+    }
+    char m[24];
+    snprintf(m, sizeof(m), "ok %s", ver[0] != 0 ? ver : "?");
+    set_state(OTA_IDLE, m);
+    if (root != NULL) {
+        cJSON_Delete(root);
+    }
+    s_pull_busy = false;
+    vTaskDelete(NULL);
+}
+
 static void pull_task(void *arg)
 {
     (void)arg;
@@ -467,19 +596,7 @@ static void pull_task(void *arg)
     esp_err_t err = http_get_text(RIBANENSEESP_MANIFEST_URL, json, 2048, &n);
     if (err != ESP_OK) {
         free(json);
-        if (s_http_err == ESP_ERR_NOT_FOUND) {
-            set_state(OTA_ERR, "sem dns");
-        } else if (s_http_err == ESP_ERR_HTTP_CONNECT && !net_time_ok()) {
-            set_state(OTA_ERR, "sem relogio");
-        } else if (s_http_err == ESP_ERR_HTTP_CONNECT) {
-            set_state(OTA_ERR, "sem tls");
-        } else if (s_http_err == ESP_ERR_NO_MEM) {
-            set_state(OTA_ERR, "sem RAM");
-        } else if (s_http_status > 0 && s_http_status != 200) {
-            set_http_err(s_http_status, "sem manifesto");
-        } else {
-            set_state(OTA_ERR, "sem manifesto");
-        }
+        map_get_fail();
         s_pull_busy = false;
         vTaskDelete(NULL);
         return;
@@ -624,9 +741,10 @@ esp_err_t ota_apply_file(const char *abs_path)
 
 esp_err_t ota_init(void)
 {
+    (void)esp_log_set_vprintf(ota_log_vprintf);
     (void)esp_ota_mark_app_valid_cancel_rollback();
     set_state(OTA_IDLE, "Atualizar");
-    ESP_LOGI(TAG, "OTA pronto (GET /status POST /update)");
+    ESP_LOGI(TAG, "OTA pronto (GET /status /log /probe /pull POST /update)");
     return ESP_OK;
 }
 
@@ -656,9 +774,27 @@ esp_err_t ota_start_httpd(void)
         .method = HTTP_POST,
         .handler = on_update,
     };
+    const httpd_uri_t logu = {
+        .uri = "/log",
+        .method = HTTP_GET,
+        .handler = on_log,
+    };
+    const httpd_uri_t probe = {
+        .uri = "/probe",
+        .method = HTTP_GET,
+        .handler = on_probe,
+    };
+    const httpd_uri_t pull = {
+        .uri = "/pull",
+        .method = HTTP_GET,
+        .handler = on_pull,
+    };
     httpd_register_uri_handler(s_httpd, &status);
     httpd_register_uri_handler(s_httpd, &update);
-    ESP_LOGI(TAG, "httpd :80 /status /update");
+    httpd_register_uri_handler(s_httpd, &logu);
+    httpd_register_uri_handler(s_httpd, &probe);
+    httpd_register_uri_handler(s_httpd, &pull);
+    ESP_LOGI(TAG, "httpd :80 /status /log /probe /pull /update");
     return ESP_OK;
 }
 

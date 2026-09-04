@@ -49,8 +49,6 @@ void net_sta_ssid(char *out, size_t max);
 uint16_t net_sta_fail_reason(void);
 esp_err_t net_time_wait(int timeout_ms);
 bool net_time_ok(void);
-esp_err_t net_http_force_ipv4(const char *url, char *out_url, size_t url_max,
-                              char *out_host, size_t host_max);
 
 bool net_wifi_known(const char *ssid);
 bool net_wifi_get(const char *ssid, char *psk, size_t psk_max, uint8_t *auth);

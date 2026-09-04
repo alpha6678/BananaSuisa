@@ -105,9 +105,16 @@ A flash do Wi-Fi (`WIFI_STORAGE_RAM`) não guarda senha — o cartão é a
 fonte. Sem SD, a sessão vale só até o reboot.
 
 Servidor HTTP (porta 80) sobe só com IP. Auth do push: cabeçalho
-`X-Ribanense-Key: ribanense-esp`.
+`X-Ribanense-Key: ribanense-esp`. Diagnóstico sem cabo: `GET /status`
+(JSON com `err`/`http`/`errno`/`time`/`url`), `GET /log` (últimas linhas
+ESP_LOG), `GET /probe` (só lê o manifesto no GitHub, não grava) e
+`GET /pull` com a chave (mesmo efeito de tocar em **Atualizar**).
 
 ```bat
+curl http://192.168.0.230/status
+curl http://192.168.0.230/log
+curl http://192.168.0.230/probe
+curl -H "X-Ribanense-Key: ribanense-esp" http://192.168.0.230/pull
 curl http://192.168.0.230/status
 curl -H "X-Ribanense-Key: ribanense-esp" --data-binary @ribanense_esp.bin http://192.168.0.230/update
 ```
