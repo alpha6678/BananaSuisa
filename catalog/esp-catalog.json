@@ -11,9 +11,9 @@
       "githubRepo": "BananaSuisa",
       "githubTagPrefix": "esp-sobre-v",
       "minimumOsVersion": "0.0.2",
-      "version": "0.1.1",
-      "url": "https://github.com/desenvolvimentoLocatelli/BananaSuisa/releases/download/esp-sobre-v0.1.1/esp-sobre-0.1.1.zip",
-      "sha256": "e7ef733a578e454995c1ed49dd583bad0f6fb51de4d14d2091586015b674cc32"
+      "version": "0.1.2",
+      "url": "https://github.com/desenvolvimentoLocatelli/BananaSuisa/releases/download/esp-sobre-v0.1.2/esp-sobre-0.1.2.zip",
+      "sha256": "e42f5a5b850bb1a41c699e04fd36d1120d27548e1ef2771888405e6a1ec657df"
     }
   ]
 }
