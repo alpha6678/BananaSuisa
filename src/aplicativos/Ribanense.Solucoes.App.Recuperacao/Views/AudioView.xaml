@@ -1,0 +1,58 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Recuperacao.Views.AudioView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Recuperacao.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AudioViewModel}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0"
+                Style="{StaticResource Badge.Warning}"
+                Visibility="{Binding NaoElevado, Converter={StaticResource BoolToVis}}">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right"
+                        Content="Reabrir como administrador"
+                        Style="{StaticResource Button.Accent}"
+                        Command="{Binding ReabrirElevadoCommand}" />
+                <TextBlock Text="Sem elevação: o diagnóstico funciona; backup, reparo, escalada e codec exigem administrador."
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           Margin="0,0,12,0" />
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1"
+                Background="{StaticResource Brush.Surface}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Margin="0,8,0,8"
+                Padding="4">
+            <ItemsControl ItemsSource="{Binding Fases}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <RadioButton GroupName="FasesAudio"
+                                     Style="{StaticResource Tab.Toggle}"
+                                     Content="{Binding Title}"
+                                     IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <ContentControl Grid.Row="2" Content="{Binding FaseSelecionada.Content}" />
+    </Grid>
+</UserControl>

@@ -1,0 +1,95 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Recuperacao.Views.DiagnosticoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Recuperacao.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AudioDiagnosticoViewModel}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <Button DockPanel.Dock="Left"
+                    Content="Executar diagnóstico"
+                    Style="{StaticResource Button.Accent}"
+                    Command="{Binding ExecutarCommand}"
+                    Margin="0,0,8,0" />
+            <Button DockPanel.Dock="Left"
+                    Content="Cancelar"
+                    Style="{StaticResource Button.Base}"
+                    Command="{Binding CancelarCommand}" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <ProgressBar Width="160" Height="14"
+                             IsIndeterminate="{Binding IsBusy}"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+                <TextBlock Text="{Binding Progresso}"
+                           Margin="10,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource Brush.TextMuted}" />
+            </StackPanel>
+        </DockPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Secoes}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Expander IsExpanded="True"
+                                  Margin="0,0,0,8"
+                                  Background="{StaticResource Brush.Surface}"
+                                  BorderBrush="{StaticResource Brush.Border}"
+                                  BorderThickness="1"
+                                  Padding="8">
+                            <Expander.Header>
+                                <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" />
+                            </Expander.Header>
+                            <ItemsControl ItemsSource="{Binding Itens}" Margin="4,4,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Ellipse Grid.Column="0"
+                                                     Width="10" Height="10"
+                                                     Fill="{Binding Severity, Converter={StaticResource SeverityToBrush}}"
+                                                     VerticalAlignment="Top"
+                                                     Margin="0,5,8,0" />
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Title}"
+                                                           FontWeight="SemiBold"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding Detail}"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.TextMuted}" />
+                                                <TextBlock Text="{Binding Hint, FallbackValue=''}"
+                                                           TextWrapping="Wrap"
+                                                           FontStyle="Italic"
+                                                           Foreground="{StaticResource Brush.TextMuted}"
+                                                           Visibility="{Binding Hint, Converter={StaticResource NullToVis}}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Margin="0,8,0,0">
+            <TextBlock Text="{Binding Resumo}" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding CaminhoRelatorio, FallbackValue=''}"
+                       TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.TextMuted}"
+                       Visibility="{Binding CaminhoRelatorio, Converter={StaticResource NullToVis}}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

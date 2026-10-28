@@ -18,6 +18,9 @@ artifacts/
 # Pasta local de IA (insumo de desenvolvimento, nao versionada)
 IA/
 
+# Utilitario local de referencia (reparo de audio), extrai do script e nao versiona
+Fix-WindowsAudio.ps1
+
 # ESP-IDF (RibanenseESP)
 firmware/backup-fabrica/
 firmware/ribanense-esp/build/
