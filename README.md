@@ -17,6 +17,16 @@ Launcher e catálogo de aplicativos modulares para Windows, inspirado no modelo 
 | [`hardware/`](hardware/) | Dossiês de equipamentos físicos (fotos, identificação, pinout). |
 | [`firmware/ribanense-esp/`](firmware/ribanense-esp/) | Casca **RibanenseESP** (ESP-IDF) da placa E32R28T-1. |
 
+## Instalação do CLI de desenvolvimento
+
+Com o repositório clonado, um comando instala o `rb` no PATH do Windows:
+
+```bat
+python install.py
+```
+
+O script valida o ambiente e chama o instalador oficial (`ferramentas/install-rb-command.ps1`), que cria os shims em `%LOCALAPPDATA%\RibanenseSolucoes\bin` e registra a pasta no PATH do usuário — sem precisar de admin. Use `python install.py --session` para valer apenas no terminal atual. Abra um novo terminal e teste com `rb help`.
+
 ## Build e execução
 
 ```bat
