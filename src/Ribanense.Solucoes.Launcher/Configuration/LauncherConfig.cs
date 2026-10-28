@@ -12,9 +12,9 @@ public static class LauncherConfig
     public const string LauncherAppId = "com.ribanense.launcher";
     public const string LauncherTagPrefix = "launcher-v";
     public const string DefaultCatalogUrl =
-        "https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/catalog/catalog.json";
+        "https://raw.githubusercontent.com/alpha6678/BananaSuisa/main/catalog/catalog.json";
 
-    public const string DefaultLauncherGithubOwner = "desenvolvimentoLocatelli";
+    public const string DefaultLauncherGithubOwner = "alpha6678";
     public const string DefaultLauncherGithubRepo = "BananaSuisa";
 
     /// <summary>Owner do repositorio GitHub que publica as releases do launcher (launcher-v*).</summary>
