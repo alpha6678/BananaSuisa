@@ -25,3 +25,6 @@ firmware/ribanense-esp/managed_components/
 firmware/ribanense-esp/sdkconfig
 firmware/ribanense-esp/sdkconfig.old
 firmware/ribanense-esp/dependencies.lock
+
+# Artefatos python do instalador (install.py)
+__pycache__/
