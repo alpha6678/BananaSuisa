@@ -124,7 +124,7 @@ Manifesto (`firmware/ribanense-esp/firmware.json`): `schemaVersion`,
 O pull recusa `product` diferente, versão ≤ à gravada, `url` vazio ou
 SHA256 divergente. URL do manifesto no firmware:
 
-`https://raw.githubusercontent.com/desenvolvimentoLocatelli/BananaSuisa/main/firmware/ribanense-esp/firmware.json`
+`https://raw.githubusercontent.com/alpha6678/BananaSuisa/main/firmware/ribanense-esp/firmware.json`
 
 Assets de release: `ribanense-esp-<ver>.bin` + `.sha256`. O `rb os release`
 (ou `rb publish all`) preenche `url` e `sha256` e sobe o JSON — é assim

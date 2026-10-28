@@ -80,7 +80,7 @@ function Invoke-IdfBuild {
 
 function Get-GithubOwnerRepo {
     param([Parameter(Mandatory)] [string] $ProjectRoot)
-    $owner = 'desenvolvimentoLocatelli'
+    $owner = 'alpha6678'
     $repo = 'BananaSuisa'
     Push-Location $ProjectRoot
     try {
