@@ -72,6 +72,18 @@
       "githubRepo": "BananaSuisa",
       "githubTagPrefix": "farol-v",
       "minimumLauncherVersion": "0.1.0"
+    },
+    {
+      "id": "com.ribanense.recuperacao",
+      "name": "Recuperação do Windows",
+      "publicName": "Recuperação do Windows",
+      "description": "Diagnóstico e reparo do subsistema de áudio do Windows em fases seguras: diagnóstico somente leitura, backup (ponto de restauração + drivers + registro), reparo seguro, escalada com remoção cirúrgica de drivers e instalação do driver do codec (ex.: ESS ES8336).",
+      "category": "Sistema",
+      "icon": "https://raw.githubusercontent.com/alpha6678/BananaSuisa/main/catalog/icons/recuperacao.png",
+      "githubOwner": "alpha6678",
+      "githubRepo": "BananaSuisa",
+      "githubTagPrefix": "recuperacao-v",
+      "minimumLauncherVersion": "0.1.0"
     }
   ]
 }

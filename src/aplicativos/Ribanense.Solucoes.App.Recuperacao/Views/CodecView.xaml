@@ -1,0 +1,68 @@
+<UserControl x:Class="Ribanense.Solucoes.App.Recuperacao.Views.CodecView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:Ribanense.Solucoes.App.Recuperacao.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance Type=vm:AudioCodecViewModel}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.TextMuted}"
+                       Margin="0,0,0,8"
+                       Text="Instala o driver do codec de áudio (ex.: ESS ES8336) a partir de uma pasta local com .inf. Aponta para a pasta descompactada do pacote do fabricante." />
+            <DockPanel Margin="0,0,0,8">
+                <TextBlock DockPanel.Dock="Left" Text="Pasta:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <Button DockPanel.Dock="Right"
+                        Content="Procurar…"
+                        Style="{StaticResource Button.Base}"
+                        Command="{Binding ProcurarPastaCommand}"
+                        Margin="8,0,0,0" />
+                <TextBox Text="{Binding Pasta, UpdateSourceTrigger=PropertyChanged}"
+                         VerticalContentAlignment="Center"
+                         Padding="6,4" />
+            </DockPanel>
+            <DockPanel>
+                <Button DockPanel.Dock="Left"
+                        Content="Instalar"
+                        Style="{StaticResource Button.Accent}"
+                        Command="{Binding InstalarCommand}"
+                        Margin="0,0,8,0" />
+                <Button DockPanel.Dock="Left"
+                        Content="Cancelar"
+                        Style="{StaticResource Button.Base}"
+                        Command="{Binding CancelarCommand}" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ProgressBar Width="140" Height="14"
+                                 IsIndeterminate="{Binding IsBusy}"
+                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Text="{Binding Progresso}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource Brush.TextMuted}" />
+                </StackPanel>
+            </DockPanel>
+        </StackPanel>
+
+        <DockPanel Grid.Row="1">
+            <Button DockPanel.Dock="Top"
+                    Content="Procurar .inf na pasta"
+                    Style="{StaticResource Button.Base}"
+                    Command="{Binding ProcurarInfCommand}"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,0,8" />
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ListBox ItemsSource="{Binding Infs}"
+                         SelectedItem="{Binding InfSelecionado}"
+                         Padding="4" />
+            </ScrollViewer>
+        </DockPanel>
+    </Grid>
+</UserControl>
