@@ -1,0 +1,12 @@
+{
+  "id": "com.ribanense.mago",
+  "name": "Mago da Performance",
+  "publicName": "Mago da Performance",
+  "version": "0.1.0",
+  "minimumLauncherVersion": "0.1.0",
+  "entryExecutable": "Ribanense.Solucoes.App.Mago.exe",
+  "icon": "icon.png",
+  "category": "Desempenho",
+  "requiresElevation": false,
+  "githubTagPrefix": "mago-v"
+}

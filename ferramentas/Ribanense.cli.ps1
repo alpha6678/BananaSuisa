@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 # Ribanense.cli.ps1 — CLI de desenvolvimento do monorepo Ribanense Soluções.
 
 param(

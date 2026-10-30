@@ -84,6 +84,18 @@
       "githubRepo": "BananaSuisa",
       "githubTagPrefix": "recuperacao-v",
       "minimumLauncherVersion": "0.1.0"
+    },
+    {
+      "id": "com.ribanense.mago",
+      "name": "Mago da Performance",
+      "publicName": "Mago da Performance",
+      "description": "Diagnóstico e otimização de desempenho do Windows: hardware e BIOS, ajustes de registo e serviços, controlo de programas de arranque, FPS e limpeza — com backup e restauro das alterações.",
+      "category": "Desempenho",
+      "icon": "https://raw.githubusercontent.com/alpha6678/BananaSuisa/main/catalog/icons/mago.png",
+      "githubOwner": "alpha6678",
+      "githubRepo": "BananaSuisa",
+      "githubTagPrefix": "mago-v",
+      "minimumLauncherVersion": "0.1.0"
     }
   ]
 }
