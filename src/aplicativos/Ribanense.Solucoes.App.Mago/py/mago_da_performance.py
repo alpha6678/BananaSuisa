@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import csv
+import http.client
 import json
 import math
 import os
@@ -7,10 +8,12 @@ import re
 import sys
 import ctypes
 import shutil
+import socket
 import subprocess
 import threading
 import tempfile
 import time
+import urllib.parse
 import webbrowser
 import platform
 from datetime import datetime
@@ -239,6 +242,172 @@ def ps_json(command, timeout=90):
     return ok, data or [], out
 
 
+SPEEDTEST_DOWN_URL = "https://speed.cloudflare.com/__down"
+SPEEDTEST_UP_URL = "https://speed.cloudflare.com/__up"
+SPEEDTEST_AGENT = "MagoDaPerformance/6.0"
+PING_HOST_DEFAULT = "1.1.1.1"
+PING_TIME_RE = re.compile(r"(?:time|tempo|tiempo|zeit|tijd)[=<]\s*([0-9]+(?:[.,][0-9]+)?)\s*ms", re.IGNORECASE)
+
+
+def parse_ping_times(output):
+    """Latências (ms) das respostas do `ping`, em pt/en/es/de.
+
+    O `ping.exe` é localizado, por isso procuramos a chave antes do valor
+    ("time=11ms", "tempo<1ms") em vez de traduzir a linha inteira.
+    """
+    times = []
+    for line in (output or "").splitlines():
+        match = PING_TIME_RE.search(line)
+        if not match:
+            continue
+        try:
+            times.append(float(match.group(1).replace(",", ".")))
+        except ValueError:
+            continue
+    return times
+
+
+def summarize_latency(times, sent):
+    """min/média/máx/jitter/perda a partir das amostras de um ping."""
+    samples = [t for t in (times or []) if t is not None]
+    sent = max(int(sent or 0), len(samples))
+    if not samples:
+        return {"sent": sent, "received": 0, "loss": 100.0, "min": None, "avg": None, "max": None, "jitter": None}
+    jitter = 0.0
+    if len(samples) > 1:
+        jitter = sum(abs(b - a) for a, b in zip(samples, samples[1:])) / (len(samples) - 1)
+    return {
+        "sent": sent,
+        "received": len(samples),
+        "loss": round((sent - len(samples)) * 100.0 / sent, 1) if sent else 0.0,
+        "min": round(min(samples), 1),
+        "avg": round(sum(samples) / len(samples), 1),
+        "max": round(max(samples), 1),
+        "jitter": round(jitter, 1),
+    }
+
+
+def bits_per_second(total_bytes, seconds):
+    """Converte bytes/segundos medidos em bits por segundo."""
+    if not total_bytes or not seconds or seconds <= 0:
+        return 0.0
+    return total_bytes * 8.0 / seconds
+
+
+def format_mbps(bps):
+    """bits/s para texto curto, ex.: "84 Mbps" ou "9.4 Mbps"."""
+    if not bps or bps <= 0:
+        return "--"
+    mbps = bps / 1e6
+    return f"{mbps:.0f} Mbps" if mbps >= 100 else f"{mbps:.1f} Mbps"
+
+
+def _open_http_stream(url, timeout=12, method="GET", body=None, headers=None):
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "https" or not parts.hostname:
+        raise ValueError(f"URL de teste inválida: {url}")
+    connection = http.client.HTTPSConnection(parts.hostname, parts.port, timeout=timeout)
+    path = parts.path or "/"
+    if parts.query:
+        path += "?" + parts.query
+    request_headers = {"User-Agent": SPEEDTEST_AGENT, "Accept": "*/*", "Cache-Control": "no-store"}
+    request_headers.update(headers or {})
+    try:
+        connection.request(method, path, body=body, headers=request_headers)
+        return connection, connection.getresponse()
+    except Exception:
+        connection.close()
+        raise
+
+
+def measure_download(max_bytes=25_000_000, max_seconds=10.0, settle_seconds=0.75, timeout=12):
+    """Baixa até `max_bytes`/`max_seconds` e devolve (bytes, segundos) do período medido.
+
+    Os primeiros `settle_seconds` descartam a rampa inicial do TCP/TLS, senão
+    ligações rápidas parecem lentas; se a transferência acabar antes, usamos a
+    janela inteira.
+    """
+    received = 0
+    base_bytes = 0
+    base_time = None
+    started = time.perf_counter()
+    connection, response = _open_http_stream(
+        f"{SPEEDTEST_DOWN_URL}?bytes={int(max_bytes)}", timeout=timeout
+    )
+    try:
+        if response.status >= 400:
+            raise RuntimeError(f"HTTP {response.status} do servidor de teste")
+        while True:
+            chunk = response.read(65536)
+            if not chunk:
+                break
+            received += len(chunk)
+            elapsed = time.perf_counter() - started
+            if base_time is None and elapsed >= settle_seconds:
+                base_time = elapsed
+                base_bytes = received
+            if received >= max_bytes or elapsed >= max_seconds:
+                break
+    finally:
+        connection.close()
+    elapsed = time.perf_counter() - started
+    if base_time is None or received <= base_bytes:
+        return received, elapsed
+    return received - base_bytes, elapsed - base_time
+
+
+def measure_upload(max_bytes=4_000_000, timeout=40):
+    """Envia `max_bytes` em POST e devolve (bytes, segundos)."""
+    payload = b"\x00" * int(max_bytes)
+    started = time.perf_counter()
+    connection, response = _open_http_stream(
+        SPEEDTEST_UP_URL,
+        timeout=timeout,
+        method="POST",
+        body=payload,
+        headers={"Content-Type": "application/octet-stream"},
+    )
+    try:
+        response.read()
+        status = response.status
+    finally:
+        connection.close()
+    elapsed = max(time.perf_counter() - started, 1e-3)
+    if status >= 400:
+        raise RuntimeError(f"HTTP {status} do servidor de teste")
+    return len(payload), elapsed
+
+
+def diagnose_network(ping=None, gateway=None, down_bps=None, up_bps=None):
+    """Frase curta de diagnóstico cruzando ping local, internet e velocidade."""
+    notes = []
+    local = gateway or {}
+    internet = ping or {}
+    if local.get("loss") is not None and local["loss"] >= 1:
+        notes.append("já há perda de pacotes no router: cabo, Wi-Fi ou placa de rede")
+    elif local.get("avg") is not None and local["avg"] > 8:
+        notes.append("latência alta até ao router: o problema começa na rede local")
+    if internet.get("loss") is not None and internet["loss"] >= 5:
+        notes.append("perda de pacotes para a internet: ligação instável")
+    elif internet.get("avg") is not None and internet["avg"] >= 80:
+        notes.append("latência alta para a internet com rede local limpa: problema fora de casa (ISP/rota)")
+    if internet.get("jitter") is not None and internet["jitter"] >= 15:
+        notes.append("jitter elevado: mau para jogos e chamadas")
+    if down_bps:
+        mbps = down_bps / 1e6
+        if mbps < 20:
+            notes.append(f"download de {mbps:.0f} Mbps é pouco para 4K e atualizações grandes")
+    if up_bps:
+        mbps = up_bps / 1e6
+        if mbps < 3:
+            notes.append(f"upload de {mbps:.1f} Mbps limita chamadas e backups na nuvem")
+    if notes:
+        return "Atenção — " + "; ".join(notes) + "."
+    if internet.get("avg") is not None:
+        return "Ligação saudável: latência baixa, sem perda relevante e velocidade estável."
+    return "Sem medições suficientes para diagnosticar."
+
+
 def pspath_to_reg(pspath):
     if not pspath:
         return ""
@@ -423,6 +592,11 @@ class MagoDaPerformanceApp:
         self.fps_overlay = None
         self.fps_overlay_value = None
         self.fps_overlay_game = None
+        self.net_stats = {}
+        self.net_last = {}
+        self.net_info_loading = False
+        self.net_host_var = tk.StringVar(value=PING_HOST_DEFAULT)
+        self.net_status_var = tk.StringVar(value="Corre o teste completo para medir latência e velocidade.")
 
         self.create_styles()
         self.create_shell()
@@ -591,6 +765,7 @@ class MagoDaPerformanceApp:
         nav = [
             ("painel", "PAINEL"),
             ("otimizar", "OTIMIZAR"),
+            ("rede", "REDE"),
             ("apps", "APLICATIVOS"),
             ("backup", "BACKUP"),
             ("bios", "BIOS"),
@@ -643,6 +818,7 @@ class MagoDaPerformanceApp:
 
         self.build_page_painel()
         self.build_page_otimizar()
+        self.build_page_rede()
         self.build_page_apps()
         self.build_page_backup()
         self.build_page_bios()
@@ -663,6 +839,8 @@ class MagoDaPerformanceApp:
             btn.config(fg=self.green if active else self.dim, bg="#151C27" if active else self.sidebar_bg)
         if name == "apps" and not self.apps_all:
             threading.Thread(target=self.refresh_apps, daemon=True).start()
+        if name == "rede":
+            self.refresh_net_info()
         if name == "backup":
             self.refresh_backup_labels()
         if name == "ferramentas" and not self.startup_loaded and not self.startup_loading:
@@ -1503,6 +1681,327 @@ class MagoDaPerformanceApp:
             anchor="w",
         )
         self.lbl_startup_status.pack(fill="x", padx=12, pady=(0, 10))
+
+    def build_page_rede(self):
+        page = tk.Frame(self.content, bg=self.bg)
+        self.pages["rede"] = page
+        tk.Label(page, text="Rede e velocidade", font=("Segoe UI", 16, "bold"), fg=self.text, bg=self.bg).pack(anchor="w")
+        tk.Label(
+            page,
+            text="Ping com jitter e perda, download e upload reais. Cada teste completo transfere cerca de 29 MB.",
+            font=("Segoe UI", 9),
+            fg=self.dim,
+            bg=self.bg,
+            wraplength=980,
+            justify="left",
+        ).pack(anchor="w", pady=(0, 8))
+
+        info = self.card_frame(page, "LIGAÇÃO ATUAL")
+        info.pack(fill="x", pady=6)
+        self.lbl_net_info = tk.Label(
+            info,
+            text="A analisar a ligação...",
+            font=("Consolas", 9),
+            fg=self.text,
+            bg=self.card,
+            justify="left",
+            anchor="w",
+        )
+        self.lbl_net_info.pack(fill="x", padx=12, pady=(0, 6))
+        info_row = tk.Frame(info, bg=self.card)
+        info_row.pack(fill="x", padx=12, pady=(0, 10))
+        self.ghost_btn(info_row, "Analisar ligação", self.refresh_net_info, bg="#1B2430").pack(side="left")
+        self.ghost_btn(
+            info_row,
+            "Configurações de rede do Windows",
+            lambda: open_uri("ms-settings:network-status"),
+            bg="#1B2430",
+        ).pack(side="left", padx=8)
+
+        stats = tk.Frame(page, bg=self.bg)
+        stats.pack(fill="x", pady=4)
+        self.net_stats = {}
+        for column, (key, caption, color) in enumerate(
+            [
+                ("ping", "PING MÉDIO", self.green),
+                ("jitter", "JITTER", self.cyan),
+                ("loss", "PERDA", self.red),
+                ("down", "DOWNLOAD", self.gold),
+                ("up", "UPLOAD", self.purple),
+            ]
+        ):
+            stats.columnconfigure(column, weight=1)
+            box = tk.Frame(stats, bg=self.card, highlightbackground=self.line, highlightthickness=1)
+            box.grid(row=0, column=column, sticky="nsew", padx=4)
+            tk.Label(box, text=caption, font=("Segoe UI", 8, "bold"), fg=self.dim, bg=self.card, anchor="w").pack(
+                fill="x", padx=10, pady=(8, 0)
+            )
+            value = tk.Label(box, text="--", font=("Consolas", 15, "bold"), fg=color, bg=self.card, anchor="w")
+            value.pack(fill="x", padx=10, pady=(0, 9))
+            self.net_stats[key] = value
+
+        test = self.card_frame(page, "TESTE")
+        test.pack(fill="x", pady=6)
+        host_row = tk.Frame(test, bg=self.card)
+        host_row.pack(fill="x", padx=12, pady=3)
+        tk.Label(host_row, text="Servidor:", font=("Segoe UI", 9), fg=self.text, bg=self.card).pack(side="left")
+        tk.Entry(
+            host_row,
+            textvariable=self.net_host_var,
+            bg="#10161F",
+            fg=self.text,
+            insertbackground=self.text,
+            bd=0,
+            highlightthickness=1,
+            highlightbackground=self.line,
+            font=("Segoe UI", 9),
+        ).pack(side="left", padx=8, fill="x", expand=True, ipady=5)
+        for host in ("1.1.1.1", "8.8.8.8", "google.com"):
+            self.ghost_btn(host_row, host, lambda h=host: self.net_host_var.set(h), bg="#1B2430").pack(
+                side="left", padx=(6, 0)
+            )
+
+        actions = tk.Frame(test, bg=self.card)
+        actions.pack(fill="x", padx=12, pady=(8, 10))
+        self.ghost_btn(
+            actions,
+            "TESTE COMPLETO\n(rede + ping + velocidade)",
+            self.run_network_test,
+            bg="#2A2410",
+            fg=self.gold,
+            pady=10,
+        ).pack(side="left", expand=True, fill="x", padx=(0, 6))
+        self.ghost_btn(actions, "Só ping\n(latência e perda)", self.run_ping_test, bg="#1B2430", pady=10).pack(
+            side="left", expand=True, fill="x", padx=6
+        )
+        self.ghost_btn(actions, "Só velocidade\n(download e upload)", self.run_speed_test, bg="#1B2430", pady=10).pack(
+            side="left", expand=True, fill="x", padx=(6, 0)
+        )
+
+        tk.Label(
+            page,
+            textvariable=self.net_status_var,
+            font=("Segoe UI", 9),
+            fg=self.dim,
+            bg=self.bg,
+            anchor="w",
+            justify="left",
+            wraplength=980,
+        ).pack(fill="x", pady=(8, 0))
+        self.lbl_net_diag = tk.Label(
+            page,
+            text="",
+            font=("Segoe UI", 10, "bold"),
+            fg=self.gold,
+            bg=self.bg,
+            anchor="w",
+            justify="left",
+            wraplength=980,
+        )
+        self.lbl_net_diag.pack(fill="x", pady=(4, 0))
+
+    NET_PING_COUNT = 5
+    NET_DOWNLOAD_BYTES = 25_000_000
+    NET_DOWNLOAD_SECONDS = 15.0
+    NET_UPLOAD_BYTES = 4_000_000
+
+    def refresh_net_info(self):
+        if getattr(self, "net_info_loading", False):
+            return
+        self.net_info_loading = True
+        # Chamada na thread principal, por isso escreve direto: passar por
+        # _net_info_apply libertaria o guard antes do worker terminar.
+        self.lbl_net_info.config(text="A analisar a ligação...")
+        threading.Thread(target=self._net_info_worker, daemon=True).start()
+
+    def _net_info_worker(self):
+        try:
+            text = self.network_report()
+        except Exception as exc:
+            text = f"Não foi possível analisar a ligação: {exc}"
+        self._net_info_apply(text)
+
+    def _net_info_apply(self, text):
+        def _apply():
+            self.lbl_net_info.config(text=text)
+            self.net_info_loading = False
+
+        self.ui(_apply)
+
+    def _net_status(self, text):
+        self.ui(lambda: self.net_status_var.set(text))
+
+    def _net_set(self, key, value):
+        label = self.net_stats.get(key)
+        if label is None:
+            return
+        self.ui(lambda: label.config(text=value))
+
+    def _net_update_diagnosis(self):
+        text = diagnose_network(
+            ping=self.net_last.get("ping"),
+            gateway=self.net_last.get("gateway"),
+            down_bps=self.net_last.get("download"),
+            up_bps=self.net_last.get("upload"),
+        )
+        self.ui(lambda: self.lbl_net_diag.config(text=text))
+
+    def default_route(self):
+        """Gateway e DNS do adaptador com rota padrão.
+
+        Lido por CIM (nomes de propriedade em inglês), para não depender do
+        idioma do Windows como a leitura do `ipconfig` faria.
+        """
+        ok, data, _out = ps_json(
+            "Get-CimInstance Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' | "
+            "Where-Object { $_.DefaultIPGateway } | Select-Object -First 1 "
+            "Description, @{n='Gateway';e={$_.DefaultIPGateway -join ', '}}, "
+            "@{n='DNS';e={$_.DNSServerSearchOrder -join ', '}}",
+            timeout=45,
+        )
+        if not ok or not data:
+            return {}
+        row = data[0] if isinstance(data, list) else data
+        if not isinstance(row, dict):
+            return {}
+        return {
+            "description": str(row.get("Description") or "").strip(),
+            "gateway": str(row.get("Gateway") or "").strip(),
+            "dns": str(row.get("DNS") or "").strip(),
+        }
+
+    def network_report(self, route=None):
+        """Adaptadores ativos, IP, gateway, DNS e velocidade de link."""
+        try:
+            stats = psutil.net_if_stats()
+            addrs = psutil.net_if_addrs()
+        except Exception as exc:
+            return f"Não foi possível ler os adaptadores: {exc}"
+        lines = []
+        active = []
+        for name, stat in sorted(stats.items()):
+            if not stat.isup or name.lower().startswith("loopback"):
+                continue
+            ipv4 = ""
+            for item in addrs.get(name, []):
+                if item.family == socket.AF_INET and "." in (item.address or ""):
+                    ipv4 = item.address
+                    break
+            if not ipv4:
+                continue
+            low = name.lower()
+            medium = "Wi-Fi" if any(key in low for key in ("wi-fi", "wifi", "wlan", "wireless")) else "cabo"
+            # psutil já devolve a velocidade em Mbps. Muitos drives reportam 1
+            # (desconhecido), por isso só mostramos a partir de 10 Mbps.
+            if stat.speed >= 1000:
+                link = f"link {stat.speed / 1000:g} Gbps"
+            elif stat.speed >= 10:
+                link = f"link {stat.speed:.0f} Mbps"
+            else:
+                link = "link não reportado"
+            active.append(f"  · {name} ({medium}) — IPv4 {ipv4} — {link}")
+        if active:
+            lines.append("Adaptadores ativos:")
+            lines.extend(active)
+        else:
+            lines.append("Nenhum adaptador ativo com IPv4 — o PC parece estar sem rede.")
+        route = route if route is not None else self.default_route()
+        if route.get("gateway") or route.get("dns"):
+            adapter = f"{route['description']} — " if route.get("description") else ""
+            lines.append(f"{adapter}Gateway: {route.get('gateway') or '—'}  ·  DNS: {route.get('dns') or '—'}")
+        else:
+            lines.append("Gateway/DNS: não disponível (consulta ao Windows falhou).")
+        return "\n".join(lines)
+
+    def ping_host(self, host, count=None):
+        """Ping ICMP por `ping.exe`; devolve resumo com perda e jitter."""
+        count = count or self.NET_PING_COUNT
+        ok, out = run(["ping", "-n", str(count), "-w", "1500", host], timeout=45)
+        summary = summarize_latency(parse_ping_times(out), count)
+        summary["host"] = host
+        summary["ok"] = bool(summary["received"])
+        summary["output"] = out
+        return summary
+
+    def run_ping_test(self):
+        # O texto do campo é lido aqui (thread principal): o Tk não permite
+        # ler variáveis dele a partir de uma thread de trabalho.
+        host = (self.net_host_var.get() or "").strip()
+        self.start_module(lambda: self._net_ping_task(host=host))
+
+    def run_speed_test(self):
+        self.start_module(self._net_speed_task)
+
+    def run_network_test(self):
+        host = (self.net_host_var.get() or "").strip()
+        self.start_module(lambda: self._net_full_task(host))
+
+    def _net_ping_task(self, route=None, host=None):
+        host = (host or "").strip() or PING_HOST_DEFAULT
+        route = route if route is not None else self.default_route()
+        self._net_status(f"A medir latência para {host}...")
+        summary = self.ping_host(host)
+        if summary["ok"]:
+            self._net_set("ping", f"{summary['avg']:.0f} ms")
+            self._net_set("jitter", f"{summary['jitter']:.0f} ms")
+            self._net_set("loss", f"{summary['loss']:.0f}%")
+            self.log(
+                f"Rede · {host}: min {summary['min']} / média {summary['avg']} / máx {summary['max']} ms"
+                f" · jitter {summary['jitter']} ms · perda {summary['loss']}% ({summary['received']}/{summary['sent']})"
+            )
+        else:
+            self._net_set("ping", "sem resposta")
+            self._net_set("jitter", "--")
+            self._net_set("loss", "100%")
+            self.log(f"Rede · {host} não respondeu ao ping (firewall, DNS ou sem internet).", "AVISO")
+        self.net_last["ping"] = summary
+        gateway = (route.get("gateway") or "").split(",")[0].strip()
+        if gateway:
+            gate = self.ping_host(gateway, 3)
+            self.net_last["gateway"] = gate
+            if gate["ok"]:
+                self.log(
+                    f"Rede · router {gateway}: média {gate['avg']} ms · jitter {gate['jitter']} ms"
+                    f" · perda {gate['loss']}%"
+                )
+            else:
+                self.log(f"Rede · router {gateway} não respondeu ao ping.", "AVISO")
+        self._net_status(f"Ping concluído para {host}.")
+        self._net_update_diagnosis()
+
+    def _net_speed_task(self):
+        down = None
+        up = None
+        self._net_status(f"A medir download (até {self.NET_DOWNLOAD_BYTES // 1_000_000} MB)...")
+        try:
+            total, seconds = measure_download(self.NET_DOWNLOAD_BYTES, self.NET_DOWNLOAD_SECONDS)
+            down = bits_per_second(total, seconds)
+            self._net_set("down", format_mbps(down))
+            self.log(f"Rede · download: {format_mbps(down)} ({total / 1e6:.1f} MB em {seconds:.1f}s)")
+        except Exception as exc:
+            self._net_set("down", "erro")
+            self.log(f"Rede · download falhou: {exc}", "ERRO")
+        self._net_status(f"A medir upload ({self.NET_UPLOAD_BYTES // 1_000_000} MB)...")
+        try:
+            total, seconds = measure_upload(self.NET_UPLOAD_BYTES)
+            up = bits_per_second(total, seconds)
+            self._net_set("up", format_mbps(up))
+            self.log(f"Rede · upload: {format_mbps(up)} ({total / 1e6:.1f} MB em {seconds:.1f}s)")
+        except Exception as exc:
+            self._net_set("up", "erro")
+            self.log(f"Rede · upload falhou: {exc}", "ERRO")
+        self.net_last["download"] = down
+        self.net_last["upload"] = up
+        self._net_status("Velocidade medida." if (down or up) else "Não foi possível medir a velocidade.")
+        self._net_update_diagnosis()
+
+    def _net_full_task(self, host=None):
+        self._net_status("A analisar a ligação...")
+        route = self.default_route()
+        self._net_info_apply(self.network_report(route))
+        self._net_ping_task(route, host)
+        self._net_speed_task()
+        self._net_status("Teste completo concluído — vê o diagnóstico abaixo e o log na consola.")
 
     def tick_meters(self):
         try:

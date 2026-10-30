@@ -2,7 +2,8 @@
 
 App do catálogo que diagnostica e otimiza o desempenho do Windows: identifica
 hardware e BIOS, ajusta registo e serviços, controla programas de arranque,
-mede/liberta FPS e faz limpeza — sempre com backup e restauro das alterações.
+mede/liberta FPS, mede a qualidade da ligação de rede e faz limpeza — sempre com
+backup e restauro das alterações.
 
 ## Como está empacotado
 
@@ -70,6 +71,27 @@ reabre com `ShellExecute`/`runas` (o usuário vê o prompt do UAC). No executáv
 congelado ele reabre o próprio `.exe`; no modo script, reabre
 `python.exe script.py`. Sem elevação, o app fecha com aviso — as operações
 alteram `HKLM`, serviços e BCD.
+
+## Teste de rede
+
+A página **Rede** diagnostica a ligação sem ler texto localizado do `ipconfig`:
+
+| Medida | Como é obtida |
+|--------|---------------|
+| Adaptadores ativos, IPv4, velocidade do link | `psutil.net_if_stats` / `net_if_addrs` |
+| Gateway e DNS | `Get-CimInstance Win32_NetworkAdapterConfiguration` (propriedades em inglês) |
+| Ping, jitter e perda | `ping -n 5 -w 1500`; o parser aceita `time=`, `tempo=`, `tiempo=` e `zeit=` |
+| Download | `https://speed.cloudflare.com/__down` — até 25 MB, janela máxima de 15 s |
+| Upload | `https://speed.cloudflare.com/__up` — 4 MB |
+
+O download descarta os primeiros 750 ms para não medir a rampa do TCP/TLS; sem
+isso, ligações rápidas parecem lentas. Cada teste completo transfere cerca de
+29 MB, o que importa em ligações móveis.
+
+O diagnóstico cruza três sinais: ping do router (rede local), ping da internet e
+velocidade. Perda ou latência já no router aponta para Wi-Fi/cabo; router limpo
+com internet lenta aponta para o ISP. Os resultados vão para o log da consola e
+não são guardados no backup (são leituras, não alterações).
 
 ## Build, execução e release
 

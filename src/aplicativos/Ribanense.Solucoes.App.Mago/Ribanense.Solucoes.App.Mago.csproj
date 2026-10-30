@@ -6,9 +6,9 @@
     <RootNamespace>Ribanense.Solucoes.App.Mago</RootNamespace>
     <AssemblyName>Ribanense.Solucoes.App.Mago</AssemblyName>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>0.1.1</Version>
-    <AssemblyVersion>0.1.1.0</AssemblyVersion>
-    <FileVersion>0.1.1.0</FileVersion>
+    <Version>0.1.2</Version>
+    <AssemblyVersion>0.1.2.0</AssemblyVersion>
+    <FileVersion>0.1.2.0</FileVersion>
     <Product>Mago da Performance â€” Ribanense SoluÃ§Ãµes</Product>
   </PropertyGroup>
   <ItemGroup>
