@@ -25,6 +25,7 @@ Ponto de entrada da documentação do **Ribanense Soluções**. Use como mapa an
 | Documento | Foco |
 |-----------|------|
 | [`FERRAMENTAS_CLI.md`](FERRAMENTAS_CLI.md) | `rb.cmd` e ferramentas externas usadas. |
+| [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md) | Conta do `gh` que assina `rb publish` e `rb release`. |
 | [`APP_CHOCOLATEY.md`](APP_CHOCOLATEY.md) | App Gestor Chocolatey, comandos `choco` usados, parsing e riscos. |
 | [`APP_BALANCA.md`](APP_BALANCA.md) | App Testador de Balanças: serial COM/USB, protocolos, timing, varredura e troubleshooting. |
 | [`APP_FAROL.md`](APP_FAROL.md) | App Farol: coletores de evidência, regras, malha LAN (UDP/TCP), pareamento, bandeja e autostart. |

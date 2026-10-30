@@ -52,7 +52,7 @@ dotnet test  .\Ribanense.Solucoes.slnx
 2. Confirmar `dotnet --version` mostrando 10.x.
 3. `.\rb.cmd compilar` para baixar pacotes NuGet e validar build.
 4. `.\rb.cmd run` para abrir o Launcher.
-5. (Opcional) `gh auth login` se for publicar releases.
+5. `gh auth login` com a conta que deve aparecer nos commits de `rb publish` / `rb release`. Passos de conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
 
 ## Problemas comuns
 
@@ -61,10 +61,11 @@ dotnet test  .\Ribanense.Solucoes.slnx
 | `.\rb.cmd` não executa | Confirmar diretório correto e PowerShell disponível. |
 | Build falha em `dotnet restore` | Confirmar SDK 10.x e acesso ao `nuget.org`. |
 | Launcher não abre após `rb.cmd run` | Ver `bin/Debug/net10.0-windows/` do projeto Launcher; conferir logs no Event Viewer. |
-| `gh release create` falha | Rodar `gh auth status`; re-autenticar com `gh auth login`. |
+| `gh release create` falha | Rodar `gh auth status`; re-autenticar com `gh auth login`. A conta ativa precisa de escrita no repositório. |
 
 ## Ver também
 
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md)
 - [`FERRAMENTAS_CLI.md`](FERRAMENTAS_CLI.md)
+- [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md)
 - [`ARQUITETURA.md`](ARQUITETURA.md)

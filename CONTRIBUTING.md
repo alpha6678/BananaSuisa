@@ -28,7 +28,7 @@ Fluxo mínimo para evoluir o Launcher e os apps do catálogo.
 - Cada app **compila e roda sem o Launcher** (fallback em defaults locais quando `RIBANENSE_APP_DATA` não está setado).
 - Launcher **nunca depende** de um app em tempo de compilação. Comunicação é via `app.json` + CLI (`--version`, `--selfcheck`) + variáveis de ambiente.
 - Preserve separação de camadas: App → SDK/Infrastructure/UI, nunca o inverso.
-- Sem segredos commitados (tokens, chaves). Para o `release.ps1`, use `gh auth login` localmente.
+- Sem segredos commitados (tokens, chaves). Para o `release.ps1`, use `gh auth login` com a conta que deve assinar o commit. Veja [`docs/IDENTIDADE_GITHUB.md`](docs/IDENTIDADE_GITHUB.md).
 
 ## Validação mínima
 

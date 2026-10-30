@@ -26,6 +26,7 @@ $script:OsFirmwareJson = Join-Path $script:OsRoot 'firmware.json'
 $script:EspCatalogPath = Join-Path $script:ProjectRoot 'catalog\esp-catalog.json'
 $script:LauncherDataRoot = Join-Path $env:LOCALAPPDATA 'Ribanense Soluções'
 $script:DevLinkRoot = Join-Path $script:LauncherDataRoot 'aplicativos'
+. (Join-Path $script:CliRoot 'github-actor.ps1')
 
 $script:RestArguments = @(
     foreach ($Argument in $Rest) {
@@ -1264,12 +1265,10 @@ function Invoke-PublishAllVersionCommit {
     $commitTitle = 'chore(release): bump de versoes (publish all)'
     $commitBody = $summaryLines -join "`n"
 
-    & git commit -m $commitTitle -m $commitBody
-    if ($LASTEXITCODE -ne 0) { throw "git commit das versoes falhou." }
+    Invoke-GitAsActor -GitArgs @('commit', '-m', $commitTitle, '-m', $commitBody) -FailureMessage "git commit das versoes falhou."
 
     Write-Info "Enviando commit de versoes para origin..."
-    & git push origin HEAD
-    if ($LASTEXITCODE -ne 0) { throw "git push origin HEAD falhou; publish all abortado antes das tags." }
+    Invoke-GitAsActor -GitArgs @('push', 'origin', 'HEAD') -FailureMessage "git push origin HEAD falhou; publish all abortado antes das tags."
 
     Write-Ok "Commit de versoes criado e enviado (tags apontarao para este commit)."
 }
@@ -1299,19 +1298,17 @@ function Invoke-PublishAll {
     Assert-CommandAvailable 'git'
     Assert-CommandAvailable 'gh'
 
+    $actor = Get-GithubActor
+    Write-Info "Conta do publish: $($actor.Login) ($($actor.Name) <$($actor.Email)>)."
+    Write-Muted "Se esta nao for a conta que deve aparecer no GitHub, rode 'gh auth switch' antes. Veja docs/IDENTIDADE_GITHUB.md."
+
     Write-Info "Atualizando tags locais (git fetch --tags)..."
     Push-Location $script:ProjectRoot
     try {
-        & git fetch --tags
-        if ($LASTEXITCODE -ne 0) { throw "git fetch --tags falhou." }
+        Invoke-GitAsActor -GitArgs @('fetch', '--tags') -FailureMessage "git fetch --tags falhou."
     }
     finally {
         Pop-Location
-    }
-
-    & gh auth status *> $null
-    if ($LASTEXITCODE -ne 0) {
-        throw "gh auth status falhou. Execute 'gh auth login' antes do publish all."
     }
 
     Push-Location $script:ProjectRoot
@@ -1570,8 +1567,8 @@ $script:Commands = @(
     [pscustomobject]@{ Verb = 'version'; Aliases = @('versao');            Handler = 'Invoke-ShowVersions';  Usage = 'rb version';                         Help = 'Mostra versoes de Launcher, SDK, OS e cada app.' },
     [pscustomobject]@{ Verb = 'devlink'; Aliases = @('link');              Handler = 'Invoke-DevLink';       Usage = 'rb devlink <App>';                   Help = 'Compila um app e copia para %LOCALAPPDATA%\Ribanense Solucoes\aplicativos\ para o Launcher ver como instalado.' },
     [pscustomobject]@{ Verb = 'unlink';  Aliases = @('devunlink');         Handler = 'Invoke-DevUnlink';     Usage = 'rb unlink <App>';                    Help = 'Remove o devlink de um app.' },
-    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher|all> [...]'; Help = 'Empacota App/Launcher ou executa publish all (bump patch + check + releases do Launcher e/ou apps com mudancas desde a ultima tag).' },
-    [pscustomobject]@{ Verb = 'release';      Aliases = @();                    Handler = 'Invoke-AppRelease';     Usage = 'rb release <App|Launcher> <semver>';   Help = 'Cria tag git e publica GitHub Release (requer gh CLI).' },
+    [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher|all> [...]'; Help = 'Empacota App/Launcher ou executa publish all (bump patch + check + releases). Commit e release saem na conta ativa do gh.' },
+    [pscustomobject]@{ Verb = 'release';      Aliases = @();                    Handler = 'Invoke-AppRelease';     Usage = 'rb release <App|Launcher> <semver>';   Help = 'Cria tag git e publica GitHub Release na conta ativa do gh.' },
     [pscustomobject]@{ Verb = 'logs';         Aliases = @('log');               Handler = 'Invoke-Logs';           Usage = 'rb logs [App] [N]';                 Help = 'Imprime as ultimas N (default 100) entradas do vault (Launcher ou app). Usa copia temporaria, nao conflita com processo rodando.' },
     [pscustomobject]@{ Verb = 'crashlog';     Aliases = @('crash');             Handler = 'Invoke-CrashLog';       Usage = 'rb crashlog';                       Help = 'Mostra o crash.log (texto plano) com as ultimas 200 linhas. Inclui crash.old.log rotacionado se existir.' },
     [pscustomobject]@{ Verb = 'crashlog-clear';Aliases= @('crash-clear');       Handler = 'Invoke-CrashLogClear';  Usage = 'rb crashlog-clear';                 Help = 'Remove crash.log e crash.old.log.' },
