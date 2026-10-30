@@ -69,6 +69,22 @@ Write-Host "Publicando $appProjectName $Version..." -ForegroundColor Cyan
     -o $publishDir
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish falhou." }
 
+# Apps com py\<nome>.spec ganham um .exe Python standalone (sem Python no PC de destino).
+$pySpec = Get-ChildItem -LiteralPath (Join-Path $appProjectDir 'py') -Filter '*.spec' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($pySpec) {
+    Write-Host "Gerando executavel Python standalone (PyInstaller)..." -ForegroundColor Cyan
+    $exesAntes = @(Get-ChildItem -LiteralPath $publishDir -Filter '*.exe' -File | ForEach-Object Name)
+    & python -m PyInstaller $pySpec.FullName --distpath $publishDir --workpath (Join-Path $OutputDir 'pybuild') --noconfirm
+    if ($LASTEXITCODE -ne 0) {
+        throw "PyInstaller falhou. Instale com: python -m pip install pyinstaller"
+    }
+    $exesNovos = @(Get-ChildItem -LiteralPath $publishDir -Filter '*.exe' -File | ForEach-Object Name | Where-Object { $_ -notin $exesAntes })
+    if ($exesNovos.Count -ne 1) {
+        throw "PyInstaller deveria gerar exatamente um .exe em $publishDir (gerou: $($exesNovos -join ', '))."
+    }
+    Write-Host "  Standalone: $($exesNovos[0])" -ForegroundColor DarkGray
+}
+
 $lowerApp = $App.ToLowerInvariant()
 $zipName = "$lowerApp-$Version-win-x64.zip"
 $zipPath = Join-Path $OutputDir $zipName

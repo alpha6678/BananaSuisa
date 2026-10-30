@@ -13,6 +13,7 @@
     <Project Path="src/aplicativos/Ribanense.Solucoes.App.Scripts/Ribanense.Solucoes.App.Scripts.csproj" />
     <Project Path="src/aplicativos/Ribanense.Solucoes.App.Farol/Ribanense.Solucoes.App.Farol.csproj" />
     <Project Path="src/aplicativos/Ribanense.Solucoes.App.Recuperacao/Ribanense.Solucoes.App.Recuperacao.csproj" />
+    <Project Path="src/aplicativos/Ribanense.Solucoes.App.Mago/Ribanense.Solucoes.App.Mago.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ribanense.Solucoes.PluginSDK.Tests/Ribanense.Solucoes.PluginSDK.Tests.csproj" />
@@ -25,5 +26,6 @@
     <Project Path="tests/Ribanense.Solucoes.App.Scripts.Tests/Ribanense.Solucoes.App.Scripts.Tests.csproj" />
     <Project Path="tests/Ribanense.Solucoes.App.Farol.Tests/Ribanense.Solucoes.App.Farol.Tests.csproj" />
     <Project Path="tests/Ribanense.Solucoes.App.Recuperacao.Tests/Ribanense.Solucoes.App.Recuperacao.Tests.csproj" />
+    <Project Path="tests/Ribanense.Solucoes.App.Mago.Tests/Ribanense.Solucoes.App.Mago.Tests.csproj" />
   </Folder>
 </Solution>
