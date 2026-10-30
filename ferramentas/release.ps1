@@ -14,6 +14,7 @@ $ErrorActionPreference = 'Stop'
 $ScriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $ProjectRoot = Split-Path -Parent $ScriptRoot
 . (Join-Path $ScriptRoot 'esp-idf-env.ps1')
+. (Join-Path $ScriptRoot 'github-actor.ps1')
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI (gh) nao encontrado no PATH. Instale em https://cli.github.com/."
@@ -65,10 +66,8 @@ function Invoke-PointerCommit {
             Write-Host "Nada novo para commitar em ponteiro de release." -ForegroundColor Yellow
             return
         }
-        & git commit -m $Message
-        if ($LASTEXITCODE -ne 0) { throw "git commit do ponteiro falhou." }
-        & git push origin HEAD
-        if ($LASTEXITCODE -ne 0) { throw "git push do ponteiro falhou." }
+        Invoke-GitAsActor -GitArgs @('commit', '-m', $Message) -FailureMessage "git commit do ponteiro falhou."
+        Invoke-GitAsActor -GitArgs @('push', 'origin', 'HEAD') -FailureMessage "git push do ponteiro falhou."
     }
     finally {
         Pop-Location
@@ -115,6 +114,10 @@ $tag = "$TagPrefix$Version"
 
 Push-Location $ProjectRoot
 try {
+    $actor = Get-GithubActor
+    Write-Host "Conta do release: $($actor.Login) ($($actor.Name) <$($actor.Email)>)." -ForegroundColor Cyan
+    Write-Host "Se esta nao for a conta que deve aparecer no GitHub, rode 'gh auth switch'. Veja docs/IDENTIDADE_GITHUB.md." -ForegroundColor DarkGray
+
     $existing = & git tag --list $tag
     if ($existing) {
         throw "Tag '$tag' ja existe. Remova (git tag -d $tag) ou use outra versao."
@@ -170,8 +173,7 @@ try {
     & git tag $tag
     if ($LASTEXITCODE -ne 0) { throw "git tag falhou." }
     Write-Host "Enviando tag para origin..." -ForegroundColor Cyan
-    & git push origin $tag
-    if ($LASTEXITCODE -ne 0) { throw "git push origin $tag falhou; release abortado." }
+    Invoke-GitAsActor -GitArgs @('push', 'origin', $tag) -FailureMessage "git push origin $tag falhou; release abortado."
 
     $releaseTitle = switch ($kind) {
         'launcher' { "Ribanense Soluções Launcher $Version" }

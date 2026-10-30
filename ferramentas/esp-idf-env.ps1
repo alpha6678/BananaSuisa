@@ -80,19 +80,16 @@ function Invoke-IdfBuild {
 
 function Get-GithubOwnerRepo {
     param([Parameter(Mandatory)] [string] $ProjectRoot)
-    $owner = 'alpha6678'
-    $repo = 'BananaSuisa'
     Push-Location $ProjectRoot
     try {
         $url = & git remote get-url origin 2>$null
-        if ($LASTEXITCODE -eq 0 -and $url -match 'github\.com[:/]([^/]+)/([^/.]+)') {
-            $owner = $Matches[1]
-            $repo = $Matches[2]
+        if ($LASTEXITCODE -ne 0 -or $url -notmatch 'github\.com[:/]([^/]+)/([^/.]+)') {
+            throw "O remote origin nao e um repositorio GitHub. A publicacao usa o origin, sem dono fixo na CLI."
         }
+        return [pscustomobject]@{ Owner = $Matches[1]; Repo = $Matches[2] }
     } finally {
         Pop-Location
     }
-    return [pscustomobject]@{ Owner = $owner; Repo = $repo }
 }
 
 function Write-Sha256Sidecar {
