@@ -2,7 +2,7 @@
   "id": "com.ribanense.mago",
   "name": "Mago da Performance",
   "publicName": "Mago da Performance",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minimumLauncherVersion": "0.1.0",
   "entryExecutable": "Ribanense.Solucoes.App.Mago.exe",
   "icon": "icon.png",
