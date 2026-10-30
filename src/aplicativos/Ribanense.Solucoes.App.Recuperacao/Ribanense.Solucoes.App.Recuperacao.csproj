@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -6,10 +6,10 @@
     <RootNamespace>Ribanense.Solucoes.App.Recuperacao</RootNamespace>
     <AssemblyName>Ribanense.Solucoes.App.Recuperacao</AssemblyName>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
-    <Product>Recuperação do Windows — Ribanense Soluções</Product>
+    <Version>0.1.1</Version>
+    <AssemblyVersion>0.1.1.0</AssemblyVersion>
+    <FileVersion>0.1.1.0</FileVersion>
+    <Product>RecuperaÃ§Ã£o do Windows â€” Ribanense SoluÃ§Ãµes</Product>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Management" Version="9.0.10" />
@@ -32,3 +32,4 @@
     <InternalsVisibleTo Include="Ribanense.Solucoes.App.Recuperacao.Tests" />
   </ItemGroup>
 </Project>
+
