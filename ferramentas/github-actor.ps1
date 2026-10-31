@@ -55,10 +55,84 @@ function Get-GhAccount {
 }
 
 function Get-GhLogins {
+    if ($null -ne $script:GhLogins) { return $script:GhLogins }
     $raw = Invoke-GhQuiet -GhArgs @('auth', 'status', '--hostname', 'github.com', '--json', 'hosts')
-    if (-not $raw) { return @() }
+    if (-not $raw) {
+        $script:GhLogins = @()
+        return $script:GhLogins
+    }
     $status = $raw | ConvertFrom-Json
-    return @($status.hosts.'github.com' | Where-Object { $_.state -eq 'success' } | ForEach-Object { [string] $_.login })
+    $script:GhLogins = @(
+        $status.hosts.'github.com' |
+            Where-Object { $_.state -eq 'success' } |
+            ForEach-Object { [string] $_.login } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -Unique
+    )
+    return $script:GhLogins
+}
+
+# Quem o GitHub confirma com escrita no repositorio, tenha sessao nesta maquina ou nao.
+# Tenta o token ativo e, se ele nao puder ler a lista, os das outras contas logadas.
+# Devolve $null quando nenhum token le a lista: sem lista, a publicacao segue sem o aviso.
+function Get-PushCollaborators {
+    param([Parameter(Mandatory)] [string] $Repo)
+    if ($script:GhCollaborators) { return $script:GhCollaborators }
+
+    $tokens = @()
+    foreach ($login in @(Get-GhLogins)) {
+        $t = Invoke-GhQuiet -GhArgs @('auth', 'token', '--hostname', 'github.com', '--user', $login)
+        if ($t) { $tokens += $t }
+    }
+    $tokens += $null
+
+    foreach ($candidateToken in $tokens) {
+        $raw = Invoke-GhQuiet -Token $candidateToken -GhArgs @(
+            'api', "repos/$Repo/collaborators", '--paginate',
+            '--jq', '.[] | select(.permissions.push) | "\(.login) \(.id)"'
+        )
+        if (-not $raw) { continue }
+        $list = @()
+        foreach ($line in ($raw -split "`r?`n")) {
+            $parts = @(($line.Trim() -split '\s+') | Where-Object { $_ })
+            if ($parts.Count -lt 2) { continue }
+            if ($parts[1] -notmatch '^\d+$') { continue }
+            $list += [pscustomobject]@{ Login = $parts[0]; Id = $parts[1] }
+        }
+        if ($list.Count -gt 0) {
+            $script:GhCollaborators = @($list)
+            return $script:GhCollaborators
+        }
+    }
+    return $null
+}
+
+# Cada pessoa assina e envia com a propria conta, na propria maquina. Quando alguem com
+# escrita no origin nao tem sessao aqui, todo commit desta maquina sai no nome de outra
+# pessoa. Ninguem percebe na hora: o commit parece normal e so o GitHub mostra o dono.
+function Write-ForeignAuthorsNote {
+    param(
+        [AllowNull()] [object[]] $Collaborators,
+        [Parameter(Mandatory)] [string] $SignerLogin,
+        [Parameter(Mandatory)] [string] $Repo
+    )
+    if (-not $Collaborators) { return }
+    $logged = @(Get-GhLogins)
+    $missing = @(
+        $Collaborators |
+            Where-Object { $logged -notcontains $_.Login -and $_.Login -ne $SignerLogin } |
+            ForEach-Object { $_.Login } |
+            Sort-Object
+    )
+    if ($missing.Count -eq 0) { return }
+
+    $line1 = "Nesta maquina os commits saem como $SignerLogin."
+    $line2 = "Tambem tem escrita em $Repo`: $($missing -join ', ') (sem sessao do gh aqui)."
+    $line3 = "Trabalho de outra pessoa vai no commit dela, na maquina dela, com a conta dela."
+    foreach ($line in @($line1, $line2, $line3)) {
+        if (Get-Command Write-Warn2 -ErrorAction SilentlyContinue) { Write-Warn2 $line }
+        else { Write-Host "[!!] $line" -ForegroundColor Yellow }
+    }
 }
 
 function Get-ProfileName {
@@ -103,6 +177,8 @@ function Resolve-SelectedAccount {
         throw "Nao foi possivel ler a conta do gh. Rode 'gh auth status'. Veja docs/IDENTIDADE_GITHUB.md."
     }
 
+    $collaborators = Get-PushCollaborators -Repo $Repo
+
     $candidates = @()
     if ($active.CanPush) { $candidates += $active }
     if (-not $forcedToken) {
@@ -125,15 +201,15 @@ function Resolve-SelectedAccount {
 
     $remembered = @($candidates | Where-Object { $_.Login -eq $env:RIBANENSE_GH_LOGIN })
     if ($remembered.Count -eq 1) {
-        return [pscustomobject]@{ Account = $remembered[0] }
+        return [pscustomobject]@{ Account = $remembered[0]; Collaborators = $collaborators }
     }
     if ($candidates.Count -eq 1) {
-        return [pscustomobject]@{ Account = $candidates[0] }
+        return [pscustomobject]@{ Account = $candidates[0]; Collaborators = $collaborators }
     }
 
     $chosen = Read-GhAccountChoice -Accounts @($candidates)
     $env:RIBANENSE_GH_LOGIN = $chosen.Login
-    return [pscustomobject]@{ Account = $chosen }
+    return [pscustomobject]@{ Account = $chosen; Collaborators = $collaborators }
 }
 
 function Get-GithubActor {
@@ -157,6 +233,8 @@ function Get-GithubActor {
     if ($account.Id -notmatch '^\d+$') {
         throw "Id da conta gh ausente para '$($account.Login)'."
     }
+
+    Write-ForeignAuthorsNote -Collaborators $selected.Collaborators -SignerLogin $account.Login -Repo $repo
 
     # Fora do objeto para nao aparecer se alguem imprimir o ator.
     $script:GithubActorToken = $account.Token
