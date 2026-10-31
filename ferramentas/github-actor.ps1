@@ -68,32 +68,24 @@ function Get-ProfileName {
     return $name
 }
 
+function Get-AccountEmail {
+    param($Account)
+    return "$($Account.Id)+$($Account.Login)@users.noreply.github.com"
+}
+
 function Read-GhAccountChoice {
-    param(
-        [Parameter(Mandatory)] [object[]] $Accounts,
-        [Parameter(Mandatory)] [string] $Repo,
-        [string] $PreferredLogin
-    )
+    param([Parameter(Mandatory)] [object[]] $Accounts)
 
     $accounts = @($Accounts)
-    $preferred = 1
     Write-Host ""
-    Write-Host "Contas com escrita em ${Repo}:" -ForegroundColor Cyan
     for ($i = 0; $i -lt $accounts.Count; $i++) {
         $account = $accounts[$i]
-        $profile = Get-ProfileName -Account $account
-        $label = if ($profile -eq $account.Login) { $account.Login } else { "$profile ($($account.Login))" }
-        $mark = ""
-        if ($account.Login -eq $PreferredLogin) {
-            $preferred = $i + 1
-            $mark = " [ativa]"
-        }
-        Write-Host ("  {0}) {1}{2}" -f ($i + 1), $label, $mark)
+        Write-Host ("  {0}) {1} <{2}>" -f ($i + 1), $account.Login, (Get-AccountEmail -Account $account))
     }
 
     while ($true) {
-        $answer = Read-Host "Numero da conta que deve assinar o commit [$preferred]"
-        if ([string]::IsNullOrWhiteSpace($answer)) { return $accounts[$preferred - 1] }
+        $answer = Read-Host "Numero da conta que assina o commit [1]"
+        if ([string]::IsNullOrWhiteSpace($answer)) { return $accounts[0] }
         $n = 0
         if ([int]::TryParse($answer.Trim(), [ref]$n) -and $n -ge 1 -and $n -le $accounts.Count) {
             return $accounts[$n - 1]
@@ -129,19 +121,19 @@ function Resolve-SelectedAccount {
     if ($candidates.Count -eq 0) {
         throw "Nenhuma conta logada no gh tem escrita em $Repo. Entre com a sua conta ('gh auth login'). Veja docs/IDENTIDADE_GITHUB.md."
     }
+    $candidates = @($candidates | Sort-Object Login)
 
     $remembered = @($candidates | Where-Object { $_.Login -eq $env:RIBANENSE_GH_LOGIN })
     if ($remembered.Count -eq 1) {
-        return [pscustomobject]@{ Account = $remembered[0]; Note = $null }
+        return [pscustomobject]@{ Account = $remembered[0] }
+    }
+    if ($candidates.Count -eq 1) {
+        return [pscustomobject]@{ Account = $candidates[0] }
     }
 
-    $chosen = Read-GhAccountChoice -Accounts @($candidates) -Repo $Repo -PreferredLogin $active.Login
+    $chosen = Read-GhAccountChoice -Accounts @($candidates)
     $env:RIBANENSE_GH_LOGIN = $chosen.Login
-    $note = $null
-    if ($chosen.Login -ne $active.Login) {
-        $note = "A conta ativa do gh e $($active.Login). O publish usa $($chosen.Login)."
-    }
-    return [pscustomobject]@{ Account = $chosen; Note = $note }
+    return [pscustomobject]@{ Account = $chosen }
 }
 
 function Get-GithubActor {
@@ -157,8 +149,7 @@ function Get-GithubActor {
     $selected = Resolve-SelectedAccount -Repo $repo
     $account = $selected.Account
     $name = Get-ProfileName -Account $account
-    $email = "$($account.Id)+$($account.Login)@users.noreply.github.com"
-    $note = $selected.Note
+    $email = Get-AccountEmail -Account $account
 
     if ($account.Login -notmatch '^[A-Za-z0-9-]+$') {
         throw "Login do gh invalido para assinar o commit: '$($account.Login)'."
@@ -174,7 +165,6 @@ function Get-GithubActor {
         Name  = $name
         Id    = $account.Id
         Email = $email
-        Note  = $note
     }
     return $script:GithubActor
 }
