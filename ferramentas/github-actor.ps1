@@ -1,7 +1,6 @@
 #Requires -Version 5.1
-# Identidade de publicacao na pasta pessoal: so dionerdfrg3@gmail.com.
-# O token do gh e o da conta em credential.https://github.com.username (alpha6678).
-# A conta ativa do gh fica de fora quando for outra.
+# Commit e release saem na conta do gh com escrita que a pessoa escolhe no dialogo.
+# O nome e o do perfil dessa conta. O e-mail e o noreply do GitHub, ligado a esse login.
 
 $script:GithubActorProjectRoot = Split-Path -Parent $PSScriptRoot
 
@@ -55,96 +54,183 @@ function Get-GhAccount {
     }
 }
 
-function Get-GitConfigValue {
-    param([Parameter(Mandatory)] [string] $Key)
-    Push-Location $script:GithubActorProjectRoot
-    try {
-        $out = & git config --get $Key 2>$null
-        if ($LASTEXITCODE -ne 0) { return $null }
-        return ("$out").Trim()
-    }
-    finally {
-        Pop-Location
-    }
+function Get-GhLogins {
+    $raw = Invoke-GhQuiet -GhArgs @('auth', 'status', '--hostname', 'github.com', '--json', 'hosts')
+    if (-not $raw) { return @() }
+    $status = $raw | ConvertFrom-Json
+    return @($status.hosts.'github.com' | Where-Object { $_.state -eq 'success' } | ForEach-Object { [string] $_.login })
 }
 
-function Test-UnderPersonalProjects {
-    $full = [System.IO.Path]::GetFullPath($script:GithubActorProjectRoot).TrimEnd('\')
-    $pessoais = [System.IO.Path]::GetFullPath((Join-Path $env:USERPROFILE 'Desenvolvimento\projetos\pessoais')).TrimEnd('\')
-    return $full.Equals($pessoais, [System.StringComparison]::OrdinalIgnoreCase) -or
-        $full.StartsWith($pessoais + '\', [System.StringComparison]::OrdinalIgnoreCase)
+function Get-ProfileName {
+    param($Account)
+    $name = ($Account.Name -replace '[\r\n"]', ' ').Trim()
+    if ([string]::IsNullOrWhiteSpace($name)) { return $Account.Login }
+    return $name
+}
+
+function Show-GhAccountChoice {
+    param(
+        [Parameter(Mandatory)] [object[]] $Accounts,
+        [Parameter(Mandatory)] [string] $Repo,
+        [string] $PreferredLogin
+    )
+
+    $labels = @(
+        foreach ($account in $Accounts) {
+            $profile = Get-ProfileName -Account $account
+            if ($profile -eq $account.Login) { $account.Login } else { "$profile ($($account.Login))" }
+        }
+    )
+
+    $ui = @'
+param($Title, $Message, [string[]] $Labels, [int] $Selected)
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$form = New-Object System.Windows.Forms.Form
+$form.Text = $Title
+$form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+$form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+$form.MinimizeBox = $false
+$form.MaximizeBox = $false
+$form.ShowInTaskbar = $false
+$form.TopMost = $true
+$form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$listHeight = [Math]::Min(180, [Math]::Max(48, 8 + (20 * $Labels.Count)))
+$form.ClientSize = New-Object System.Drawing.Size(440, (128 + $listHeight))
+$label = New-Object System.Windows.Forms.Label
+$label.Text = $Message
+$label.Location = New-Object System.Drawing.Point(12, 12)
+$label.Size = New-Object System.Drawing.Size(416, 48)
+$list = New-Object System.Windows.Forms.ListBox
+$list.Location = New-Object System.Drawing.Point(12, 68)
+$list.Size = New-Object System.Drawing.Size(416, $listHeight)
+$list.IntegralHeight = $false
+foreach ($item in $Labels) { [void]$list.Items.Add($item) }
+if ($list.Items.Count -gt 0) {
+    $index = 0
+    if ($Selected -ge 0 -and $Selected -lt $list.Items.Count) { $index = $Selected }
+    $list.SelectedIndex = $index
+}
+$ok = New-Object System.Windows.Forms.Button
+$ok.Text = "OK"
+$ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+$ok.Location = New-Object System.Drawing.Point(248, (80 + $listHeight))
+$ok.Size = New-Object System.Drawing.Size(88, 28)
+$cancel = New-Object System.Windows.Forms.Button
+$cancel.Text = "Cancelar"
+$cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+$cancel.Location = New-Object System.Drawing.Point(340, (80 + $listHeight))
+$cancel.Size = New-Object System.Drawing.Size(88, 28)
+$form.Controls.AddRange(@($label, $list, $ok, $cancel))
+$form.AcceptButton = $ok
+$form.CancelButton = $cancel
+$form.Add_Shown({ $form.Activate() })
+$result = $form.ShowDialog()
+$index = -1
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) { $index = $list.SelectedIndex }
+$form.Dispose()
+return $index
+'@
+
+    $rs = [runspacefactory]::CreateRunspace()
+    $rs.ApartmentState = 'STA'
+    $rs.ThreadOptions = 'ReuseThread'
+    $rs.Open()
+    $ps = $null
+    try {
+        $ps = [powershell]::Create()
+        $ps.Runspace = $rs
+        $message = "Escolha a conta do GitHub que deve assinar este commit em $Repo."
+        $preferred = 0
+        for ($i = 0; $i -lt $Accounts.Count; $i++) {
+            if ($Accounts[$i].Login -eq $PreferredLogin) { $preferred = $i; break }
+        }
+        [void]$ps.AddScript($ui).AddArgument('Ribanense Solucoes').AddArgument($message).AddArgument([string[]]$labels).AddArgument($preferred)
+        $picked = @($ps.Invoke())
+        if ($ps.HadErrors) {
+            $detail = ($ps.Streams.Error | ForEach-Object { $_.ToString() }) -join ' '
+            throw "Nao foi possivel abrir o dialogo de selecao de conta. $detail"
+        }
+    }
+    finally {
+        if ($ps) { $ps.Dispose() }
+        $rs.Close()
+        $rs.Dispose()
+    }
+
+    if ($picked.Count -eq 0 -or [int]$picked[-1] -lt 0) { return $null }
+    return $Accounts[[int]$picked[-1]]
+}
+
+function Resolve-SelectedAccount {
+    param([Parameter(Mandatory)] [string] $Repo)
+
+    $forcedToken = [bool]($env:GH_TOKEN -or $env:GITHUB_TOKEN)
+    $active = Get-GhAccount -Repo $Repo
+    if (-not $active) {
+        throw "Nao foi possivel ler a conta do gh. Rode 'gh auth status'. Veja docs/IDENTIDADE_GITHUB.md."
+    }
+
+    $candidates = @()
+    if ($active.CanPush) { $candidates += $active }
+    if (-not $forcedToken) {
+        foreach ($other in @(Get-GhLogins | Where-Object { $_ -ne $active.Login })) {
+            $token = Invoke-GhQuiet -GhArgs @('auth', 'token', '--hostname', 'github.com', '--user', $other)
+            if (-not $token) { continue }
+            $candidate = Get-GhAccount -Repo $Repo -Token $token
+            if ($candidate -and $candidate.CanPush -and $candidate.Login -ne $active.Login) {
+                $candidates += $candidate
+            }
+        }
+    }
+    elseif (-not $active.CanPush) {
+        throw "A conta do GH_TOKEN/GITHUB_TOKEN ($($active.Login)) nao tem escrita em $Repo. Apague a variavel nesta sessao ou aponte para um token com escrita. Veja docs/IDENTIDADE_GITHUB.md."
+    }
+    if ($candidates.Count -eq 0) {
+        throw "Nenhuma conta logada no gh tem escrita em $Repo. Entre com a sua conta ('gh auth login'). Veja docs/IDENTIDADE_GITHUB.md."
+    }
+
+    $chosen = Show-GhAccountChoice -Accounts @($candidates) -Repo $Repo -PreferredLogin $active.Login
+    if (-not $chosen) {
+        throw "Selecao de conta cancelada."
+    }
+    $note = $null
+    if ($chosen.Login -ne $active.Login) {
+        $note = "A conta ativa do gh e $($active.Login). O publish usa $($chosen.Login), escolhida no dialogo."
+    }
+    return [pscustomobject]@{ Account = $chosen; Note = $note }
 }
 
 function Get-GithubActor {
     if ($script:GithubActor) { return $script:GithubActor }
 
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-        throw "gh nao encontrado no PATH. Instale a GitHub CLI e entre com a conta pessoal. Veja docs/IDENTIDADE_GITHUB.md."
-    }
-    if (-not (Test-UnderPersonalProjects)) {
-        throw "O publish deste repositorio so roda em Desenvolvimento\projetos\pessoais, com o e-mail dionerdfrg3@gmail.com. Veja docs/IDENTIDADE_GITHUB.md."
-    }
-
-    $email = Get-GitConfigValue 'user.email'
-    $name = (Get-GitConfigValue 'user.name')
-    $login = Get-GitConfigValue 'credential.https://github.com.username'
-    if ($email -ne 'dionerdfrg3@gmail.com') {
-        throw "Repositorio pessoal com user.email '$email'. O commit so pode sair como dionerdfrg3@gmail.com. Veja docs/IDENTIDADE_GITHUB.md."
-    }
-    $name = ($name -replace '[\r\n"]', ' ').Trim()
-    if ([string]::IsNullOrWhiteSpace($name)) {
-        throw "user.name ausente para dionerdfrg3@gmail.com. Veja docs/IDENTIDADE_GITHUB.md."
-    }
-    if ($login -notmatch '^[A-Za-z0-9-]+$') {
-        throw "credential.https://github.com.username ausente ou invalido ('$login'). A conta do publish pessoal e a desse usuario. Veja docs/IDENTIDADE_GITHUB.md."
+        throw "gh nao encontrado no PATH. Instale a GitHub CLI e entre com a conta que deve assinar o publish. Veja docs/IDENTIDADE_GITHUB.md."
     }
 
     $origin = Get-GithubOwnerRepo -ProjectRoot $script:GithubActorProjectRoot
     $repo = "$($origin.Owner)/$($origin.Repo)"
 
-    $forcedToken = [bool]($env:GH_TOKEN -or $env:GITHUB_TOKEN)
-    $active = Get-GhAccount -Repo $repo
-    if (-not $active) {
-        throw "Nao foi possivel ler a conta do gh. Rode 'gh auth status'. Veja docs/IDENTIDADE_GITHUB.md."
-    }
+    $selected = Resolve-SelectedAccount -Repo $repo
+    $account = $selected.Account
+    $name = Get-ProfileName -Account $account
+    $email = "$($account.Id)+$($account.Login)@users.noreply.github.com"
+    $note = $selected.Note
 
-    $account = $null
-    $note = $null
-    if ($active.Login -eq $login) {
-        if (-not $active.CanPush) {
-            throw "A conta $login (dionerdfrg3@gmail.com) nao tem escrita em $repo. O publish nao usa outra conta."
-        }
-        $account = $active
+    if ($account.Login -notmatch '^[A-Za-z0-9-]+$') {
+        throw "Login do gh invalido para assinar o commit: '$($account.Login)'."
     }
-    else {
-        if ($forcedToken) {
-            throw "GH_TOKEN/GITHUB_TOKEN e a conta $($active.Login). Em projetos pessoais o publish so usa $login (dionerdfrg3@gmail.com). Apague a variavel nesta sessao. Veja docs/IDENTIDADE_GITHUB.md."
-        }
-        $token = Invoke-GhQuiet -GhArgs @('auth', 'token', '--hostname', 'github.com', '--user', $login)
-        if (-not $token) {
-            throw "A conta $login (dionerdfrg3@gmail.com) nao esta logada no gh. A conta ativa e $($active.Login), e o publish nao usa essa conta. Rode 'gh auth login'. Veja docs/IDENTIDADE_GITHUB.md."
-        }
-        $account = Get-GhAccount -Repo $repo -Token $token
-        if (-not $account -or $account.Login -ne $login) {
-            throw "Nao foi possivel ler a conta $login no gh. Veja docs/IDENTIDADE_GITHUB.md."
-        }
-        if (-not $account.CanPush) {
-            throw "A conta $login (dionerdfrg3@gmail.com) nao tem escrita em $repo. O publish nao usa $($active.Login)."
-        }
-        $note = "A conta ativa do gh e $($active.Login). O commit sai como $name <dionerdfrg3@gmail.com> ($login)."
-    }
-
     if ($account.Id -notmatch '^\d+$') {
-        throw "Id da conta gh ausente para '$login'."
+        throw "Id da conta gh ausente para '$($account.Login)'."
     }
 
     # Fora do objeto para nao aparecer se alguem imprimir o ator.
     $script:GithubActorToken = $account.Token
     $script:GithubActor = [pscustomobject]@{
-        Login = $login
+        Login = $account.Login
         Name  = $name
         Id    = $account.Id
-        Email = 'dionerdfrg3@gmail.com'
+        Email = $email
         Note  = $note
     }
     return $script:GithubActor
@@ -173,7 +259,7 @@ function Invoke-GitAsActor {
             [Environment]::SetEnvironmentVariable('GH_TOKEN', $script:GithubActorToken, 'Process')
         }
 
-        # -c grava o e-mail da pasta pessoal. O helper usa o token dessa conta, nao o da conta ativa.
+        # -c grava o nome e o e-mail da conta escolhida. O helper usa o token dessa conta.
         $prefixed = @(
             '-c', "user.name=$($actor.Name)",
             '-c', "user.email=$($actor.Email)",
