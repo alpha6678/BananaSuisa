@@ -27,6 +27,7 @@ $script:EspCatalogPath = Join-Path $script:ProjectRoot 'catalog\esp-catalog.json
 $script:LauncherDataRoot = Join-Path $env:LOCALAPPDATA 'Ribanense Soluções'
 $script:DevLinkRoot = Join-Path $script:LauncherDataRoot 'aplicativos'
 . (Join-Path $script:CliRoot 'github-actor.ps1')
+. (Join-Path $script:CliRoot 'commit-assunto.ps1')
 
 $script:RestArguments = @(
     foreach ($Argument in $Rest) {
@@ -1310,9 +1311,8 @@ function Invoke-PublishAll {
     Assert-CommandAvailable 'gh'
 
     $actor = Get-GithubActor
-    if ($actor.Note) { Write-Warn2 $actor.Note }
     Write-Info "Conta do publish: $($actor.Login) ($($actor.Name) <$($actor.Email)>)."
-    Write-Muted "O terminal pede a conta uma vez. O nome do commit e o do perfil dessa conta. Veja docs/IDENTIDADE_GITHUB.md."
+    Write-Muted "A conta com escrita assina o commit. Veja docs/IDENTIDADE_GITHUB.md."
 
     Write-Info "Atualizando tags locais (git fetch --tags)..."
     Push-Location $script:ProjectRoot
@@ -1590,6 +1590,7 @@ $script:Commands = @(
     [pscustomobject]@{ Verb = 'version'; Aliases = @('versao');            Handler = 'Invoke-ShowVersions';  Usage = 'rb version';                         Help = 'Mostra versoes de Launcher, SDK, OS e cada app.' },
     [pscustomobject]@{ Verb = 'devlink'; Aliases = @('link');              Handler = 'Invoke-DevLink';       Usage = 'rb devlink <App>';                   Help = 'Compila um app e copia para %LOCALAPPDATA%\Ribanense Solucoes\aplicativos\ para o Launcher ver como instalado.' },
     [pscustomobject]@{ Verb = 'unlink';  Aliases = @('devunlink');         Handler = 'Invoke-DevUnlink';     Usage = 'rb unlink <App>';                    Help = 'Remove o devlink de um app.' },
+    [pscustomobject]@{ Verb = 'commit';       Aliases = @('commitar');              Handler = 'Invoke-RepoCommit';    Usage = 'rb commit [--dry-run]';                 Help = 'Sincroniza com origin, separa os commits por area, assina com a conta do gh com escrita e faz push.' },
     [pscustomobject]@{ Verb = 'publish';      Aliases = @('empacotar');         Handler = 'Invoke-AppPublish';     Usage = 'rb publish <App|Launcher|all> [...]'; Help = 'Empacota App/Launcher ou executa publish all (bump patch + check + releases). O terminal pede uma vez a conta do gh com escrita; o nome e o do perfil.' },
     [pscustomobject]@{ Verb = 'release';      Aliases = @();                    Handler = 'Invoke-AppRelease';     Usage = 'rb release <App|Launcher> <semver>';   Help = 'Cria tag git e publica GitHub Release. O terminal pede uma vez a conta do gh com escrita; o nome e o do perfil.' },
     [pscustomobject]@{ Verb = 'logs';         Aliases = @('log');               Handler = 'Invoke-Logs';           Usage = 'rb logs [App] [N]';                 Help = 'Imprime as ultimas N (default 100) entradas do vault (Launcher ou app). Usa copia temporaria, nao conflita com processo rodando.' },
@@ -1753,6 +1754,8 @@ function Show-RibananseCliHelp {
     Write-Host "  .\rb.cmd publish-run Winget"
     Write-Host "  .\rb.cmd devlink Winget"
     Write-Host "  .\rb.cmd check"
+    Write-Host "  .\rb.cmd commit --dry-run"
+    Write-Host "  .\rb.cmd commit"
     Write-Host "  .\rb.cmd logs                    # launcher, ultimas 100"
     Write-Host "  .\rb.cmd logs Winget 50          # app Winget, ultimas 50"
     Write-Host "  .\rb.cmd crashlog                # texto plano do crash.log"
