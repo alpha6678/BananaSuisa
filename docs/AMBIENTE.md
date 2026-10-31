@@ -61,6 +61,7 @@ dotnet test  .\Ribanense.Solucoes.slnx
 | `.\rb.cmd` não executa | Confirmar diretório correto e PowerShell disponível. |
 | Build falha em `dotnet restore` | Confirmar SDK 10.x e acesso ao `nuget.org`. |
 | Launcher não abre após `rb.cmd run` | Ver `bin/Debug/net10.0-windows/` do projeto Launcher; conferir logs no Event Viewer. |
+| App do catálogo pede o .NET | O Launcher é self-contained. Os apps usam o Desktop Runtime compartilhado. No card, **Instalar .NET** baixa o pacote oficial e abre a janela de progresso da Microsoft, listando o Runtime e o Desktop Runtime. O Windows pede UAC. |
 | `gh release create` falha | Rodar `gh auth status`; re-autenticar com `gh auth login`. A conta ativa precisa de escrita no repositório. |
 
 ## Ver também
