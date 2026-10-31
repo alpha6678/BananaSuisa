@@ -3,8 +3,8 @@
   "product": "RibanenseESP",
   "version": "0.3.6",
   "minFlashMb": 4,
-  "url": "https://raw.githubusercontent.com/alpha6678/BananaSuisa/main/firmware/ribanense-esp/dist/ribanense-esp-0.3.5.bin",
-  "sha256": "de0f931e3c5bea047278a914e865acac90f410ccee7cb0107e31843f2aec1915"
+  "url": "https://raw.githubusercontent.com/alpha6678/BananaSuisa/main/firmware/ribanense-esp/dist/ribanense-esp-0.3.6.bin",
+  "sha256": "fa78d81a1d9a3fa55e5bbab4052c141a0125424560f6fba4aeb70e461442e382"
 }
 
 
