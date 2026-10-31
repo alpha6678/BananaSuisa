@@ -16,6 +16,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
     private readonly IInstalledAppsRegistry _registry;
     private readonly IAppJsonLog _log;
     private readonly IDotNetDesktopRuntimeChecker _runtimeChecker;
+    private readonly IDotNetDesktopRuntimeInstaller _runtimeInstaller;
     private readonly string _aplicativosRoot;
 
     public MainWindowViewModel(
@@ -26,13 +27,15 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         ILauncherUpdateService launcherUpdater,
         IAppJsonLog log,
         string aplicativosRoot,
-        IDotNetDesktopRuntimeChecker? runtimeChecker = null)
+        IDotNetDesktopRuntimeChecker? runtimeChecker = null,
+        IDotNetDesktopRuntimeInstaller? runtimeInstaller = null)
     {
         _installer = installer;
         _releases = releases;
         _registry = registry;
         _log = log;
         _runtimeChecker = runtimeChecker ?? new DotNetDesktopRuntimeChecker();
+        _runtimeInstaller = runtimeInstaller ?? new DotNetDesktopRuntimeInstaller();
         _aplicativosRoot = aplicativosRoot;
 
         CatalogPage = new CatalogViewModel(catalog, releases, registry, this, log, aplicativosRoot);
@@ -85,7 +88,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         if (card.LatestRelease is null) return;
         card.IsBusy = true;
         card.ErrorMessage = null;
-        card.MissingRuntimeUrl = null;
+        card.RequiredRuntimeVersion = null;
         try
         {
             var progress = new Progress<double>(v => card.Progress = v * 100.0);
@@ -118,7 +121,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
     {
         card.IsBusy = true;
         card.ErrorMessage = null;
-        card.MissingRuntimeUrl = null;
+        card.RequiredRuntimeVersion = null;
         try
         {
             var result = _installer.Uninstall(_aplicativosRoot, card.Id);
@@ -146,15 +149,16 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         if (card.Installed is null) return;
 
         card.ErrorMessage = null;
-        card.MissingRuntimeUrl = null;
+        card.RequiredRuntimeVersion = null;
 
         var runtimeCheck = _runtimeChecker.Check(card.Installed.ExecutablePath);
         if (!runtimeCheck.IsSatisfied)
         {
             string versionLabel = FormatMajorMinor(runtimeCheck.RequiredVersion);
-            string downloadUrl = $"https://dotnet.microsoft.com/download/dotnet/{versionLabel}";
-            card.ErrorMessage = $"Requer .NET Desktop Runtime {versionLabel} (x64), não encontrado nesta máquina. {downloadUrl}";
-            card.MissingRuntimeUrl = downloadUrl;
+            card.RequiredRuntimeVersion = runtimeCheck.RequiredVersion;
+            card.ErrorMessage =
+                $"Faltam dependências do .NET {versionLabel} (x64): Runtime e Desktop Runtime. " +
+                "Instalar .NET baixa o pacote oficial e abre a janela de progresso da Microsoft. O Windows pede permissão de administrador.";
             _log.Write(AppLogLevel.Warning, "open.runtime-missing",
                 $"{card.Id} requer .NET Desktop Runtime {versionLabel}, ausente na máquina.");
             return;
@@ -178,6 +182,61 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         {
             _log.Write(AppLogLevel.Error, "open.exception", $"Falha ao abrir {card.Id}.", ex);
             card.ErrorMessage = ex.Message;
+        }
+    }
+
+    public async Task InstallRuntimeAsync(AppCardViewModel card)
+    {
+        if (card.Installed is null || string.IsNullOrWhiteSpace(card.RequiredRuntimeVersion)) return;
+
+        string version = card.RequiredRuntimeVersion;
+        card.IsBusy = true;
+        card.ErrorMessage = null;
+        card.Progress = 0;
+        card.ProgressIndeterminate = false;
+        try
+        {
+            var progress = new Progress<RuntimeInstallProgress>(update =>
+            {
+                card.ActivityMessage = update.Message;
+                card.ProgressIndeterminate = update.Percent is null;
+                if (update.Percent is double percent)
+                {
+                    card.Progress = percent;
+                }
+            });
+            var result = await _runtimeInstaller.InstallAsync(version, progress, CancellationToken.None)
+                .ConfigureAwait(true);
+
+            var again = _runtimeChecker.Check(card.Installed.ExecutablePath);
+            if (again.IsSatisfied)
+            {
+                card.RequiredRuntimeVersion = null;
+                Open(card);
+                return;
+            }
+
+            card.ErrorMessage = result.Kind switch
+            {
+                RuntimeInstallKind.Cancelled => "Instalação do .NET cancelada.",
+                RuntimeInstallKind.RebootRequired =>
+                    "O .NET foi instalado. Reinicie o Windows e abra o app de novo.",
+                _ => result.Detail ?? "Não foi possível instalar o .NET Desktop Runtime."
+            };
+            _log.Write(AppLogLevel.Warning, "runtime.install",
+                $"{card.Id}: {card.ErrorMessage}");
+        }
+        catch (Exception ex)
+        {
+            _log.Write(AppLogLevel.Error, "runtime.install", $"Falha ao instalar o .NET para {card.Id}.", ex);
+            card.ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            card.IsBusy = false;
+            card.Progress = 0;
+            card.ProgressIndeterminate = false;
+            card.ActivityMessage = null;
         }
     }
 

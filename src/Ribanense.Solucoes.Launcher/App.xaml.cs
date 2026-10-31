@@ -92,10 +92,11 @@ public partial class App : Application
         var installer = new AppInstallService(_github, registry, _logger);
         var launcherUpdater = new LauncherUpdateService(releases, _github, _logger);
         var runtimeChecker = new DotNetDesktopRuntimeChecker();
+        var runtimeInstaller = new DotNetDesktopRuntimeInstaller();
 
         var viewModel = new MainWindowViewModel(
             catalog, releases, registry, installer, launcherUpdater, _logger, LauncherConfig.AplicativosRoot,
-            runtimeChecker);
+            runtimeChecker, runtimeInstaller);
 
         var window = new MainWindow { DataContext = viewModel };
         window.Show();

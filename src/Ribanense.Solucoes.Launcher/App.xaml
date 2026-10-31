@@ -40,13 +40,20 @@
                                    Text="{Binding Description}"
                                    TextWrapping="Wrap" />
 
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
-                            <TextBlock Style="{StaticResource Text.Muted}" Text="{Binding StatusLabel}" />
+                        <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Style="{StaticResource Text.Muted}" Text="{Binding StatusLabel}" />
+                                <TextBlock Style="{StaticResource Text.Muted}"
+                                           Margin="12,0,0,0"
+                                           Text="{Binding ErrorMessage}"
+                                           Foreground="{StaticResource Brush.Danger}"
+                                           Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
+                            </StackPanel>
                             <TextBlock Style="{StaticResource Text.Muted}"
-                                       Margin="12,0,0,0"
-                                       Text="{Binding ErrorMessage}"
-                                       Foreground="{StaticResource Brush.Danger}"
-                                       Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
+                                       Margin="0,6,0,0"
+                                       Text="{Binding ActivityMessage}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding ActivityMessage, Converter={StaticResource NullToVisibility}}" />
                         </StackPanel>
 
                         <Grid Grid.Row="3" Margin="0,12,0,0">
@@ -61,14 +68,14 @@
                                          Minimum="0"
                                          Maximum="100"
                                          Value="{Binding Progress, Mode=OneWay}"
-                                         IsIndeterminate="False"
+                                         IsIndeterminate="{Binding ProgressIndeterminate}"
                                          Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
 
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <Button Content="Baixar .NET Runtime"
+                                <Button Content="Instalar .NET"
                                         Style="{StaticResource Button.Accent}"
-                                        Command="{Binding OpenMissingRuntimeCommand}"
-                                        Visibility="{Binding HasMissingRuntimeUrl, Converter={StaticResource BoolToVisibility}}"
+                                        Command="{Binding InstallRuntimeCommand}"
+                                        Visibility="{Binding NeedsRuntimeInstall, Converter={StaticResource BoolToVisibility}}"
                                         Margin="0,0,6,0" />
                                 <Button Content="Abrir"
                                         Style="{StaticResource Button.Base}"

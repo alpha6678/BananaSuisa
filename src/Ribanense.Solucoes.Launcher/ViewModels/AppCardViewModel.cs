@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using Ribanense.Solucoes.Launcher.Domain;
@@ -12,6 +11,7 @@ public interface IAppCardHost
     Task UpdateAsync(AppCardViewModel card);
     Task UninstallAsync(AppCardViewModel card);
     void Open(AppCardViewModel card);
+    Task InstallRuntimeAsync(AppCardViewModel card);
 }
 
 public sealed class AppCardViewModel : ObservableObject
@@ -21,7 +21,7 @@ public sealed class AppCardViewModel : ObservableObject
     private readonly AsyncRelayCommand _updateCommand;
     private readonly AsyncRelayCommand _uninstallCommand;
     private readonly RelayCommand _openCommand;
-    private readonly RelayCommand _openMissingRuntimeCommand;
+    private readonly AsyncRelayCommand _installRuntimeCommand;
 
     public AppCardViewModel(CatalogEntry entry, IAppCardHost host)
     {
@@ -32,7 +32,7 @@ public sealed class AppCardViewModel : ObservableObject
         _updateCommand = new AsyncRelayCommand(_ => _host.UpdateAsync(this), _ => CanUpdate);
         _uninstallCommand = new AsyncRelayCommand(_ => _host.UninstallAsync(this), _ => CanUninstall);
         _openCommand = new RelayCommand(_ => _host.Open(this), _ => CanOpen);
-        _openMissingRuntimeCommand = new RelayCommand(_ => OpenMissingRuntimeUrl(), _ => HasMissingRuntimeUrl);
+        _installRuntimeCommand = new AsyncRelayCommand(_ => _host.InstallRuntimeAsync(this), _ => NeedsRuntimeInstall);
     }
 
     public CatalogEntry Entry { get; }
@@ -120,6 +120,20 @@ public sealed class AppCardViewModel : ObservableObject
         set => SetProperty(ref _progress, value);
     }
 
+    private bool _progressIndeterminate;
+    public bool ProgressIndeterminate
+    {
+        get => _progressIndeterminate;
+        set => SetProperty(ref _progressIndeterminate, value);
+    }
+
+    private string? _activityMessage;
+    public string? ActivityMessage
+    {
+        get => _activityMessage;
+        set => SetProperty(ref _activityMessage, value);
+    }
+
     private string? _errorMessage;
     public string? ErrorMessage
     {
@@ -127,25 +141,25 @@ public sealed class AppCardViewModel : ObservableObject
         set => SetProperty(ref _errorMessage, value);
     }
 
-    private string? _missingRuntimeUrl;
+    private string? _requiredRuntimeVersion;
     /// <summary>
-    /// Preenchido quando <see cref="Open"/> detecta que o .NET Desktop Runtime exigido pelo app
-    /// nao esta instalado nesta maquina; aponta para a pagina de download correspondente.
+    /// Preenchido quando <see cref="IAppCardHost.Open"/> detecta que o .NET Desktop Runtime
+    /// exigido pelo app nao esta instalado. O Launcher baixa e instala esse runtime.
     /// </summary>
-    public string? MissingRuntimeUrl
+    public string? RequiredRuntimeVersion
     {
-        get => _missingRuntimeUrl;
+        get => _requiredRuntimeVersion;
         set
         {
-            if (SetProperty(ref _missingRuntimeUrl, value))
+            if (SetProperty(ref _requiredRuntimeVersion, value))
             {
-                OnPropertyChanged(nameof(HasMissingRuntimeUrl));
+                OnPropertyChanged(nameof(NeedsRuntimeInstall));
                 RefreshCommands();
             }
         }
     }
 
-    public bool HasMissingRuntimeUrl => !string.IsNullOrEmpty(MissingRuntimeUrl);
+    public bool NeedsRuntimeInstall => !string.IsNullOrWhiteSpace(RequiredRuntimeVersion);
 
     public string? InstalledVersion => Installed?.Version;
     public string? LatestVersion => LatestRelease?.Version;
@@ -170,7 +184,7 @@ public sealed class AppCardViewModel : ObservableObject
     public ICommand UpdateCommand => _updateCommand;
     public ICommand UninstallCommand => _uninstallCommand;
     public ICommand OpenCommand => _openCommand;
-    public ICommand OpenMissingRuntimeCommand => _openMissingRuntimeCommand;
+    public ICommand InstallRuntimeCommand => _installRuntimeCommand;
 
     private void RefreshCommands()
     {
@@ -180,7 +194,7 @@ public sealed class AppCardViewModel : ObservableObject
             _updateCommand.RaiseCanExecuteChanged();
             _uninstallCommand.RaiseCanExecuteChanged();
             _openCommand.RaiseCanExecuteChanged();
-            _openMissingRuntimeCommand.RaiseCanExecuteChanged();
+            _installRuntimeCommand.RaiseCanExecuteChanged();
         }
 
         var dispatcher = Application.Current?.Dispatcher;
@@ -193,16 +207,4 @@ public sealed class AppCardViewModel : ObservableObject
         Raise();
     }
 
-    private void OpenMissingRuntimeUrl()
-    {
-        if (!HasMissingRuntimeUrl) return;
-        try
-        {
-            Process.Start(new ProcessStartInfo(MissingRuntimeUrl!) { UseShellExecute = true });
-        }
-        catch
-        {
-            // best effort: se o navegador padrao nao abrir, o usuario ainda ve a mensagem de erro com a URL.
-        }
-    }
 }
