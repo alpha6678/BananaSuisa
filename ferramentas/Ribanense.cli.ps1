@@ -27,6 +27,7 @@ $script:EspCatalogPath = Join-Path $script:ProjectRoot 'catalog\esp-catalog.json
 $script:LauncherDataRoot = Join-Path $env:LOCALAPPDATA 'Ribanense Soluções'
 $script:DevLinkRoot = Join-Path $script:LauncherDataRoot 'aplicativos'
 . (Join-Path $script:CliRoot 'github-actor.ps1')
+. (Join-Path $script:CliRoot 'console-ui.ps1')
 . (Join-Path $script:CliRoot 'commit-assunto.ps1')
 
 $script:RestArguments = @(
@@ -126,8 +127,34 @@ function Invoke-DotNet {
     Assert-CommandAvailable 'dotnet'
     Push-Location $script:ProjectRoot
     try {
-        & dotnet @Arguments
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $mode = if ($Arguments.Count -gt 0) { $Arguments[0] } else { 'build' }
+        $label = if ($mode -eq 'test') { 'Testando' } else { 'Compilando' }
+        $lines = @(Invoke-RbExternal -Script { & dotnet @Arguments } -Label $label -ProgressPattern '^\s*(\d+)\s*/\s*(\d+)\s' -Tail 40 -FailurePrefix "dotnet $mode falhou")
+
+        $errors = @($lines | Where-Object { $_ -match ':\s*error\s+[A-Z]+\d+' })
+        foreach ($line in $errors) { Write-RbTick ('  ' + $line.Trim()) 'Red' }
+
+        if ($mode -eq 'test') {
+            $failed = 0
+            $passed = 0
+            foreach ($line in $lines) {
+                if ($line -match 'Com falha:\s*(\d+),\s*Aprovado:\s*(\d+)') {
+                    $failed += [int]$Matches[1]
+                    $passed += [int]$Matches[2]
+                }
+            }
+            if ($passed + $failed -gt 0) {
+                $summary = "  {0} teste(s) aprovados" -f $passed
+                if ($failed -gt 0) { $summary += ", $failed com falha" }
+                Write-RbTick $summary $(if ($failed -gt 0) { 'Red' } else { 'Gray' })
+            }
+        }
+        else {
+            $warnLines = @($lines | Where-Object { $_ -match ':\s*warning\s+[A-Z]+\d+' })
+            if ($warnLines.Count -gt 0) {
+                Write-RbTick ("  {0} aviso(s) de compilacao (RIBANENSE_UI=plain mostra todos)" -f $warnLines.Count) 'DarkGray'
+            }
+        }
     }
     finally { Pop-Location }
 }
@@ -868,7 +895,22 @@ function Invoke-OsBuild {
     Invoke-RobocopyMirror -Source $script:OsRoot -Destination $osMirror
     Invoke-RobocopyMirror -Source $script:EspSdkRoot -Destination (Join-Path $root 'esp-sdk')
     Sync-IdfSdkconfigFromDefaults -ProjectDir $osMirror
-    Invoke-IdfBuild -ProjectDir $osMirror -ExtraArgs @('build')
+    Start-RbStepBlock -Steps @('Espelho do firmware', 'Compilando RibanenseESP')
+    try {
+        Update-RbStep -Index 0 -State 'ok'
+        Update-RbStep -Index 1 -State 'running'
+        $lines = @(Invoke-RbExternal -Script { Invoke-IdfBuild -ProjectDir $osMirror -ExtraArgs @('build') } -Label 'Compilando' -ProgressPattern '^\[(\d+)/(\d+)\]' -FailurePrefix 'build do OS falhou')
+        $sizes = @($lines | Where-Object { $_ -match 'binary size' })
+        foreach ($line in $sizes) { Write-RbTick ('  ' + $line.Trim()) }
+        Update-RbStep -Index 1 -State 'ok'
+    }
+    catch {
+        Update-RbStep -Index 1 -State 'fail'
+        throw
+    }
+    finally {
+        Stop-RbStepBlock
+    }
     Write-Ok "Build do OS concluido em $root\ribanense-esp\build."
 }
 
@@ -1002,10 +1044,23 @@ function Invoke-SolutionTests {
 
 function Invoke-FullCheck {
     Stop-RibananseProcesses
-    Write-Step "Build"
-    Invoke-DotNet -Arguments @('build', $script:SolutionPath)
-    Write-Step "Testes"
-    Invoke-DotNet -Arguments @('test', $script:SolutionPath)
+    Start-RbStepBlock -Steps @('Build', 'Testes')
+    try {
+        Update-RbStep -Index 0 -State 'running'
+        Invoke-DotNet -Arguments @('build', $script:SolutionPath)
+        Update-RbStep -Index 0 -State 'ok'
+        Update-RbStep -Index 1 -State 'running'
+        Invoke-DotNet -Arguments @('test', $script:SolutionPath)
+        Update-RbStep -Index 1 -State 'ok'
+    }
+    catch {
+        $failed = if ($script:RbUi.BlockStates.Count -gt 1 -and $script:RbUi.BlockStates[1] -eq 'running') { 1 } else { 0 }
+        Update-RbStep -Index $failed -State 'fail'
+        throw
+    }
+    finally {
+        Stop-RbStepBlock
+    }
     Write-Ok "Check completo."
 }
 
@@ -1269,9 +1324,6 @@ function Invoke-PublishAllVersionCommit {
         return
     }
 
-    Write-Muted "Arquivos no commit de versao:"
-    foreach ($s in $staged) { Write-Muted " + $s" }
-
     $summaryLines = @(
         foreach ($item in ($Plan | Where-Object { $_.Current -ne $_.Next })) {
             " - $($item.App.ShortName) $($item.Current) -> $($item.Next)"
@@ -1282,7 +1334,7 @@ function Invoke-PublishAllVersionCommit {
 
     Invoke-GitAsActor -GitArgs @('commit', '-m', $commitTitle, '-m', $commitBody) -FailureMessage "git commit das versoes falhou."
 
-    Write-Ok "Commit de versoes criado."
+    Write-Ok ("Commit de versoes criado ({0} arquivo(s))." -f $staged.Count)
 }
 
 function Invoke-PublishAll {
@@ -1301,8 +1353,9 @@ function Invoke-PublishAll {
             '--dry-run' { $dryRun = $true; continue }
             '--whatif'  { $dryRun = $true; continue }
             '-whatif'   { $dryRun = $true; continue }
+            '-verbose'  { $true; continue }
             default {
-                throw "Argumento desconhecido em publish all: '$arg'. Use -Yes e/ou --dry-run."
+                throw "Argumento desconhecido em publish all: '$arg'. Use -Yes, -Verbose e/ou --dry-run."
             }
         }
     }
@@ -1356,17 +1409,18 @@ function Invoke-PublishAll {
         Write-Step "Plano publish all"
         foreach ($item in $plan) {
             $kind = if ($item.Kind) { $item.Kind } else { 'win-app' }
-            Write-Host ("{0,-14} {1} -> {2}  tag={3}  ({4})" -f $item.App.ShortName, $item.Current, $item.Next, $item.Tag, $kind)
-            Write-Muted ("motivo: {0}" -f $item.Reason)
+            $note = ''
             if ($item.Current -eq $item.Next) {
-                Write-Muted "versao $($item.Current) ainda sem tag (publish anterior incompleto): publica sem novo bump"
+                $note = '  (versao ja elevada: publica sem novo bump)'
             }
-            if ($item.ChangedHint.Count -gt 0) {
-                foreach ($f in $item.ChangedHint) {
-                    Write-Muted (" - " + $f)
-                }
+            Write-Host ("  {0,-14} {1} -> {2}{3}" -f $item.App.ShortName, $item.Current, $item.Next, $note)
+            Write-Muted ("     tag {0}  {1}" -f $item.Tag, $kind)
+            if (Test-RbVerbose) {
+                Write-Muted ("     motivo: {0}" -f $item.Reason)
+                foreach ($f in $item.ChangedHint) { Write-Muted ("     - " + $f) }
             }
         }
+        Write-Muted ("{0} item(ns) no plano; use --dry-run -Verbose para ver os arquivos." -f $plan.Count)
 
         if ($dryRun) {
             Write-Host ""
@@ -1439,16 +1493,34 @@ function Invoke-PublishAll {
         Write-Step "Publicacao no GitHub"
         $releaseScript = Join-Path $script:CliRoot 'release.ps1'
         Assert-PathExists -Path $releaseScript -Description 'release.ps1'
-        foreach ($item in $plan) {
-            Write-Info "Publicando $($item.App.ShortName) v$($item.Next)..."
-            & $releaseScript -App $item.App.ShortName -Version $item.Next
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $labels = @($plan | ForEach-Object { '{0} v{1}' -f $_.App.ShortName, $_.Next })
+        Start-RbStepBlock -Steps $labels
+        $published = @()
+        try {
+            for ($i = 0; $i -lt $plan.Count; $i++) {
+                $item = $plan[$i]
+                Update-RbStep -Index $i -State 'running'
+                & $releaseScript -App $item.App.ShortName -Version $item.Next
+                if ($LASTEXITCODE -ne 0) {
+                    Update-RbStep -Index $i -State 'fail'
+                    if ($published.Count -gt 0) {
+                        Stop-RbStepBlock
+                        Write-Step "Resumo"
+                        foreach ($done in $published) { Write-Ok $done }
+                        Write-Err "$($item.App.ShortName) v$($item.Next) falhou; os anteriores ja foram publicados."
+                    }
+                    exit $LASTEXITCODE
+                }
+                Update-RbStep -Index $i -State 'ok'
+                $published += ("{0} publicado: {1} ({2})" -f $item.App.ShortName, $item.Next, $item.Tag)
+            }
+        }
+        finally {
+            Stop-RbStepBlock
         }
 
         Write-Step "Resumo"
-        foreach ($item in $plan) {
-            Write-Ok ("{0} publicado: {1} ({2})" -f $item.App.ShortName, $item.Next, $item.Tag)
-        }
+        foreach ($line in $published) { Write-Ok $line }
     }
     finally {
         Pop-Location

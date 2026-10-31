@@ -183,6 +183,7 @@ function Invoke-GitAsActor {
     }
 
     $code = 1
+    $output = @()
     try {
         [Environment]::SetEnvironmentVariable('GIT_AUTHOR_NAME', $actor.Name, 'Process')
         [Environment]::SetEnvironmentVariable('GIT_AUTHOR_EMAIL', $actor.Email, 'Process')
@@ -201,7 +202,10 @@ function Invoke-GitAsActor {
             '-c', 'credential.helper=!gh auth git-credential'
         ) + $GitArgs
 
-        & git @prefixed
+        # Saida guardada: so aparece quando o comando falha.
+        $output = @(& git @prefixed 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { ($_ | Out-String).TrimEnd() }
+        })
         $code = $LASTEXITCODE
     }
     finally {
@@ -210,7 +214,16 @@ function Invoke-GitAsActor {
         }
     }
 
-    if ($code -ne 0) { throw $FailureMessage }
+    if ($code -ne 0) {
+        if (Get-Command Write-Muted -ErrorAction SilentlyContinue) {
+            foreach ($line in $output) {
+                foreach ($part in ($line -split "`r?`n")) {
+                    if (-not [string]::IsNullOrWhiteSpace($part)) { Write-Muted ("     " + $part.TrimEnd()) }
+                }
+            }
+        }
+        throw $FailureMessage
+    }
 }
 
 function Invoke-GhAsActor {
@@ -222,16 +235,36 @@ function Invoke-GhAsActor {
     Get-GithubActor | Out-Null
     $saved = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
     $code = 1
+    $output = @()
     try {
         if ($script:GithubActorToken) {
             [Environment]::SetEnvironmentVariable('GH_TOKEN', $script:GithubActorToken, 'Process')
         }
-        & gh @GhArgs
+        $output = @(& gh @GhArgs 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { ($_ | Out-String).TrimEnd() }
+        })
         $code = $LASTEXITCODE
     }
     finally {
         [Environment]::SetEnvironmentVariable('GH_TOKEN', $saved, 'Process')
     }
 
-    if ($code -ne 0) { throw $FailureMessage }
+    $lines = @(
+        foreach ($line in $output) {
+            foreach ($part in ($line -split "`r?`n")) {
+                if (-not [string]::IsNullOrWhiteSpace($part)) { $part.TrimEnd() }
+            }
+        }
+    )
+    if ($code -ne 0) {
+        if (Get-Command Write-Muted -ErrorAction SilentlyContinue) {
+            foreach ($line in $lines) { Write-Muted ("     " + $line) }
+        }
+        throw $FailureMessage
+    }
+
+    # Sucesso: so a ultima linha (a URL do release) interessa.
+    if ($lines.Count -gt 0 -and (Get-Command Write-RbTick -ErrorAction SilentlyContinue)) {
+        Write-RbTick ('  ' + $lines[-1]) 'DarkGray'
+    }
 }
