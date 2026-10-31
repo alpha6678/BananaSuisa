@@ -52,7 +52,7 @@ dotnet test  .\Ribanense.Solucoes.slnx
 2. Confirmar `dotnet --version` mostrando 10.x.
 3. `.\rb.cmd compilar` para baixar pacotes NuGet e validar build.
 4. `.\rb.cmd run` para abrir o Launcher.
-5. `gh auth login` na conta pessoal `alpha6678` (`dionerdfrg3@gmail.com`), que é a única que assina commits desta pasta. Passos de conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
+5. `gh auth login` nas contas com escrita (`alpha6678` e `Nickallafe`). Cada `rb publish` e `rb release` abre o diálogo para escolher qual delas assina. Passos: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
 
 ## Problemas comuns
 
@@ -62,7 +62,7 @@ dotnet test  .\Ribanense.Solucoes.slnx
 | Build falha em `dotnet restore` | Confirmar SDK 10.x e acesso ao `nuget.org`. |
 | Launcher não abre após `rb.cmd run` | Ver `bin/Debug/net10.0-windows/` do projeto Launcher; conferir logs no Event Viewer. |
 | App do catálogo pede o .NET | O Launcher é self-contained. Os apps usam o Desktop Runtime compartilhado. No card, **Instalar .NET** baixa o pacote oficial e abre a janela de progresso da Microsoft, listando o Runtime e o Desktop Runtime. O Windows pede UAC. |
-| `gh release create` falha | Rodar `gh auth status` e confirmar que `alpha6678` está logada. O `rb` não usa outra conta. Reentrar com `gh auth login`. |
+| `gh release create` falha | Rodar `gh auth status` e confirmar que a conta escolhida no diálogo tem escrita. O nome do commit é o do perfil dessa conta. |
 
 ## Ver também
 
