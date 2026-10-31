@@ -24,6 +24,20 @@ gh api user --jq "{login:.login,name:.name,id:.id}"
 
 `GH_TOKEN` ou `GITHUB_TOKEN` vale no lugar das contas do `gh auth`. Com a variável definida, a lista só oferece essa conta. Se o token não tiver escrita, o `rb` para. Apague a variável na sessão ou aponte para um token da conta que deve assinar.
 
+## Aviso de autoria
+
+Cada pessoa assina e envia com a própria conta, na própria máquina. O `rb` avisa quando a máquina assina por conta de alguém que não tem sessão do `gh` nela:
+
+```text
+[!!] Nesta maquina os commits saem como alpha6678.
+[!!] Tambem tem escrita em alpha6678/BananaSuisa: Nickallafe (sem sessao do gh aqui).
+[!!] Trabalho de outra pessoa vai no commit dela, na maquina dela, com a conta dela.
+```
+
+O aviso não bloqueia nada e não muda a conta que assina. Ele existe porque o commit sai no nome de quem tem sessão aqui, mesmo que o trabalho seja de outro. Se o aviso aparecer e o commit for seu, nada a fazer. Se aparecer e o trabalho for de outra pessoa, o commit precisa sair da máquina dela.
+
+A lista vem de `gh api repos/<owner>/<repo>/collaborators`, que exige escrita para ser lida. Se nenhum token logado puder ler, o aviso não aparece e a publicação segue normal.
+
 ## Commits feitos à mão nesta pasta
 
 `git commit` fora do `rb`, na pasta `Desenvolvimento/projetos/pessoais`, continua com `dionerdfrg3@gmail.com` (Dioner Frigi), vindo de `~/.gitconfig-pessoal`. O hook `~/.githooks-pessoal` aceita esse e-mail e também o noreply do GitHub usado pelo `rb`. Um e-mail de outra conta, como o da pasta profissional, continua recusado.
