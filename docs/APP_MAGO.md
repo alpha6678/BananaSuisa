@@ -23,8 +23,12 @@ acontecem quase sempre no `.py`, não no C#.
 
 ## Requisitos
 
-**No PC do usuário:** Windows 10/11 x64 com o .NET Desktop Runtime usado pelo
-Launcher. **Python não é necessário** — o release traz o executável congelado.
+**No PC do usuário:** Windows 10/11 x64. O Launcher já inclui o runtime dele.
+O app precisa do .NET Desktop Runtime compartilhado; se faltar, o botão
+**Instalar .NET** no catálogo baixa o pacote oficial da Microsoft e abre a janela
+de progresso, com permissão de administrador. O card lista o Runtime e o
+Desktop Runtime enquanto isso acontece. **Python não é necessário** — o release traz o
+executável congelado.
 
 **Na máquina de build:** .NET SDK (`global.json`) e Python 3.8+ com PyInstaller:
 
