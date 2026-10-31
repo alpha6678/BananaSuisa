@@ -1,8 +1,8 @@
-﻿{
+{
   "id": "com.ribanense.recuperacao",
   "name": "RecuperaÃ§Ã£o do Windows",
   "publicName": "RecuperaÃ§Ã£o do Windows",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minimumLauncherVersion": "0.1.0",
   "entryExecutable": "Ribanense.Solucoes.App.Recuperacao.exe",
   "icon": "icon.png",
@@ -10,4 +10,5 @@
   "requiresElevation": false,
   "githubTagPrefix": "recuperacao-v"
 }
+
 
