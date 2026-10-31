@@ -21,11 +21,28 @@ public sealed class AsyncRelayCommand : ICommand
     {
     }
 
+    private event EventHandler? _canExecuteChanged;
+
     public event EventHandler? CanExecuteChanged
     {
-        add => CommandManager.RequerySuggested += value;
-        remove => CommandManager.RequerySuggested -= value;
+        add
+        {
+            _canExecuteChanged += value;
+            CommandManager.RequerySuggested += value;
+        }
+        remove
+        {
+            _canExecuteChanged -= value;
+            CommandManager.RequerySuggested -= value;
+        }
     }
+
+    /// <summary>
+    /// Avisa na hora. O <see cref="CommandManager"/> só reavalia no próximo
+    /// input, e o primeiro clique num botão opaco era descartado.
+    /// </summary>
+    public void RaiseCanExecuteChanged() =>
+        _canExecuteChanged?.Invoke(this, EventArgs.Empty);
 
     public bool IsExecuting => _isExecuting;
 
@@ -37,7 +54,7 @@ public sealed class AsyncRelayCommand : ICommand
         if (!CanExecute(parameter)) return;
 
         _isExecuting = true;
-        CommandManager.InvalidateRequerySuggested();
+        RaiseCanExecuteChanged();
         try
         {
             await _execute(parameter).ConfigureAwait(true);
@@ -45,7 +62,7 @@ public sealed class AsyncRelayCommand : ICommand
         finally
         {
             _isExecuting = false;
-            CommandManager.InvalidateRequerySuggested();
+            RaiseCanExecuteChanged();
         }
     }
 }

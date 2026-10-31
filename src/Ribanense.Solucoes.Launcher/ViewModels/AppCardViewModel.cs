@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Windows;
 using System.Windows.Input;
 using Ribanense.Solucoes.Launcher.Domain;
 using Ribanense.Solucoes.UI.Mvvm;
@@ -16,17 +17,22 @@ public interface IAppCardHost
 public sealed class AppCardViewModel : ObservableObject
 {
     private readonly IAppCardHost _host;
+    private readonly AsyncRelayCommand _installCommand;
+    private readonly AsyncRelayCommand _updateCommand;
+    private readonly AsyncRelayCommand _uninstallCommand;
+    private readonly RelayCommand _openCommand;
+    private readonly RelayCommand _openMissingRuntimeCommand;
 
     public AppCardViewModel(CatalogEntry entry, IAppCardHost host)
     {
         Entry = entry;
         _host = host;
 
-        InstallCommand = new AsyncRelayCommand(_ => _host.InstallAsync(this), _ => CanInstall);
-        UpdateCommand = new AsyncRelayCommand(_ => _host.UpdateAsync(this), _ => CanUpdate);
-        UninstallCommand = new AsyncRelayCommand(_ => _host.UninstallAsync(this), _ => CanUninstall);
-        OpenCommand = new RelayCommand(_ => _host.Open(this), _ => CanOpen);
-        OpenMissingRuntimeCommand = new RelayCommand(_ => OpenMissingRuntimeUrl(), _ => HasMissingRuntimeUrl);
+        _installCommand = new AsyncRelayCommand(_ => _host.InstallAsync(this), _ => CanInstall);
+        _updateCommand = new AsyncRelayCommand(_ => _host.UpdateAsync(this), _ => CanUpdate);
+        _uninstallCommand = new AsyncRelayCommand(_ => _host.UninstallAsync(this), _ => CanUninstall);
+        _openCommand = new RelayCommand(_ => _host.Open(this), _ => CanOpen);
+        _openMissingRuntimeCommand = new RelayCommand(_ => OpenMissingRuntimeUrl(), _ => HasMissingRuntimeUrl);
     }
 
     public CatalogEntry Entry { get; }
@@ -50,6 +56,7 @@ public sealed class AppCardViewModel : ObservableObject
                 OnPropertyChanged(nameof(CanOpen));
                 OnPropertyChanged(nameof(CanUninstall));
                 OnPropertyChanged(nameof(StatusLabel));
+                RefreshCommands();
             }
         }
     }
@@ -66,6 +73,7 @@ public sealed class AppCardViewModel : ObservableObject
                 OnPropertyChanged(nameof(CanInstall));
                 OnPropertyChanged(nameof(CanUpdate));
                 OnPropertyChanged(nameof(StatusLabel));
+                RefreshCommands();
             }
         }
     }
@@ -83,6 +91,7 @@ public sealed class AppCardViewModel : ObservableObject
                 OnPropertyChanged(nameof(CanOpen));
                 OnPropertyChanged(nameof(CanUninstall));
                 OnPropertyChanged(nameof(StatusLabel));
+                RefreshCommands();
             }
         }
     }
@@ -99,6 +108,7 @@ public sealed class AppCardViewModel : ObservableObject
                 OnPropertyChanged(nameof(CanUpdate));
                 OnPropertyChanged(nameof(CanOpen));
                 OnPropertyChanged(nameof(CanUninstall));
+                RefreshCommands();
             }
         }
     }
@@ -130,6 +140,7 @@ public sealed class AppCardViewModel : ObservableObject
             if (SetProperty(ref _missingRuntimeUrl, value))
             {
                 OnPropertyChanged(nameof(HasMissingRuntimeUrl));
+                RefreshCommands();
             }
         }
     }
@@ -155,11 +166,32 @@ public sealed class AppCardViewModel : ObservableObject
         _ => ""
     };
 
-    public ICommand InstallCommand { get; }
-    public ICommand UpdateCommand { get; }
-    public ICommand UninstallCommand { get; }
-    public ICommand OpenCommand { get; }
-    public ICommand OpenMissingRuntimeCommand { get; }
+    public ICommand InstallCommand => _installCommand;
+    public ICommand UpdateCommand => _updateCommand;
+    public ICommand UninstallCommand => _uninstallCommand;
+    public ICommand OpenCommand => _openCommand;
+    public ICommand OpenMissingRuntimeCommand => _openMissingRuntimeCommand;
+
+    private void RefreshCommands()
+    {
+        void Raise()
+        {
+            _installCommand.RaiseCanExecuteChanged();
+            _updateCommand.RaiseCanExecuteChanged();
+            _uninstallCommand.RaiseCanExecuteChanged();
+            _openCommand.RaiseCanExecuteChanged();
+            _openMissingRuntimeCommand.RaiseCanExecuteChanged();
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(Raise);
+            return;
+        }
+
+        Raise();
+    }
 
     private void OpenMissingRuntimeUrl()
     {
