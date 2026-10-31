@@ -67,7 +67,7 @@ $cmdShim = @(
     '@echo off'
     'setlocal'
     'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0rb.ps1" %*'
-    'endlocal'
+    'exit /b %ERRORLEVEL%'
     ''
 ) -join "`r`n"
 Set-Content -LiteralPath $cmdShimPath -Value $cmdShim -Encoding Ascii
@@ -75,6 +75,7 @@ Set-Content -LiteralPath $cmdShimPath -Value $cmdShim -Encoding Ascii
 $escapedRbCmdPath = $rbCmdPath.Replace("'", "''")
 $ps1Shim = @(
     "& '$escapedRbCmdPath' @args"
+    'exit $LASTEXITCODE'
     ''
 ) -join "`r`n"
 Set-Content -LiteralPath $ps1ShimPath -Value $ps1Shim -Encoding Unicode
