@@ -49,7 +49,9 @@ O `publish all`:
 1. Busca tags (`git fetch --tags`) e detecta **cada app Windows**, o **Launcher**,
    o **OS** (`ribanense-esp-v`) e os **apps da placa** (`esp-<slug>-v`) alterados
    desde a última tag do prefixo correspondente.
-2. Calcula próxima versão com bump patch (`x.y.z -> x.y.(z+1)`).
+2. Calcula a próxima versão com bump patch (`x.y.z -> x.y.(z+1)`). Se a versão
+   do arquivo já estiver acima da última tag, porque um publish anterior parou
+   antes do release, publica essa versão sem novo bump.
 3. Atualiza versões: `.csproj` + `app.json` (Windows); `Directory.Build.props`
    (Launcher); `ribanense_esp_version.h` + `firmware.json` (OS); `app.json` do
    app da placa.
