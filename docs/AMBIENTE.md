@@ -52,7 +52,7 @@ dotnet test  .\Ribanense.Solucoes.slnx
 2. Confirmar `dotnet --version` mostrando 10.x.
 3. `.\rb.cmd compilar` para baixar pacotes NuGet e validar build.
 4. `.\rb.cmd run` para abrir o Launcher.
-5. `gh auth login` nas contas com escrita (`alpha6678` e `Nickallafe`). Cada `rb publish` e `rb release` pergunta uma vez no terminal qual delas assina. Passos: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
+5. `gh auth login` nas contas com escrita (`alpha6678` e `Nickallafe`). Se só uma estiver logada, o `rb publish` e o `rb release` usam essa sem perguntar. Passos: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
 
 ## Problemas comuns
 
