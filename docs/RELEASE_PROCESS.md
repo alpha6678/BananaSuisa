@@ -32,7 +32,7 @@ flowchart TB
    - `<nome>-<x.y.z>-win-x64.zip`
    - `<nome>-<x.y.z>-win-x64.zip.sha256`
    - `app.json`
-4. **Release no GitHub**: `rb.cmd release <Nome> <x.y.z>`. O commit e o release saem na conta ativa do `gh` (`gh auth status`). Conferência da conta: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
+4. **Release no GitHub**: `rb.cmd release <Nome> <x.y.z>`. O commit e o release saem na conta do `gh` com escrita no `origin`: a ativa ou, se ela não tiver escrita, outra logada no `gh`. Conferência da conta: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
 5. **Atualização do `catalog.json`** (apenas na primeira versão de um app novo): editar `catalog/catalog.json` declarando `id`, `githubTagPrefix`, ícone, etc., e commitar.
 
 ## Fluxo automático para múltiplos apps (`publish all`)
@@ -65,7 +65,7 @@ O `publish all`:
 
 Observações:
 
-- O commit de versão, a tag e o release saem na conta ativa do `gh`. Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
+- O commit de versão, a tag e o release saem na conta do `gh` com escrita no `origin` (a ativa ou outra logada). Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
 - Use `--dry-run` para inspecionar o plano sem alterar arquivos.
 - Por padrão há confirmação interativa; `-Yes` confirma automaticamente.
 - O Launcher só entra no plano se mudou código do Launcher/SDK Windows,

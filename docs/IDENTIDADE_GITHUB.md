@@ -2,7 +2,7 @@
 
 Para quem publica com o `rb` e precisa que o commit e o release apareçam na própria conta.
 
-O `rb publish all` e o `rb release` leem a conta **ativa** do `gh` e assinam o commit com ela. O `user.name` e o `user.email` gravados no Git da máquina ficam de fora desses commits. O destino do push continua sendo o `origin` do repositório.
+O `rb publish all` e o `rb release` assinam o commit com uma conta do `gh` que tenha escrita no `origin`. Primeiro tentam a conta **ativa**. Se ela não tiver escrita, usam outra conta já logada no `gh` da máquina que tenha, sem trocar a conta ativa. O `user.name` e o `user.email` gravados no Git da máquina ficam de fora desses commits. O destino do push continua sendo o `origin` do repositório.
 
 Cada publicação mostra a conta escolhida, neste formato:
 
@@ -10,7 +10,13 @@ Cada publicação mostra a conta escolhida, neste formato:
 Conta do publish: login (Nome <id+login@users.noreply.github.com>)
 ```
 
-Se essa linha for a conta de outra pessoa, interrompa e troque a conta antes de confirmar.
+Quando a conta ativa fica de fora por falta de escrita, um aviso aparece antes dessa linha:
+
+```text
+A conta ativa do gh (outro-login) nao tem escrita em dono/repo; o publish usa login, tambem logada no gh.
+```
+
+Se a linha `Conta do publish` mostrar a conta de outra pessoa, interrompa e troque a conta antes de confirmar.
 
 ## Conferir a conta
 
@@ -19,9 +25,10 @@ Na pasta do repositório:
 ```bat
 gh auth status
 gh api user --jq "{login:.login,name:.name,id:.id}"
+gh api repos/alpha6678/BananaSuisa --jq .permissions.push
 ```
 
-A conta com `Active account: true` é a que o publish usa.
+A conta com `Active account: true` é a primeira que o publish tenta. Se o último comando mostrar `false`, ela não tem escrita, e o publish passa para outra conta logada no `gh` que tenha.
 
 | Campo | Uso no commit |
 |-------|----------------|
@@ -56,11 +63,11 @@ gh auth status
 gh api user --jq "{login:.login,name:.name,id:.id}"
 ```
 
-`login` precisa ser o seu. `name` precisa ser o nome que você quer escrito no commit. Se o terminal tiver a variável `GH_TOKEN`, ela vale no lugar da conta ativa: apague essa variável na sessão ou aponte para um token da sua conta.
+`login` precisa ser o seu. `name` precisa ser o nome que você quer escrito no commit. Se o terminal tiver a variável `GH_TOKEN`, ela vale no lugar da conta ativa: apague essa variável na sessão ou aponte para um token da sua conta. Com `GH_TOKEN` definida, o `rb` não troca de conta. Se esse token não tiver escrita, ele para antes de mexer nas versões.
 
 ## Escrita no repositório
 
-A conta precisa conseguir enviar commits para `alpha6678/BananaSuisa`. **Nickallafe** já tem papel de escrita. Um push com `403` significa que a conta ativa é outra: volte ao `gh auth status`.
+Pelo menos uma conta logada no `gh` precisa conseguir enviar commits para `alpha6678/BananaSuisa`. **Nickallafe** já tem papel de escrita. O `rb` confere isso antes de alterar qualquer versão. Se nenhuma conta logada tiver escrita, ele para com uma mensagem que cita a conta ativa, e nada é commitado. Entre com a sua conta (`gh auth login`) e rode de novo.
 
 ## Commits feitos à mão
 
@@ -82,4 +89,4 @@ O e-mail mostrado tem de ser o da sua conta (`id+login@users.noreply.github.com`
 
 ## Depois de publicar
 
-Abra o commit no GitHub. A conta ligada ao autor é o `login` do `gh auth status`. O nome ao lado do commit é o `name` do perfil; com o perfil sem nome, aparece o `login`.
+Abra o commit no GitHub. A conta ligada ao autor é o `login` da linha `Conta do publish`. O nome ao lado do commit é o `name` do perfil; com o perfil sem nome, aparece o `login`.
