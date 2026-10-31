@@ -1310,6 +1310,7 @@ function Invoke-PublishAll {
     Assert-CommandAvailable 'gh'
 
     $actor = Get-GithubActor
+    if ($actor.Note) { Write-Warn2 $actor.Note }
     Write-Info "Conta do publish: $($actor.Login) ($($actor.Name) <$($actor.Email)>)."
     Write-Muted "Se esta nao for a conta que deve aparecer no GitHub, rode 'gh auth switch' antes. Veja docs/IDENTIDADE_GITHUB.md."
 
