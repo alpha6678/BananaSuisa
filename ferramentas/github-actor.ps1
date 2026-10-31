@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Commit e release saem na conta do gh com escrita que a pessoa escolhe no dialogo.
+# Commit e release saem na conta do gh com escrita que a pessoa escolhe no terminal, uma vez por comando.
 # O nome e o do perfil dessa conta. O e-mail e o noreply do GitHub, ligado a esse login.
 
 $script:GithubActorProjectRoot = Split-Path -Parent $PSScriptRoot
@@ -68,98 +68,38 @@ function Get-ProfileName {
     return $name
 }
 
-function Show-GhAccountChoice {
+function Read-GhAccountChoice {
     param(
         [Parameter(Mandatory)] [object[]] $Accounts,
         [Parameter(Mandatory)] [string] $Repo,
         [string] $PreferredLogin
     )
 
-    $labels = @(
-        foreach ($account in $Accounts) {
-            $profile = Get-ProfileName -Account $account
-            if ($profile -eq $account.Login) { $account.Login } else { "$profile ($($account.Login))" }
+    $accounts = @($Accounts)
+    $preferred = 1
+    Write-Host ""
+    Write-Host "Contas com escrita em ${Repo}:" -ForegroundColor Cyan
+    for ($i = 0; $i -lt $accounts.Count; $i++) {
+        $account = $accounts[$i]
+        $profile = Get-ProfileName -Account $account
+        $label = if ($profile -eq $account.Login) { $account.Login } else { "$profile ($($account.Login))" }
+        $mark = ""
+        if ($account.Login -eq $PreferredLogin) {
+            $preferred = $i + 1
+            $mark = " [ativa]"
         }
-    )
-
-    $ui = @'
-param($Title, $Message, [string[]] $Labels, [int] $Selected)
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$form = New-Object System.Windows.Forms.Form
-$form.Text = $Title
-$form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
-$form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
-$form.MinimizeBox = $false
-$form.MaximizeBox = $false
-$form.ShowInTaskbar = $false
-$form.TopMost = $true
-$form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
-$listHeight = [Math]::Min(180, [Math]::Max(48, 8 + (20 * $Labels.Count)))
-$form.ClientSize = New-Object System.Drawing.Size(440, (128 + $listHeight))
-$label = New-Object System.Windows.Forms.Label
-$label.Text = $Message
-$label.Location = New-Object System.Drawing.Point(12, 12)
-$label.Size = New-Object System.Drawing.Size(416, 48)
-$list = New-Object System.Windows.Forms.ListBox
-$list.Location = New-Object System.Drawing.Point(12, 68)
-$list.Size = New-Object System.Drawing.Size(416, $listHeight)
-$list.IntegralHeight = $false
-foreach ($item in $Labels) { [void]$list.Items.Add($item) }
-if ($list.Items.Count -gt 0) {
-    $index = 0
-    if ($Selected -ge 0 -and $Selected -lt $list.Items.Count) { $index = $Selected }
-    $list.SelectedIndex = $index
-}
-$ok = New-Object System.Windows.Forms.Button
-$ok.Text = "OK"
-$ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
-$ok.Location = New-Object System.Drawing.Point(248, (80 + $listHeight))
-$ok.Size = New-Object System.Drawing.Size(88, 28)
-$cancel = New-Object System.Windows.Forms.Button
-$cancel.Text = "Cancelar"
-$cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-$cancel.Location = New-Object System.Drawing.Point(340, (80 + $listHeight))
-$cancel.Size = New-Object System.Drawing.Size(88, 28)
-$form.Controls.AddRange(@($label, $list, $ok, $cancel))
-$form.AcceptButton = $ok
-$form.CancelButton = $cancel
-$form.Add_Shown({ $form.Activate() })
-$result = $form.ShowDialog()
-$index = -1
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) { $index = $list.SelectedIndex }
-$form.Dispose()
-return $index
-'@
-
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = 'STA'
-    $rs.ThreadOptions = 'ReuseThread'
-    $rs.Open()
-    $ps = $null
-    try {
-        $ps = [powershell]::Create()
-        $ps.Runspace = $rs
-        $message = "Escolha a conta do GitHub que deve assinar este commit em $Repo."
-        $preferred = 0
-        for ($i = 0; $i -lt $Accounts.Count; $i++) {
-            if ($Accounts[$i].Login -eq $PreferredLogin) { $preferred = $i; break }
-        }
-        [void]$ps.AddScript($ui).AddArgument('Ribanense Solucoes').AddArgument($message).AddArgument([string[]]$labels).AddArgument($preferred)
-        $picked = @($ps.Invoke())
-        if ($ps.HadErrors) {
-            $detail = ($ps.Streams.Error | ForEach-Object { $_.ToString() }) -join ' '
-            throw "Nao foi possivel abrir o dialogo de selecao de conta. $detail"
-        }
-    }
-    finally {
-        if ($ps) { $ps.Dispose() }
-        $rs.Close()
-        $rs.Dispose()
+        Write-Host ("  {0}) {1}{2}" -f ($i + 1), $label, $mark)
     }
 
-    if ($picked.Count -eq 0 -or [int]$picked[-1] -lt 0) { return $null }
-    return $Accounts[[int]$picked[-1]]
+    while ($true) {
+        $answer = Read-Host "Numero da conta que deve assinar o commit [$preferred]"
+        if ([string]::IsNullOrWhiteSpace($answer)) { return $accounts[$preferred - 1] }
+        $n = 0
+        if ([int]::TryParse($answer.Trim(), [ref]$n) -and $n -ge 1 -and $n -le $accounts.Count) {
+            return $accounts[$n - 1]
+        }
+        Write-Host "Escolha um numero de 1 a $($accounts.Count)." -ForegroundColor Yellow
+    }
 }
 
 function Resolve-SelectedAccount {
@@ -190,13 +130,16 @@ function Resolve-SelectedAccount {
         throw "Nenhuma conta logada no gh tem escrita em $Repo. Entre com a sua conta ('gh auth login'). Veja docs/IDENTIDADE_GITHUB.md."
     }
 
-    $chosen = Show-GhAccountChoice -Accounts @($candidates) -Repo $Repo -PreferredLogin $active.Login
-    if (-not $chosen) {
-        throw "Selecao de conta cancelada."
+    $remembered = @($candidates | Where-Object { $_.Login -eq $env:RIBANENSE_GH_LOGIN })
+    if ($remembered.Count -eq 1) {
+        return [pscustomobject]@{ Account = $remembered[0]; Note = $null }
     }
+
+    $chosen = Read-GhAccountChoice -Accounts @($candidates) -Repo $Repo -PreferredLogin $active.Login
+    $env:RIBANENSE_GH_LOGIN = $chosen.Login
     $note = $null
     if ($chosen.Login -ne $active.Login) {
-        $note = "A conta ativa do gh e $($active.Login). O publish usa $($chosen.Login), escolhida no dialogo."
+        $note = "A conta ativa do gh e $($active.Login). O publish usa $($chosen.Login)."
     }
     return [pscustomobject]@{ Account = $chosen; Note = $note }
 }

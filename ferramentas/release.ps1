@@ -117,7 +117,7 @@ try {
     $actor = Get-GithubActor
     if ($actor.Note) { Write-Host $actor.Note -ForegroundColor Yellow }
     Write-Host "Conta do release: $($actor.Login) ($($actor.Name) <$($actor.Email)>)." -ForegroundColor Cyan
-    Write-Host "O dialogo pede a conta com escrita. O nome do commit e o do perfil dessa conta. Veja docs/IDENTIDADE_GITHUB.md." -ForegroundColor DarkGray
+    Write-Host "O terminal pede a conta uma vez. O nome do commit e o do perfil dessa conta. Veja docs/IDENTIDADE_GITHUB.md." -ForegroundColor DarkGray
 
     $existing = & git tag --list $tag
     if ($existing) {
