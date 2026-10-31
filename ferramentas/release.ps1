@@ -40,7 +40,7 @@ function Set-JsonField {
         throw "Campo '$Name' nao encontrado em $Path"
     }
     $updated = [regex]::Replace($content, $pattern, { param($m) "$($m.Groups[1].Value)$Value$($m.Groups[2].Value)" }, 1)
-    Set-Content -LiteralPath $Path -Value $updated -Encoding UTF8
+    Set-Content -LiteralPath $Path -Value $updated -Encoding UTF8 -NoNewline
 }
 
 function Invoke-PointerCommit {
@@ -90,7 +90,7 @@ function Set-OsEmbeddedVersion {
         throw "RIBANENSEESP_VERSION nao encontrado em $header"
     }
     $content = [regex]::Replace($content, $pattern, { param($m) "$($m.Groups[1].Value)$Ver$($m.Groups[2].Value)" }, 1)
-    Set-Content -LiteralPath $header -Value $content -Encoding UTF8
+    Set-Content -LiteralPath $header -Value $content -Encoding UTF8 -NoNewline
     $fw = Join-Path $ProjectRoot 'firmware\ribanense-esp\firmware.json'
     if (Test-Path -LiteralPath $fw) {
         Set-JsonField -Path $fw -Name 'version' -Value $Ver
