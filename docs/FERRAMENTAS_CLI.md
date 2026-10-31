@@ -111,6 +111,8 @@ rb solution check
 - **Código de saída**: `0` em sucesso, `1` em comando desconhecido ou erro capturado; códigos do `dotnet` são propagados se a falha vier dele.
 - **Processos em execução**: `build`, `run`, `clean` e `devlink` tentam encerrar instâncias do Launcher e dos apps Ribanense deste repo antes de operar, para evitar locks em DLLs.
 - **Ajuda auto-gerada**: a saída de `rb help` é construída a partir da tabela de comandos no próprio script; para adicionar um comando novo, basta acrescentar uma entrada em `$script:Commands` e implementar o handler.
+- **Feedback compacto**: `os build`, `release` e `publish all` mostram um bloco de etapas que se redesenha no lugar, com tempo de cada etapa, e o progresso do compilador numa linha só. O ruído do ESP-IDF (lista de componentes, `-- Adding linker script`, `[721/1488]`) e do git (`Enumerating objects`, `To https://...`) não aparece. Em falha, as últimas linhas úteis são mostradas.
+- **Sem cor ou sem console**: com a saída redirecionada (pipe, arquivo, CI) o `rb` cai automaticamente para linhas simples. `RIBANENSE_UI=plain` força esse modo; `RIBANENSE_UI=force` testa o desenho num terminal.
 - **Commits por área**: `rb commit` agrupa por área (SDK, infra, UI, cada app com o teste dele, launcher, firmware, CLI, catálogo, docs) e gera a mensagem sozinho. Não resolve merge: se `origin` divergir, avisa e para.
 - **Autor do publish**: `rb publish all` e `rb release` usam a conta do `gh` com escrita. Com mais de uma, perguntam uma vez no terminal. O nome é o do perfil dessa conta. Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
 
