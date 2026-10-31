@@ -15,6 +15,7 @@ $ScriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $My
 $ProjectRoot = Split-Path -Parent $ScriptRoot
 . (Join-Path $ScriptRoot 'esp-idf-env.ps1')
 . (Join-Path $ScriptRoot 'github-actor.ps1')
+. (Join-Path $ScriptRoot 'console-ui.ps1')
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI (gh) nao encontrado no PATH. Instale em https://cli.github.com/."
@@ -115,8 +116,8 @@ $tag = "$TagPrefix$Version"
 Push-Location $ProjectRoot
 try {
     $actor = Get-GithubActor
-    Write-Host "Conta do release: $($actor.Login) ($($actor.Name) <$($actor.Email)>)." -ForegroundColor Cyan
-    Write-Host "A conta com escrita assina o commit. Veja docs/IDENTIDADE_GITHUB.md." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host ("Conta do release: {0} ({1} <{2}>)." -f $actor.Login, $actor.Name, $actor.Email) -ForegroundColor Cyan
 
     $existing = & git tag --list $tag
     if ($existing) {
@@ -130,24 +131,40 @@ try {
         default { $App }
     }
 
-    switch ($kind) {
-        'launcher' {
-            & "$ScriptRoot\publish-launcher.ps1" -Version $Version
+    Start-RbStepBlock -Steps @("Pacote $App $Version", 'Tag e release')
+    try {
+        Update-RbStep -Index 0 -State 'running'
+        $publishLines = @(
+            Invoke-RbExternal -Script {
+                switch ($kind) {
+                    'launcher' {
+                        & "$ScriptRoot\publish-launcher.ps1" -Version $Version
+                    }
+                    'os' {
+                        $osFiles = @(Set-OsEmbeddedVersion -Ver $Version)
+                        Invoke-PointerCommit -Files $osFiles -Message "chore(release): RibanenseESP $Version"
+                        & "$ScriptRoot\publish-os.ps1" -Version $Version
+                    }
+                    'esp-app' {
+                        & "$ScriptRoot\publish-esp-app.ps1" -App $App -Version $Version
+                    }
+                    default {
+                        & "$ScriptRoot\publish-module.ps1" -App $App -Version $Version
+                    }
+                }
+            } -Label 'Compilando' -ProgressPattern '^\[(\d+)/(\d+)\]' -FailurePrefix "publish falhou para $App"
+        )
+        foreach ($line in ($publishLines | Where-Object { $_ -match 'binary size|SHA256|Zip' } | Select-Object -Last 3)) {
+            Write-RbTick ('  ' + $line.Trim())
         }
-        'os' {
-            Write-Host "Gravando versao $Version no OS (header + firmware.json)..." -ForegroundColor Cyan
-            $osFiles = @(Set-OsEmbeddedVersion -Ver $Version)
-            Invoke-PointerCommit -Files $osFiles -Message "chore(release): RibanenseESP $Version"
-            & "$ScriptRoot\publish-os.ps1" -Version $Version
-        }
-        'esp-app' {
-            & "$ScriptRoot\publish-esp-app.ps1" -App $App -Version $Version
-        }
-        default {
-            & "$ScriptRoot\publish-module.ps1" -App $App -Version $Version
-        }
+        Update-RbStep -Index 0 -State 'ok'
+        Update-RbStep -Index 1 -State 'running'
     }
-    if ($LASTEXITCODE -ne 0) { throw "publish falhou para $App." }
+    catch {
+        Update-RbStep -Index 0 -State 'fail'
+        Stop-RbStepBlock
+        throw
+    }
 
     $outDir = Join-Path $ProjectRoot "artifacts\publish\$outName"
     $gh = Get-GithubOwnerRepo -ProjectRoot $ProjectRoot
@@ -169,10 +186,9 @@ try {
     if (-not (Test-Path -LiteralPath $assetPath)) { throw "Asset nao encontrado: $assetPath" }
     if (-not (Test-Path -LiteralPath $shaPath)) { throw "SHA256 nao encontrado: $shaPath" }
 
-    Write-Host "Criando tag $tag..." -ForegroundColor Cyan
+    Write-RbTick ("Criando tag {0} e enviando para origin..." -f $tag) 'Cyan'
     & git tag $tag
     if ($LASTEXITCODE -ne 0) { throw "git tag falhou." }
-    Write-Host "Enviando tag para origin..." -ForegroundColor Cyan
     Invoke-GitAsActor -GitArgs @('push', 'origin', $tag) -FailureMessage "git push origin $tag falhou; release abortado."
 
     $releaseTitle = switch ($kind) {
@@ -188,7 +204,7 @@ try {
         default { "Release automatizado de $App $Version." }
     }
 
-    Write-Host "Publicando release $tag..." -ForegroundColor Cyan
+    Write-RbTick ("Publicando release {0}..." -f $tag) 'Cyan'
     $ghArgs = @('release', 'create', $tag, $assetPath, $shaPath, '--title', $releaseTitle, '--notes', $releaseNotes)
     if ($kind -in @('win-app', 'esp-app') -and (Test-Path -LiteralPath $manifestPath)) {
         $ghArgs += $manifestPath
@@ -235,9 +251,11 @@ try {
         Invoke-PointerCommit -Files @($cat) -Message "chore(release): esp-catalog $($m.id) $Version"
     }
 
-    Write-Host ""
-    Write-Host "Release $tag publicado." -ForegroundColor Green
+    Update-RbStep -Index 1 -State 'ok'
+    Stop-RbStepBlock
+    Write-Output ("Release {0} publicado." -f $tag)
 }
 finally {
+    if (Get-Command Stop-RbStepBlock -ErrorAction SilentlyContinue) { Stop-RbStepBlock }
     Pop-Location
 }
