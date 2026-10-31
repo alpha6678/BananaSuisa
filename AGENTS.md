@@ -65,6 +65,8 @@ Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md),
 .\rb.cmd publish-run Winget
 .\rb.cmd test
 .\rb.cmd check
+.\rb.cmd commit --dry-run
+.\rb.cmd commit
 .\rb.cmd publish Winget -Version 1.0.0
 .\rb.cmd release Winget 1.0.0
 .\rb.cmd os build

@@ -1,6 +1,8 @@
 # Identidade no GitHub
 
-O `rb publish` e o `rb release` perguntam uma vez no terminal, em qualquer máquina. A lista mostra as contas do `gh` já logadas que têm escrita no `origin`. A pessoa escolhe qual assina o commit. Enter aceita a conta marcada como ativa. O nome é o do perfil dessa conta. Com o perfil sem nome, aparece o `login`. O e-mail gravado é `{id}+{login}@users.noreply.github.com`, que o GitHub liga a essa conta. Os apps seguintes do mesmo comando reutilizam essa escolha.
+O `rb publish` e o `rb release` usam a conta do `gh` que o GitHub confirma com escrita no `origin`. O nome é o do perfil dessa conta. Com o perfil sem nome, aparece o `login`. O e-mail gravado é `{id}+{login}@users.noreply.github.com`, que o GitHub liga a essa conta.
+
+Se só uma conta logada nesta máquina tiver escrita, ela é usada direto, sem pergunta. Se houver mais de uma, o `rb` pergunta uma vez no terminal qual assina o commit, e os apps seguintes do mesmo comando reutilizam a escolha.
 
 Quem tem acesso hoje: **alpha6678** e **Nickallafe**.
 
@@ -10,7 +12,7 @@ Cada publicação mostra a conta escolhida:
 Conta do publish: login (Nome <id+login@users.noreply.github.com>)
 ```
 
-A conta ativa do `gh` vem marcada na lista. Escolher outra deixa um aviso antes dessa linha.
+Só entram na escolha as contas que o GitHub confirma com escrita no `origin`. A conta ativa do `gh` não é mencionada: ela só é usada se tiver escrita.
 
 Se nenhuma conta logada tiver escrita, o `rb` para antes de alterar versões. Entre com a conta:
 

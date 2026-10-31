@@ -29,10 +29,11 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `clean` | `limpar` | Remove todos os `bin/`, `obj/` e `artifacts/` do repo. Encerra processos Ribanense primeiro. |
 | `list` | `apps`, `ls` | Lista apps Windows, o OS RibanenseESP e os apps da placa. |
 | `version` | `versao` | Mostra versões do Launcher, do SDK, do OS e de cada app. |
+| `commit` `[--dry-run]` | `commitar` | Sincroniza com `origin`, separa as alterações por área (um commit cada), assina com a conta do `gh` que tem escrita e faz push. A mensagem é automática. `--dry-run` só mostra o plano. Se o remoto exigir merge, para e não commita. |
 | `devlink <App>` | `link` | Compila um app e copia para `%LOCALAPPDATA%\Ribanense Soluções\aplicativos\<App>\` para o Launcher reconhecê-lo como "instalado" sem precisar publicar release. |
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
 | `publish <App, Launcher ou OS> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (Windows: zip; Launcher: `.exe`; OS: `.bin`; app da placa: zip store). |
-| `publish all [-Yes] [--dry-run]` | — | Detecta apps Windows, Launcher, **OS** (`ribanense-esp-v`) e **apps da placa** (`esp-<slug>-v`) com mudança **de código** desde a última tag, faz bump patch (a versão que ficou sem tag num publish interrompido sai sem novo bump), roda `rb check` só se houver item .NET, e publica no GitHub. O terminal pede uma vez, em qualquer máquina, qual conta do `gh` com escrita assina o commit. O nome é o do perfil dessa conta. Não grava USB nem empurra OTA pela LAN: a placa baixa pelo `firmware.json` (raw no GitHub). O Launcher só reage a `catalog/catalog.json` e `catalog/icons/` — `catalog/esp-catalog.json` e o ponteiro `firmware.json`/`dist/` não disparam release. |
+| `publish all [-Yes] [--dry-run]` | — | Detecta apps Windows, Launcher, **OS** (`ribanense-esp-v`) e **apps da placa** (`esp-<slug>-v`) com mudança **de código** desde a última tag, faz bump patch (a versão que ficou sem tag num publish interrompido sai sem novo bump), roda `rb check` só se houver item .NET, e publica no GitHub. O terminal pede uma vez, em qualquer máquina, qual conta do `gh` com escrita assina o commit, quando há mais de uma. O nome é o do perfil dessa conta. Não grava USB nem empurra OTA pela LAN: a placa baixa pelo `firmware.json` (raw no GitHub). O Launcher só reage a `catalog/catalog.json` e `catalog/icons/` — `catalog/esp-catalog.json` e o ponteiro `firmware.json`/`dist/` não disparam release. |
 | `os flash [COMx]` | `gravar` | **Recuperação / primeiro gravar.** Espelha, recompila e grava bootloader + tabela + OS via USB-C/CH340. Não é o caminho normal: depois disso a placa atualiza sozinha pelo GitHub. |
 | `release <App, Launcher ou OS> <semver>` | — | Publica GitHub Release via `gh`, na conta selecionada com escrita. O nome é o do perfil. OS: `ribanense-esp-v`. App da placa: `esp-<slug>-v`. |
 | `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
@@ -110,7 +111,8 @@ rb solution check
 - **Código de saída**: `0` em sucesso, `1` em comando desconhecido ou erro capturado; códigos do `dotnet` são propagados se a falha vier dele.
 - **Processos em execução**: `build`, `run`, `clean` e `devlink` tentam encerrar instâncias do Launcher e dos apps Ribanense deste repo antes de operar, para evitar locks em DLLs.
 - **Ajuda auto-gerada**: a saída de `rb help` é construída a partir da tabela de comandos no próprio script; para adicionar um comando novo, basta acrescentar uma entrada em `$script:Commands` e implementar o handler.
-- **Autor do publish**: `rb publish all` e `rb release` perguntam uma vez no terminal qual conta do `gh` com escrita assina o commit. O nome é o do perfil dessa conta. Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
+- **Commits por área**: `rb commit` agrupa por área (SDK, infra, UI, cada app com o teste dele, launcher, firmware, CLI, catálogo, docs) e gera a mensagem sozinho. Não resolve merge: se `origin` divergir, avisa e para.
+- **Autor do publish**: `rb publish all` e `rb release` usam a conta do `gh` com escrita. Com mais de uma, perguntam uma vez no terminal. O nome é o do perfil dessa conta. Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
 
 ## Logs e troubleshooting em runtime
 
