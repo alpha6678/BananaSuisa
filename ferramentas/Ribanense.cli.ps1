@@ -296,6 +296,20 @@ function Get-LatestTagForPrefix {
         Select-Object -First 1).Tag
 }
 
+function Get-PublishAllNextVersion {
+    param(
+        [Parameter(Mandatory)] [string] $Current,
+        [string] $LatestTag,
+        [Parameter(Mandatory)] [string] $TagPrefix
+    )
+    # Versao acima da ultima tag: o bump ja foi commitado por um publish que nao chegou ao release.
+    if (-not [string]::IsNullOrWhiteSpace($LatestTag)) {
+        $released = $LatestTag.Substring($TagPrefix.Length)
+        if ([version] $Current -gt [version] $released) { return $Current }
+    }
+    return Get-NextPatchVersion -Version $Current
+}
+
 function Get-ChangedFilesSinceTag {
     param([Parameter(Mandatory)] [string] $Tag)
 
@@ -573,7 +587,7 @@ function Get-PublishAllCandidates {
             throw "App '$($app.ShortName)' com versoes divergentes (csproj=$($versionState.CsprojVersion), app.json=$($versionState.ManifestVersion))."
         }
 
-        $next = Get-NextPatchVersion -Version $versionState.CsprojVersion
+        $next = Get-PublishAllNextVersion -Current $versionState.CsprojVersion -LatestTag $latestTag -TagPrefix $tagPrefix
         $plan += [pscustomobject]@{
             App         = $app
             Kind        = 'win-app'
@@ -625,7 +639,7 @@ function Get-PublishAllLauncherPlanItem {
 
     if (-not $include) { return $null }
 
-    $next = Get-NextPatchVersion -Version $versionState.CsprojVersion
+    $next = Get-PublishAllNextVersion -Current $versionState.CsprojVersion -LatestTag $latestTag -TagPrefix $tagPrefix
     $launcherStub = [pscustomobject]@{ ShortName = "Launcher" }
 
     return [pscustomobject]@{
@@ -786,7 +800,7 @@ function Get-PublishAllOsPlanItem {
         }
     }
     if (-not $include) { return $null }
-    $next = Get-NextPatchVersion -Version $current
+    $next = Get-PublishAllNextVersion -Current $current -LatestTag $latestTag -TagPrefix $tagPrefix
     return [pscustomobject]@{
         App         = [pscustomobject]@{ ShortName = 'OS'; Kind = 'os' }
         Kind        = 'os'
@@ -826,7 +840,7 @@ function Get-PublishAllEspAppCandidates {
         if (-not (Test-SimpleSemVer -Version $app.ManifestVersion)) {
             throw "App da placa '$($app.ShortName)' com versao '$($app.ManifestVersion)' invalida."
         }
-        $next = Get-NextPatchVersion -Version $app.ManifestVersion
+        $next = Get-PublishAllNextVersion -Current $app.ManifestVersion -LatestTag $latestTag -TagPrefix $tagPrefix
         $plan += [pscustomobject]@{
             App         = $app
             Kind        = 'esp-app'
@@ -1258,7 +1272,7 @@ function Invoke-PublishAllVersionCommit {
     foreach ($s in $staged) { Write-Muted " + $s" }
 
     $summaryLines = @(
-        foreach ($item in $Plan) {
+        foreach ($item in ($Plan | Where-Object { $_.Current -ne $_.Next })) {
             " - $($item.App.ShortName) $($item.Current) -> $($item.Next)"
         }
     )
@@ -1267,10 +1281,7 @@ function Invoke-PublishAllVersionCommit {
 
     Invoke-GitAsActor -GitArgs @('commit', '-m', $commitTitle, '-m', $commitBody) -FailureMessage "git commit das versoes falhou."
 
-    Write-Info "Enviando commit de versoes para origin..."
-    Invoke-GitAsActor -GitArgs @('push', 'origin', 'HEAD') -FailureMessage "git push origin HEAD falhou; publish all abortado antes das tags."
-
-    Write-Ok "Commit de versoes criado e enviado (tags apontarao para este commit)."
+    Write-Ok "Commit de versoes criado."
 }
 
 function Invoke-PublishAll {
@@ -1346,6 +1357,9 @@ function Invoke-PublishAll {
             $kind = if ($item.Kind) { $item.Kind } else { 'win-app' }
             Write-Host ("{0,-14} {1} -> {2}  tag={3}  ({4})" -f $item.App.ShortName, $item.Current, $item.Next, $item.Tag, $kind)
             Write-Muted ("motivo: {0}" -f $item.Reason)
+            if ($item.Current -eq $item.Next) {
+                Write-Muted "versao $($item.Current) ainda sem tag (publish anterior incompleto): publica sem novo bump"
+            }
             if ($item.ChangedHint.Count -gt 0) {
                 foreach ($f in $item.ChangedHint) {
                     Write-Muted (" - " + $f)
@@ -1371,6 +1385,10 @@ function Invoke-PublishAll {
         Write-Step "Atualizando versoes (patch)"
         $versionFiles = @()
         foreach ($item in $plan) {
+            if ($item.Current -eq $item.Next) {
+                Write-Ok "$($item.App.ShortName): $($item.Current) mantida (ainda sem tag)"
+                continue
+            }
             $kind = if ($item.Kind) { $item.Kind } else { 'win-app' }
             switch ($kind) {
                 'launcher' {
@@ -1412,6 +1430,10 @@ function Invoke-PublishAll {
 
         Write-Step "Commit das versoes"
         Invoke-PublishAllVersionCommit -Plan $plan -VersionFiles $versionFiles
+
+        Write-Info "Enviando commits para origin..."
+        Invoke-GitAsActor -GitArgs @('push', 'origin', 'HEAD') -FailureMessage "git push origin HEAD falhou; publish all abortado antes das tags."
+        Write-Ok "origin atualizado (as tags apontam para este HEAD)."
 
         Write-Step "Publicacao no GitHub"
         $releaseScript = Join-Path $script:CliRoot 'release.ps1'
