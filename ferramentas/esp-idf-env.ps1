@@ -78,20 +78,6 @@ function Invoke-IdfBuild {
     }
 }
 
-function Get-GithubOwnerRepo {
-    param([Parameter(Mandatory)] [string] $ProjectRoot)
-    Push-Location $ProjectRoot
-    try {
-        $url = & git remote get-url origin 2>$null
-        if ($LASTEXITCODE -ne 0 -or $url -notmatch 'github\.com[:/]([^/]+)/([^/.]+)') {
-            throw "O remote origin nao e um repositorio GitHub. A publicacao usa o origin, sem dono fixo na CLI."
-        }
-        return [pscustomobject]@{ Owner = $Matches[1]; Repo = $Matches[2] }
-    } finally {
-        Pop-Location
-    }
-}
-
 function Write-Sha256Sidecar {
     param([Parameter(Mandatory)] [string] $FilePath)
     $hash = (Get-FileHash -LiteralPath $FilePath -Algorithm SHA256).Hash.ToLowerInvariant()

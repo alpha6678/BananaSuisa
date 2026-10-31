@@ -115,6 +115,7 @@ $tag = "$TagPrefix$Version"
 Push-Location $ProjectRoot
 try {
     $actor = Get-GithubActor
+    if ($actor.Note) { Write-Host $actor.Note -ForegroundColor Yellow }
     Write-Host "Conta do release: $($actor.Login) ($($actor.Name) <$($actor.Email)>)." -ForegroundColor Cyan
     Write-Host "Se esta nao for a conta que deve aparecer no GitHub, rode 'gh auth switch'. Veja docs/IDENTIDADE_GITHUB.md." -ForegroundColor DarkGray
 
@@ -193,8 +194,7 @@ try {
     if ($kind -in @('win-app', 'esp-app') -and (Test-Path -LiteralPath $manifestPath)) {
         $ghArgs += $manifestPath
     }
-    & gh @ghArgs
-    if ($LASTEXITCODE -ne 0) { throw "gh release create falhou." }
+    Invoke-GhAsActor -GhArgs $ghArgs -FailureMessage "gh release create falhou."
 
     $hash = ((Get-Content -LiteralPath $shaPath -Raw).Trim() -split '\s+')[0]
     if ($kind -eq 'os') {
