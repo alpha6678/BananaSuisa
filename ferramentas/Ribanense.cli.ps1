@@ -463,7 +463,7 @@ function Set-AppVersion {
     if ($versionState.HasFileVersion) {
         $csprojContent = Set-FirstXmlTagValue -Content $csprojContent -TagName 'FileVersion' -NewValue $assemblyVersion
     }
-    Set-Content -LiteralPath $App.ProjectPath -Value $csprojContent -Encoding UTF8
+    Set-Content -LiteralPath $App.ProjectPath -Value $csprojContent -Encoding UTF8 -NoNewline
 
     $manifestContent = Get-Content -LiteralPath $App.ManifestPath -Raw
     $manifestPattern = '("version"\s*:\s*")[^"]+(")'
@@ -476,7 +476,7 @@ function Set-AppVersion {
         { param($m) "$($m.Groups[1].Value)$Version$($m.Groups[2].Value)" },
         1
     )
-    Set-Content -LiteralPath $App.ManifestPath -Value $manifestContent -Encoding UTF8
+    Set-Content -LiteralPath $App.ManifestPath -Value $manifestContent -Encoding UTF8 -NoNewline
 }
 
 function Get-LauncherVersionState {
@@ -532,7 +532,7 @@ function Set-LauncherVersion {
     if ($versionState.HasFileVersion) {
         $content = Set-FirstXmlTagValue -Content $content -TagName "FileVersion" -NewValue $assemblyVersion
     }
-    Set-Content -LiteralPath $buildProps -Value $content -Encoding UTF8
+    Set-Content -LiteralPath $buildProps -Value $content -Encoding UTF8 -NoNewline
 }
 
 function Get-PublishAllCandidates {
@@ -671,12 +671,12 @@ function Set-OsVersion {
         throw "RIBANENSEESP_VERSION nao encontrado em $($script:OsVersionHeader)."
     }
     $header = [regex]::Replace($header, $headerPattern, { param($m) "$($m.Groups[1].Value)$Version$($m.Groups[2].Value)" }, 1)
-    Set-Content -LiteralPath $script:OsVersionHeader -Value $header -Encoding UTF8
+    Set-Content -LiteralPath $script:OsVersionHeader -Value $header -Encoding UTF8 -NoNewline
 
     if (Test-Path -LiteralPath $script:OsFirmwareJson) {
         $json = Get-Content -LiteralPath $script:OsFirmwareJson -Raw
         $json = [regex]::Replace($json, '("version"\s*:\s*")[^"]+(")', { param($m) "$($m.Groups[1].Value)$Version$($m.Groups[2].Value)" }, 1)
-        Set-Content -LiteralPath $script:OsFirmwareJson -Value $json -Encoding UTF8
+        Set-Content -LiteralPath $script:OsFirmwareJson -Value $json -Encoding UTF8 -NoNewline
     }
 }
 
@@ -734,13 +734,13 @@ function Set-EspAppVersion {
         { param($m) "$($m.Groups[1].Value)$Version$($m.Groups[2].Value)" },
         1
     )
-    Set-Content -LiteralPath $App.ManifestPath -Value $manifestContent -Encoding UTF8
+    Set-Content -LiteralPath $App.ManifestPath -Value $manifestContent -Encoding UTF8 -NoNewline
 
     if (Test-Path -LiteralPath $App.CMakeListsPath) {
         $cmake = Get-Content -LiteralPath $App.CMakeListsPath -Raw
         if ($cmake -match 'set\(PROJECT_VER\s+"[^"]+"\)') {
             $cmake = [regex]::Replace($cmake, 'set\(PROJECT_VER\s+"[^"]+"\)', "set(PROJECT_VER `"$Version`")", 1)
-            Set-Content -LiteralPath $App.CMakeListsPath -Value $cmake -Encoding UTF8
+            Set-Content -LiteralPath $App.CMakeListsPath -Value $cmake -Encoding UTF8 -NoNewline
         }
     }
 }
