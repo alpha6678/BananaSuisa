@@ -32,9 +32,9 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `devlink <App>` | `link` | Compila um app e copia para `%LOCALAPPDATA%\Ribanense Soluções\aplicativos\<App>\` para o Launcher reconhecê-lo como "instalado" sem precisar publicar release. |
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
 | `publish <App, Launcher ou OS> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (Windows: zip; Launcher: `.exe`; OS: `.bin`; app da placa: zip store). |
-| `publish all [-Yes] [--dry-run]` | — | Detecta apps Windows, Launcher, **OS** (`ribanense-esp-v`) e **apps da placa** (`esp-<slug>-v`) com mudança **de código** desde a última tag, faz bump patch (a versão que ficou sem tag num publish interrompido sai sem novo bump), roda `rb check` só se houver item .NET, e publica no GitHub. O commit e o release saem só como `dionerdfrg3@gmail.com` (conta `alpha6678`), mesmo que outra conta esteja ativa no `gh`. Não grava USB nem empurra OTA pela LAN: a placa baixa pelo `firmware.json` (raw no GitHub). O Launcher só reage a `catalog/catalog.json` e `catalog/icons/` — `catalog/esp-catalog.json` e o ponteiro `firmware.json`/`dist/` não disparam release. |
+| `publish all [-Yes] [--dry-run]` | — | Detecta apps Windows, Launcher, **OS** (`ribanense-esp-v`) e **apps da placa** (`esp-<slug>-v`) com mudança **de código** desde a última tag, faz bump patch (a versão que ficou sem tag num publish interrompido sai sem novo bump), roda `rb check` só se houver item .NET, e publica no GitHub. O diálogo do Windows pede, em qualquer máquina, qual conta do `gh` com escrita assina o commit. O nome é o do perfil dessa conta. Não grava USB nem empurra OTA pela LAN: a placa baixa pelo `firmware.json` (raw no GitHub). O Launcher só reage a `catalog/catalog.json` e `catalog/icons/` — `catalog/esp-catalog.json` e o ponteiro `firmware.json`/`dist/` não disparam release. |
 | `os flash [COMx]` | `gravar` | **Recuperação / primeiro gravar.** Espelha, recompila e grava bootloader + tabela + OS via USB-C/CH340. Não é o caminho normal: depois disso a placa atualiza sozinha pelo GitHub. |
-| `release <App, Launcher ou OS> <semver>` | — | Publica GitHub Release via `gh`, como `dionerdfrg3@gmail.com`. OS: `ribanense-esp-v`. App da placa: `esp-<slug>-v`. |
+| `release <App, Launcher ou OS> <semver>` | — | Publica GitHub Release via `gh`, na conta selecionada com escrita. O nome é o do perfil. OS: `ribanense-esp-v`. App da placa: `esp-<slug>-v`. |
 | `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
 | `crashlog` | `crash` | Mostra as últimas 200 linhas do `crash.log` (texto plano). Inclui `crash.old.log` rotacionado se existir. |
 | `crashlog-clear` | `crash-clear` | Remove `crash.log` e `crash.old.log`. |
@@ -110,7 +110,7 @@ rb solution check
 - **Código de saída**: `0` em sucesso, `1` em comando desconhecido ou erro capturado; códigos do `dotnet` são propagados se a falha vier dele.
 - **Processos em execução**: `build`, `run`, `clean` e `devlink` tentam encerrar instâncias do Launcher e dos apps Ribanense deste repo antes de operar, para evitar locks em DLLs.
 - **Ajuda auto-gerada**: a saída de `rb help` é construída a partir da tabela de comandos no próprio script; para adicionar um comando novo, basta acrescentar uma entrada em `$script:Commands` e implementar o handler.
-- **Autor do publish**: `rb publish all` e `rb release` assinam o commit só como `dionerdfrg3@gmail.com`. Outra conta ativa no `gh` não entra no autor. Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
+- **Autor do publish**: `rb publish all` e `rb release` abrem o diálogo do Windows com as contas do `gh` que têm escrita. O nome do commit é o do perfil da conta escolhida. Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
 
 ## Logs e troubleshooting em runtime
 
