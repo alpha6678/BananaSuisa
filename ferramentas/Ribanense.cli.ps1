@@ -377,6 +377,7 @@ function Get-LauncherRelevantPathPrefixes {
         "src/Ribanense.Solucoes.Launcher/",
         "tests/Ribanense.Solucoes.Launcher.Tests/",
         "catalog/catalog.json",
+        "catalog/parceiros.json",
         "catalog/icons/",
         "src/Ribanense.Solucoes.PluginSDK/",
         "src/Ribanense.Solucoes.Infrastructure/",
@@ -577,11 +578,127 @@ function Set-LauncherVersion {
     Set-Content -LiteralPath $buildProps -Value $content -Encoding UTF8 -NoNewline
 }
 
+function Test-IsPartnerApp {
+    param([Parameter(Mandatory)] $App)
+    $partners = @(Get-PartnerEntries)
+    if ($partners.Count -eq 0) { return $false }
+    $guess = 'com.ribanense.' + $App.ShortName.ToLowerInvariant()
+    $manifestId = $null
+    if ($App.HasManifest) {
+        try {
+            $manifest = Get-Content -LiteralPath $App.ManifestPath -Raw | ConvertFrom-Json
+            $manifestId = [string] $manifest.id
+        } catch { }
+    }
+    foreach ($partner in $partners) {
+        if ($partner.id -eq $guess) { return $true }
+        if ($manifestId -and $partner.id -eq $manifestId) { return $true }
+    }
+    return $false
+}
+
+function Get-PartnerEntries {
+    $path = Join-Path $script:ProjectRoot 'catalog\parceiros.json'
+    if (-not (Test-Path -LiteralPath $path)) { return @() }
+    try {
+        $doc = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        return @($doc.partners)
+    } catch {
+        throw "catalog/parceiros.json invalido: $($_.Exception.Message)"
+    }
+}
+
+function Invoke-ParceirosList {
+    $partners = @(Get-PartnerEntries)
+    if ($partners.Count -eq 0) {
+        Write-Warn2 "Nenhum projeto parceiro em catalog/parceiros.json."
+        return
+    }
+    foreach ($partner in $partners) {
+        Write-Host ("{0}  {1}/{2}  tag {3}" -f $partner.publicName, $partner.githubOwner, $partner.githubRepo, $partner.githubTagPrefix)
+        Write-Muted ("id {0}  local {1}" -f $partner.id, $partner.localPath)
+    }
+}
+
+function Invoke-ParceirosSync {
+    Assert-CommandAvailable 'git'
+    $partners = @(Get-PartnerEntries)
+    if ($partners.Count -eq 0) { throw "Nenhum parceiro em catalog/parceiros.json." }
+    foreach ($partner in $partners) {
+        if ([string]::IsNullOrWhiteSpace($partner.localPath)) {
+            Write-Warn2 "$($partner.id) sem localPath; sync ignorado."
+            continue
+        }
+        $dest = Join-Path $script:ProjectRoot ($partner.localPath -replace '/', '\')
+        $url = "https://github.com/$($partner.githubOwner)/$($partner.githubRepo).git"
+        if (Test-Path -LiteralPath (Join-Path $dest '.git')) {
+            Write-Info "Atualizando $($partner.localPath)..."
+            & git -C $dest pull --ff-only
+            if ($LASTEXITCODE -ne 0) { throw "git pull falhou em $dest" }
+        } else {
+            Write-Info "Clonando $url em $($partner.localPath)..."
+            New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
+            & git clone $url $dest
+            if ($LASTEXITCODE -ne 0) { throw "git clone falhou: $url" }
+        }
+        Write-Ok "$($partner.publicName) em $dest"
+    }
+}
+
+function Invoke-ParceirosStatus {
+    Assert-CommandAvailable 'gh'
+    $partners = @(Get-PartnerEntries)
+    if ($partners.Count -eq 0) { throw "Nenhum parceiro em catalog/parceiros.json." }
+    foreach ($partner in $partners) {
+        Write-Host ""
+        Write-Host ("{0}  {1}/{2}" -f $partner.publicName, $partner.githubOwner, $partner.githubRepo) -ForegroundColor Cyan
+        $release = $null
+        try {
+            $release = & gh release view --repo "$($partner.githubOwner)/$($partner.githubRepo)" --json tagName,name --jq '.tagName + " " + .name'
+        } catch { }
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($release)) {
+            Write-Warn2 "Sem release remota ou sem permissao de leitura."
+        } else {
+            Write-Ok "Release: $release"
+        }
+        if ([string]::IsNullOrWhiteSpace($partner.localPath)) {
+            Write-Muted "Sem pasta local."
+            continue
+        }
+        $dest = Join-Path $script:ProjectRoot ($partner.localPath -replace '/', '\')
+        if (-not (Test-Path -LiteralPath (Join-Path $dest '.git'))) {
+            Write-Muted "Local ausente. Rode: rb parceiros sync"
+            continue
+        }
+        $head = (& git -C $dest rev-parse --short HEAD).Trim()
+        $branch = (& git -C $dest rev-parse --abbrev-ref HEAD).Trim()
+        Write-Muted "Local: $dest @ $head ($branch)"
+    }
+}
+
+function Invoke-LauncherInstall {
+    $candidates = @(
+        (Join-Path $script:ProjectRoot 'artifacts\publish\Launcher\out\Ribanense.Solucoes.Launcher.exe'),
+        (Join-Path $script:ProjectRoot 'artifacts\publish-run\Launcher\out\Ribanense.Solucoes.Launcher.exe'),
+        (Join-Path $script:ProjectRoot 'src\Ribanense.Solucoes.Launcher\bin\Release\net10.0-windows\win-x64\Ribanense.Solucoes.Launcher.exe'),
+        (Join-Path $script:ProjectRoot 'src\Ribanense.Solucoes.Launcher\bin\Debug\net10.0-windows\Ribanense.Solucoes.Launcher.exe')
+    )
+    $exe = @($candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1)
+    if (-not $exe -or -not $exe[0]) {
+        throw "Nenhum launcher compilado. Rode 'rb build' ou 'rb launcher publish'."
+    }
+    Write-Info "Instalando a partir de $($exe[0])"
+    & $exe[0] --install
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Write-Ok "Pedido de instalacao concluido."
+}
+
 function Get-PublishAllCandidates {
     param([Parameter(Mandatory)] [object[]] $Apps)
 
     $plan = @()
     foreach ($app in $Apps) {
+        if (Test-IsPartnerApp -App $app) { continue }
         $tagPrefix = Get-AppTagPrefix -App $app
         $latestTag = Get-LatestTagForPrefix -TagPrefix $tagPrefix
 
@@ -999,9 +1116,6 @@ function Invoke-PublishRun {
                 -c Release `
                 -r win-x64 `
                 --self-contained true `
-                -p:PublishSingleFile=true `
-                -p:IncludeNativeLibrariesForSelfExtract=true `
-                -p:EnableCompressionInSingleFile=true `
                 -p:PublishReadyToRun=true `
                 -o $outDir
         } else {
@@ -1027,7 +1141,7 @@ function Invoke-PublishRun {
     Assert-PathExists -Path $exePath -Description "Executavel publicado ($slotName)"
 
     if ($isLauncher) {
-        Write-Muted "Perfil single-file self-contained (igual ao asset de release). Pasta: $outDir"
+        Write-Muted "Pasta self-contained (igual ao zip de release, sem empacotar). Pasta: $outDir"
     } else {
         Write-Muted "Mesmo perfil de rb publish (sem zip). Pasta: $outDir"
     }
@@ -1684,6 +1798,8 @@ function Normalize-GroupToken {
         'os'       { return 'os' }
         'esp'      { return 'os' }
         'ribanenseesp' { return 'os' }
+        'parceiros' { return 'parceiros' }
+        'parceiro' { return 'parceiros' }
         default    { return $null }
     }
 }
@@ -1693,7 +1809,7 @@ function Show-GroupHelp {
 
     $group = Normalize-GroupToken -Token $GroupName
     if ($null -eq $group) {
-        throw "Grupo desconhecido: '$GroupName'. Use: app, launcher, solution, os."
+        throw "Grupo desconhecido: '$GroupName'. Use: app, launcher, solution, os, parceiros."
     }
 
     Write-Host ""
@@ -1732,12 +1848,14 @@ function Show-GroupHelp {
             Write-Host "  publish | empacotar | pack"
             Write-Host "  release | soltar"
             Write-Host "  logs | log"
+            Write-Host "  install"
             Write-Host ""
             Write-Host "Exemplos:" -ForegroundColor Gray
             Write-Host "  .\rb.cmd launcher run"
             Write-Host "  .\rb.cmd launcher publish-run"
             Write-Host "  .\rb.cmd launcher publish -Version 0.1.0"
             Write-Host "  .\rb.cmd launcher release 0.1.0"
+            Write-Host "  .\rb.cmd launcher install"
             Write-Host "  .\rb.cmd launcher logs 100"
         }
         'solution' {
@@ -1783,6 +1901,21 @@ function Show-GroupHelp {
             Write-Host "  .\rb.cmd os app release Sobre 0.1.0"
             Write-Host "  .\rb.cmd esp version"
         }
+        'parceiros' {
+            Write-Host "Grupo: parceiros" -ForegroundColor Cyan
+            Write-Host "----------------" -ForegroundColor DarkCyan
+            Write-Host "Uso base: rb parceiros <acao>"
+            Write-Host ""
+            Write-Host "Acoes:" -ForegroundColor Gray
+            Write-Host "  list | ls"
+            Write-Host "  sync"
+            Write-Host "  status"
+            Write-Host ""
+            Write-Host "Exemplos:" -ForegroundColor Gray
+            Write-Host "  .\rb.cmd parceiros list"
+            Write-Host "  .\rb.cmd parceiros sync"
+            Write-Host "  .\rb.cmd parceiros status"
+        }
     }
     Write-Host ""
 }
@@ -1805,7 +1938,8 @@ function Show-RibananseCliHelp {
     Write-Host "  rb launcher <acao> [args]"
     Write-Host "  rb os <acao> [args]"
     Write-Host "  rb solution <acao> [args]"
-    Write-Host "  rb help app|launcher|os|solution"
+    Write-Host "  rb parceiros <acao>"
+    Write-Host "  rb help app|launcher|os|solution|parceiros"
     Write-Host ""
     Write-Host "Comandos:" -ForegroundColor Gray
     foreach ($c in $script:Commands) {
@@ -1972,6 +2106,7 @@ function TryInvoke-GroupedCommand {
                 { $_ -in @('publish', 'empacotar', 'pack') }       { 'publish'; break }
                 { $_ -in @('release', 'soltar') }                  { 'release'; break }
                 { $_ -in @('logs', 'log') }                        { 'logs'; break }
+                { $_ -in @('install', 'instalar') }                { 'install'; break }
                 default { $null }
             }
             if ($null -eq $action) {
@@ -2002,6 +2137,10 @@ function TryInvoke-GroupedCommand {
                 'logs' {
                     $script:RestArguments = $actionArgs
                     Invoke-Logs
+                    return $true
+                }
+                'install' {
+                    Invoke-LauncherInstall
                     return $true
                 }
             }
@@ -2088,6 +2227,22 @@ function TryInvoke-GroupedCommand {
                 'clean'   { Invoke-Clean; return $true }
                 'list'    { Invoke-ListApps; return $true }
                 'version' { Invoke-ShowVersions; return $true }
+            }
+        }
+        'parceiros' {
+            $action = switch ($actionInput) {
+                { $_ -in @('list', 'ls') } { 'list'; break }
+                { $_ -in @('sync', 'clonar', 'atualizar') } { 'sync'; break }
+                { $_ -in @('status', 'estado') } { 'status'; break }
+                default { $null }
+            }
+            if ($null -eq $action) {
+                throw "Acao desconhecida para grupo parceiros: '$actionInput'. Use 'rb help parceiros'."
+            }
+            switch ($action) {
+                'list' { Invoke-ParceirosList; return $true }
+                'sync' { Invoke-ParceirosSync; return $true }
+                'status' { Invoke-ParceirosStatus; return $true }
             }
         }
     }

@@ -19,6 +19,12 @@
 .PARAMETER OutputDir
   Pasta de saida (default: artifacts\publish\<App>).
 
+.PARAMETER PreviousDir
+  Pasta ja extraida da versao anterior, usada para calcular o delta.
+
+.PARAMETER FromVersion
+  Versao da pasta anterior. Obrigatoria junto com -PreviousDir.
+
 .EXAMPLE
   .\publish-module.ps1 -App Winget -Version 1.0.0
 #>
@@ -26,7 +32,9 @@
 param(
     [Parameter(Mandatory = $true)] [string] $App,
     [string] $Version,
-    [string] $OutputDir
+    [string] $OutputDir,
+    [string] $PreviousDir,
+    [string] $FromVersion
 )
 
 $ErrorActionPreference = 'Stop'
@@ -84,6 +92,18 @@ if ($pySpec) {
     }
     Write-Host "  Standalone: $($exesNovos[0])" -ForegroundColor DarkGray
 }
+
+$entryExe = Get-ChildItem -LiteralPath $publishDir -Filter 'Ribanense.Solucoes.App.*.exe' -File | Select-Object -First 1
+if (-not $entryExe) { throw "Executavel do app nao encontrado em $publishDir." }
+
+& (Join-Path $ScriptRoot 'payload-delta.ps1') `
+    -TargetDir $publishDir `
+    -Version $Version `
+    -EntryExecutable $entryExe.Name `
+    -PreviousDir $PreviousDir `
+    -FromVersion $FromVersion `
+    -OutputDir $OutputDir
+if ($LASTEXITCODE -ne 0) { throw "payload-delta falhou." }
 
 $lowerApp = $App.ToLowerInvariant()
 $zipName = "$lowerApp-$Version-win-x64.zip"

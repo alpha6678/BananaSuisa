@@ -75,6 +75,66 @@ function Invoke-PointerCommit {
     }
 }
 
+function Get-PreviousPayloadVersion {
+    param(
+        [Parameter(Mandatory)] [string] $Prefix,
+        [Parameter(Mandatory)] [string] $Current
+    )
+    $currentCore = ($Current -split '[-+]')[0]
+    if ($currentCore -notmatch '^\d+\.\d+\.\d+$') { return $null }
+    $currentVersion = [version] $currentCore
+    $best = $null
+    $bestVersion = $null
+    foreach ($tag in @(& git tag --list "$Prefix*")) {
+        if ([string]::IsNullOrWhiteSpace($tag)) { continue }
+        if (-not $tag.StartsWith($Prefix)) { continue }
+        $text = $tag.Substring($Prefix.Length)
+        $core = ($text -split '[-+]')[0]
+        if ($core -notmatch '^\d+\.\d+\.\d+$') { continue }
+        $parsed = [version] $core
+        if ($parsed -ge $currentVersion) { continue }
+        if ($null -eq $bestVersion -or $parsed -gt $bestVersion) {
+            $bestVersion = $parsed
+            $best = $text
+        }
+    }
+    return $best
+}
+
+function Expand-PreviousPayload {
+    param(
+        [Parameter(Mandatory)] [string] $Tag,
+        [Parameter(Mandatory)] [string] $AssetName,
+        [Parameter(Mandatory)] [string] $Destination
+    )
+    if (Test-Path -LiteralPath $Destination) {
+        Remove-Item -LiteralPath $Destination -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    $downloadDir = Join-Path $Destination '_download'
+    New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
+    try {
+        Invoke-GhAsActor -GhArgs @(
+            'release', 'download', $Tag,
+            '--pattern', $AssetName,
+            '--dir', $downloadDir,
+            '--clobber'
+        ) -FailureMessage "download da release anterior falhou."
+    }
+    catch {
+        Write-Host "Sem pacote anterior ($AssetName em $Tag). Delta omitido." -ForegroundColor Yellow
+        return $false
+    }
+    $zip = Get-ChildItem -LiteralPath $downloadDir -Filter '*.zip' -File | Select-Object -First 1
+    if (-not $zip) {
+        Write-Host "Release $Tag nao tem zip. Delta omitido." -ForegroundColor Yellow
+        return $false
+    }
+    Expand-Archive -LiteralPath $zip.FullName -DestinationPath $Destination -Force
+    Remove-Item -LiteralPath $downloadDir -Recurse -Force
+    return $true
+}
+
 if ($Version -match '^\d+\.\d+$') {
     $Version = "$Version.0"
 }
@@ -134,11 +194,30 @@ try {
     Start-RbStepBlock -Steps @("Pacote $App $Version", 'Tag e release')
     try {
         Update-RbStep -Index 0 -State 'running'
+        $previousDir = $null
+        $fromVersion = $null
+        if ($kind -in @('launcher', 'win-app')) {
+            $prefixForPrev = $TagPrefix
+            $fromVersion = Get-PreviousPayloadVersion -Prefix $prefixForPrev -Current $Version
+            if ($fromVersion) {
+                $prevTag = "$prefixForPrev$fromVersion"
+                $prevAsset = if ($kind -eq 'launcher') {
+                    "launcher-$fromVersion-win-x64.zip"
+                } else {
+                    "$($App.ToLowerInvariant())-$fromVersion-win-x64.zip"
+                }
+                $previousDir = Join-Path $ProjectRoot "artifacts\publish\_previous\$outName"
+                if (-not (Expand-PreviousPayload -Tag $prevTag -AssetName $prevAsset -Destination $previousDir)) {
+                    $previousDir = $null
+                    $fromVersion = $null
+                }
+            }
+        }
         $publishLines = @(
             Invoke-RbExternal -Script {
                 switch ($kind) {
                     'launcher' {
-                        & "$ScriptRoot\publish-launcher.ps1" -Version $Version
+                        & "$ScriptRoot\publish-launcher.ps1" -Version $Version -PreviousDir $previousDir -FromVersion $fromVersion
                     }
                     'os' {
                         $osFiles = @(Set-OsEmbeddedVersion -Ver $Version)
@@ -149,7 +228,7 @@ try {
                         & "$ScriptRoot\publish-esp-app.ps1" -App $App -Version $Version
                     }
                     default {
-                        & "$ScriptRoot\publish-module.ps1" -App $App -Version $Version
+                        & "$ScriptRoot\publish-module.ps1" -App $App -Version $Version -PreviousDir $previousDir -FromVersion $fromVersion
                     }
                 }
             } -Label 'Compilando' -ProgressPattern '^\[(\d+)/(\d+)\]' -FailurePrefix "publish falhou para $App"
@@ -170,7 +249,7 @@ try {
     $gh = Get-GithubOwnerRepo -ProjectRoot $ProjectRoot
 
     $assetBaseName = switch ($kind) {
-        'launcher' { "launcher-$Version-win-x64.exe" }
+        'launcher' { "launcher-$Version-win-x64.zip" }
         'os' { "ribanense-esp-$Version.bin" }
         'esp-app' {
             $m = Get-Content -LiteralPath (Join-Path $ProjectRoot "firmware\apps\$App\app.json") -Raw | ConvertFrom-Json
@@ -200,12 +279,18 @@ try {
     $releaseNotes = switch ($kind) {
         'os' { "Release automatizado do OS RibanenseESP $Version." }
         'esp-app' { "Release automatizado do app da placa $App $Version." }
-        'launcher' { "Release automatizado do Launcher $Version (executavel unico win-x64 self-contained)." }
+        'launcher' { "Release automatizado do Launcher $Version (pasta self-contained win-x64, com delta quando a versao anterior e zip)." }
         default { "Release automatizado de $App $Version." }
     }
 
     Write-RbTick ("Publicando release {0}..." -f $tag) 'Cyan'
-    $ghArgs = @('release', 'create', $tag, $assetPath, $shaPath, '--title', $releaseTitle, '--notes', $releaseNotes)
+    $extraAssets = @()
+    if ($kind -in @('launcher', 'win-app')) {
+        $manifestPayload = Join-Path $outDir 'payload-manifest.json'
+        if (Test-Path -LiteralPath $manifestPayload) { $extraAssets += $manifestPayload }
+        $extraAssets += @(Get-ChildItem -LiteralPath $outDir -File -Filter 'delta-from-*' | ForEach-Object { $_.FullName })
+    }
+    $ghArgs = @('release', 'create', $tag, $assetPath, $shaPath) + $extraAssets + @('--title', $releaseTitle, '--notes', $releaseNotes)
     if ($kind -in @('win-app', 'esp-app') -and (Test-Path -LiteralPath $manifestPath)) {
         $ghArgs += $manifestPath
     }
