@@ -16,6 +16,7 @@ public sealed class CatalogService : ICatalogService
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(30);
     private const string CacheJsonKey = "catalog.json.cached";
     private const string CacheTimestampKey = "catalog.json.timestamp";
+    private const string PartnersCacheJsonKey = "parceiros.json.cached";
 
     private static readonly JsonSerializerOptions ParseOptions = new()
     {
@@ -27,6 +28,8 @@ public sealed class CatalogService : ICatalogService
     private readonly IAppJsonLog _log;
     private readonly string _catalogUrl;
     private readonly string? _bundledJson;
+    private readonly string? _partnersUrl;
+    private readonly string? _bundledPartnersJson;
     private readonly object _lock = new();
 
     private CatalogDocument? _inMemory;
@@ -37,7 +40,9 @@ public sealed class CatalogService : ICatalogService
         IVault vault,
         IAppJsonLog log,
         string catalogUrl,
-        string? bundledJson = null)
+        string? bundledJson = null,
+        string? partnersUrl = null,
+        string? bundledPartnersJson = null)
     {
         _github = github ?? throw new ArgumentNullException(nameof(github));
         _vault = vault ?? throw new ArgumentNullException(nameof(vault));
@@ -46,6 +51,8 @@ public sealed class CatalogService : ICatalogService
             ? throw new ArgumentException("URL obrigatoria.", nameof(catalogUrl))
             : catalogUrl;
         _bundledJson = string.IsNullOrWhiteSpace(bundledJson) ? null : bundledJson;
+        _partnersUrl = string.IsNullOrWhiteSpace(partnersUrl) ? null : partnersUrl;
+        _bundledPartnersJson = string.IsNullOrWhiteSpace(bundledPartnersJson) ? null : bundledPartnersJson;
     }
 
     public DateTime? LastRefreshedAtUtc
@@ -77,7 +84,7 @@ public sealed class CatalogService : ICatalogService
             }
 
             _log.Write(AppLogLevel.Information, "catalog.fetch", $"Catalogo atualizado com {doc.Apps.Count} apps.");
-            return doc;
+            return await WithPartnersAsync(doc, forceRefresh, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -92,7 +99,7 @@ public sealed class CatalogService : ICatalogService
                     _inMemory = fromCache.Value.doc;
                     _inMemoryAt = fromCache.Value.timestamp;
                 }
-                return fromCache.Value.doc;
+                return await WithPartnersAsync(fromCache.Value.doc, forceRefresh, ct).ConfigureAwait(false);
             }
 
             var fromBundle = TryLoadBundled();
@@ -105,7 +112,7 @@ public sealed class CatalogService : ICatalogService
                     _inMemory = fromBundle;
                     _inMemoryAt = DateTime.UtcNow;
                 }
-                return fromBundle;
+                return await WithPartnersAsync(fromBundle, forceRefresh, ct).ConfigureAwait(false);
             }
 
             throw;
@@ -167,4 +174,126 @@ public sealed class CatalogService : ICatalogService
             ?? throw new InvalidOperationException("catalog.json nao pode ser desserializado.");
         return doc;
     }
+
+    /// <summary>
+    /// Entradas de <paramref name="partners"/> substituem o mesmo id no catálogo e as
+    /// demais são acrescentadas. Parceiro sempre sai com <c>distribution=partner</c>.
+    /// </summary>
+    public static CatalogDocument Merge(CatalogDocument catalog, PartnerCatalogDocument? partners)
+    {
+        if (catalog is null) throw new ArgumentNullException(nameof(catalog));
+        if (partners is null || partners.Partners.Count == 0) return catalog;
+
+        var merged = new List<CatalogEntry>();
+        var replaced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (CatalogEntry app in catalog.Apps)
+        {
+            CatalogEntry? partner = partners.Partners.FirstOrDefault(p =>
+                string.Equals(p.Id, app.Id, StringComparison.OrdinalIgnoreCase));
+            if (partner is null)
+            {
+                merged.Add(app);
+                continue;
+            }
+
+            merged.Add(AsPartner(partner));
+            replaced.Add(partner.Id);
+        }
+
+        foreach (CatalogEntry partner in partners.Partners)
+        {
+            if (string.IsNullOrWhiteSpace(partner.Id) || replaced.Contains(partner.Id)) continue;
+            merged.Add(AsPartner(partner));
+            replaced.Add(partner.Id);
+        }
+
+        return new CatalogDocument { SchemaVersion = catalog.SchemaVersion, Apps = merged };
+    }
+
+    private async Task<CatalogDocument> WithPartnersAsync(CatalogDocument catalog, bool forceRefresh, CancellationToken ct)
+    {
+        if (_partnersUrl is null && _bundledPartnersJson is null) return catalog;
+
+        PartnerCatalogDocument? partners = await LoadPartnersAsync(forceRefresh, ct).ConfigureAwait(false);
+        CatalogDocument merged = Merge(catalog, partners);
+        lock (_lock)
+        {
+            _inMemory = merged;
+        }
+        return merged;
+    }
+
+    private async Task<PartnerCatalogDocument?> LoadPartnersAsync(bool forceRefresh, CancellationToken ct)
+    {
+        if (!forceRefresh)
+        {
+            PartnerCatalogDocument? cached = TryParsePartners(_vault.GetSetting(PartnersCacheJsonKey));
+            if (cached is not null) return cached;
+        }
+
+        if (_partnersUrl is not null)
+        {
+            try
+            {
+                string json = await _github.GetStringAsync(_partnersUrl, ct).ConfigureAwait(false);
+                PartnerCatalogDocument? parsed = TryParsePartners(json);
+                if (parsed is not null)
+                {
+                    _vault.SetSetting(PartnersCacheJsonKey, json);
+                    _log.Write(AppLogLevel.Information, "partners.fetch",
+                        $"Parceiros atualizados: {parsed.Partners.Count}.");
+                    return parsed;
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Write(AppLogLevel.Warning, "partners.fetch",
+                    "Falha ao baixar parceiros.json; usando cache ou copia embutida.", ex);
+                PartnerCatalogDocument? cached = TryParsePartners(_vault.GetSetting(PartnersCacheJsonKey));
+                if (cached is not null) return cached;
+            }
+        }
+
+        return TryParsePartners(_bundledPartnersJson);
+    }
+
+    private PartnerCatalogDocument? TryParsePartners(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            return Json.Deserialize<PartnerCatalogDocument>(json, ParseOptions);
+        }
+        catch (Exception ex)
+        {
+            _log.Write(AppLogLevel.Warning, "partners.parse", "parceiros.json invalido.", ex);
+            return null;
+        }
+    }
+
+    private static CatalogEntry AsPartner(CatalogEntry partner) =>
+        new()
+        {
+            Id = partner.Id,
+            Name = partner.Name,
+            PublicName = partner.PublicName,
+            Description = partner.Description,
+            Category = partner.Category,
+            Icon = partner.Icon,
+            GithubOwner = partner.GithubOwner,
+            GithubRepo = partner.GithubRepo,
+            GithubTagPrefix = partner.GithubTagPrefix,
+            MinimumLauncherVersion = partner.MinimumLauncherVersion,
+            Distribution = "partner",
+            InstallerAsset = partner.InstallerAsset,
+            InstallerShaAsset = partner.InstallerShaAsset,
+            PortableAsset = partner.PortableAsset,
+            PortableShaAsset = partner.PortableShaAsset,
+            EntryExecutable = partner.EntryExecutable,
+            InstallDirectoryName = partner.InstallDirectoryName,
+            InstallPathCandidates = partner.InstallPathCandidates ?? new List<string>(),
+            UninstallRegistryName = partner.UninstallRegistryName,
+            LocalPath = partner.LocalPath
+        };
 }

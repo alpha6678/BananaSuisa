@@ -17,6 +17,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
     private readonly IAppJsonLog _log;
     private readonly IDotNetDesktopRuntimeChecker _runtimeChecker;
     private readonly IDotNetDesktopRuntimeInstaller _runtimeInstaller;
+    private readonly InstallRegistrationService _registration;
+    private readonly PartnerInstallProbe _partners;
     private readonly string _aplicativosRoot;
 
     public MainWindowViewModel(
@@ -36,9 +38,11 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         _log = log;
         _runtimeChecker = runtimeChecker ?? new DotNetDesktopRuntimeChecker();
         _runtimeInstaller = runtimeInstaller ?? new DotNetDesktopRuntimeInstaller();
+        _registration = new InstallRegistrationService(new WindowsInstallRegistration());
+        _partners = new PartnerInstallProbe(new WindowsInstallRegistration());
         _aplicativosRoot = aplicativosRoot;
 
-        CatalogPage = new CatalogViewModel(catalog, releases, registry, this, log, aplicativosRoot);
+        CatalogPage = new CatalogViewModel(catalog, releases, registry, this, log, aplicativosRoot, _partners);
         MyAppsPage = new MyAppsViewModel(CatalogPage);
         UpdatesPage = new UpdatesViewModel(CatalogPage, this);
         AboutPage = new AboutViewModel(launcherUpdater);
@@ -83,7 +87,45 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
 
     // IAppCardHost ------------------------------------------------------
 
-    public async Task InstallAsync(AppCardViewModel card)
+    public async Task InstallAsync(AppCardViewModel card) =>
+        await InstallCoreAsync(card, AppInstallMode.Portable).ConfigureAwait(true);
+
+    public async Task InstallRegisteredAsync(AppCardViewModel card) =>
+        await InstallCoreAsync(card, AppInstallMode.Registered).ConfigureAwait(true);
+
+    public Task UpdateAsync(AppCardViewModel card) => InstallCoreAsync(card, mode: null);
+
+    public async Task RegisterAsync(AppCardViewModel card)
+    {
+        if (card.Installed is null || !card.Installed.ManagedByLauncher) return;
+        card.IsBusy = true;
+        card.ErrorMessage = null;
+        try
+        {
+            _registration.ApplyApp(
+                AppInstallMode.Registered,
+                card.Id,
+                card.DisplayName,
+                card.Installed.Version,
+                card.Installed.InstallPath,
+                card.Installed.ExecutablePath,
+                Environment.ProcessPath ?? string.Empty);
+            RefreshCard(card);
+        }
+        catch (Exception ex)
+        {
+            _log.Write(AppLogLevel.Error, "register.exception", $"Erro ao registrar {card.Id}.", ex);
+            card.ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            card.IsBusy = false;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private async Task InstallCoreAsync(AppCardViewModel card, AppInstallMode? mode)
     {
         if (card.LatestRelease is null) return;
         card.IsBusy = true;
@@ -92,7 +134,14 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         try
         {
             var progress = new Progress<double>(v => card.Progress = v * 100.0);
-            var request = new AppInstallRequest(card.Id, card.LatestRelease, _aplicativosRoot, progress);
+            var request = new AppInstallRequest(
+                card.Id,
+                card.LatestRelease,
+                _aplicativosRoot,
+                progress,
+                card.Releases,
+                card.Entry,
+                mode);
             var result = await _installer.InstallAsync(request, CancellationToken.None).ConfigureAwait(true);
 
             if (!result.Success)
@@ -115,8 +164,6 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         }
     }
 
-    public Task UpdateAsync(AppCardViewModel card) => InstallAsync(card);
-
     public async Task UninstallAsync(AppCardViewModel card)
     {
         card.IsBusy = true;
@@ -124,7 +171,7 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
         card.RequiredRuntimeVersion = null;
         try
         {
-            var result = _installer.Uninstall(_aplicativosRoot, card.Id);
+            var result = _installer.Uninstall(_aplicativosRoot, card.Id, card.Installed);
             if (!result.Success)
             {
                 card.ErrorMessage = result.Error;
@@ -246,6 +293,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
     private void RefreshCard(AppCardViewModel card)
     {
         var installed = _registry.Find(_aplicativosRoot, card.Id);
+        if (installed is null && card.IsPartner)
+            installed = _partners.Probe(card.Entry, _aplicativosRoot);
         card.Installed = installed;
         card.Status = _releases.CompareVersions(installed?.Version, card.LatestRelease?.Version);
     }

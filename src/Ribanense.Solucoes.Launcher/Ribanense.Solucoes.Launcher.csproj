@@ -16,7 +16,8 @@
     <ProjectReference Include="..\Ribanense.Solucoes.UI\Ribanense.Solucoes.UI.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="..\..\catalog\catalog.json" LogicalName="Ribanense.Solucoes.Launcher.catalog.json" />
+        <EmbeddedResource Include="..\..\catalog\catalog.json" LogicalName="Ribanense.Solucoes.Launcher.catalog.json" />
+        <EmbeddedResource Include="..\..\catalog\parceiros.json" LogicalName="Ribanense.Solucoes.Launcher.parceiros.json" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Ribanense.Solucoes.Launcher.Tests" />

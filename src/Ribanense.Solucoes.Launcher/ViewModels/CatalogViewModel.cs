@@ -16,13 +16,16 @@ public sealed class CatalogViewModel : PageViewModel
     private readonly IAppJsonLog _log;
     private readonly string _aplicativosRoot;
 
+    private readonly PartnerInstallProbe _partners;
+
     public CatalogViewModel(
         ICatalogService catalog,
         IReleaseCheckService releases,
         IInstalledAppsRegistry registry,
         IAppCardHost host,
         IAppJsonLog log,
-        string aplicativosRoot)
+        string aplicativosRoot,
+        PartnerInstallProbe? partners = null)
     {
         _catalog = catalog;
         _releases = releases;
@@ -30,6 +33,7 @@ public sealed class CatalogViewModel : PageViewModel
         _host = host;
         _log = log;
         _aplicativosRoot = aplicativosRoot;
+        _partners = partners ?? new PartnerInstallProbe(new WindowsInstallRegistration());
 
         RefreshCommand = new AsyncRelayCommand(() => LoadAsync(forceRefresh: true));
     }
@@ -56,9 +60,10 @@ public sealed class CatalogViewModel : PageViewModel
 
             foreach (var entry in catalog.Apps)
             {
+                var local = installed.FirstOrDefault(a => a.Id == entry.Id);
                 var card = new AppCardViewModel(entry, _host)
                 {
-                    Installed = installed.FirstOrDefault(a => a.Id == entry.Id)
+                    Installed = local ?? (entry.IsPartner ? _partners.Probe(entry, _aplicativosRoot) : null)
                 };
                 Cards.Add(card);
 
@@ -84,12 +89,17 @@ public sealed class CatalogViewModel : PageViewModel
     {
         try
         {
-            var release = await _releases.GetLatestReleaseAsync(
+            var all = await _releases.GetAllReleasesAsync(
                 card.Entry.GithubOwner,
                 card.Entry.GithubRepo,
                 card.Entry.GithubTagPrefix,
-                includePrerelease: false,
                 CancellationToken.None).ConfigureAwait(true);
+
+            card.Releases = all;
+            var release = all
+                .Where(r => !r.IsPrerelease)
+                .OrderByDescending(r => r.Version, SemVerComparer.Instance)
+                .FirstOrDefault();
 
             card.LatestRelease = release;
             if (release is null)

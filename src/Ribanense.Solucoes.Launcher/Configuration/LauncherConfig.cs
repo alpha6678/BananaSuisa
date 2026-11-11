@@ -14,6 +14,9 @@ public static class LauncherConfig
     public const string DefaultCatalogUrl =
         "https://raw.githubusercontent.com/alpha6678/BananaSuisa/main/catalog/catalog.json";
 
+    public const string DefaultPartnersUrl =
+        "https://raw.githubusercontent.com/alpha6678/BananaSuisa/main/catalog/parceiros.json";
+
     public const string DefaultLauncherGithubOwner = "alpha6678";
     public const string DefaultLauncherGithubRepo = "BananaSuisa";
 
@@ -30,18 +33,17 @@ public static class LauncherConfig
     public static string CatalogUrl =>
         Environment.GetEnvironmentVariable("RIBANENSE_CATALOG_URL") ?? DefaultCatalogUrl;
 
-    public static string LauncherDataRoot =>
-        Environment.GetEnvironmentVariable("RIBANENSE_LAUNCHER_DATA")
-        ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            ProductFolderName);
+    public static DeploymentContext Deployment { get; } = DeploymentContext.Resolve(
+        Environment.ProcessPath,
+        Environment.GetEnvironmentVariable("RIBANENSE_LAUNCHER_DATA"),
+        Environment.GetEnvironmentVariable("RIBANENSE_APLICATIVOS_ROOT"));
+
+    public static string LauncherDataRoot => Deployment.DataRoot;
 
     public static string LauncherVaultPath =>
         Path.Combine(LauncherDataRoot, "Launcher.dat");
 
-    public static string AplicativosRoot =>
-        Environment.GetEnvironmentVariable("RIBANENSE_APLICATIVOS_ROOT")
-        ?? Path.Combine(LauncherDataRoot, "aplicativos");
+    public static string AplicativosRoot => Deployment.AplicativosRoot;
 
     public static string? GitHubToken =>
         Environment.GetEnvironmentVariable("GH_TOKEN")

@@ -18,6 +18,29 @@
                     <TextBlock Style="{StaticResource Text.Muted}"
                                Margin="0,4,0,0"
                                Text="{Binding VersionsLine, Mode=OneWay}" />
+                    <TextBlock Style="{StaticResource Text.Body}"
+                               Margin="0,8,0,0"
+                               Text="{Binding DeploymentModeText, Mode=OneWay}" />
+                    <TextBlock Style="{StaticResource Text.Muted}"
+                               Margin="0,4,0,0"
+                               TextWrapping="Wrap"
+                               Text="{Binding InstallDirectory, Mode=OneWay}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Instalar nesta máquina"
+                                Style="{StaticResource Button.Accent}"
+                                Command="{Binding InstallHereCommand}"
+                                Visibility="{Binding CanInstallHere, Converter={StaticResource BoolToVisibility}}"
+                                Margin="0,0,8,0" />
+                        <Button Content="Tornar portátil"
+                                Style="{StaticResource Button.Base}"
+                                Command="{Binding MakePortableCommand}"
+                                Visibility="{Binding CanMakePortable, Converter={StaticResource BoolToVisibility}}"
+                                Margin="0,0,8,0" />
+                        <Button Content="Desinstalar"
+                                Style="{StaticResource Button.Base}"
+                                Command="{Binding UninstallDeploymentCommand}"
+                                Visibility="{Binding CanUninstallDeployment, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

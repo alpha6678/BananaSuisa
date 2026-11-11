@@ -8,6 +8,8 @@ namespace Ribanense.Solucoes.Launcher.ViewModels;
 public interface IAppCardHost
 {
     Task InstallAsync(AppCardViewModel card);
+    Task InstallRegisteredAsync(AppCardViewModel card);
+    Task RegisterAsync(AppCardViewModel card);
     Task UpdateAsync(AppCardViewModel card);
     Task UninstallAsync(AppCardViewModel card);
     void Open(AppCardViewModel card);
@@ -18,6 +20,8 @@ public sealed class AppCardViewModel : ObservableObject
 {
     private readonly IAppCardHost _host;
     private readonly AsyncRelayCommand _installCommand;
+    private readonly AsyncRelayCommand _installRegisteredCommand;
+    private readonly AsyncRelayCommand _registerCommand;
     private readonly AsyncRelayCommand _updateCommand;
     private readonly AsyncRelayCommand _uninstallCommand;
     private readonly RelayCommand _openCommand;
@@ -29,6 +33,8 @@ public sealed class AppCardViewModel : ObservableObject
         _host = host;
 
         _installCommand = new AsyncRelayCommand(_ => _host.InstallAsync(this), _ => CanInstall);
+        _installRegisteredCommand = new AsyncRelayCommand(_ => _host.InstallRegisteredAsync(this), _ => CanInstall);
+        _registerCommand = new AsyncRelayCommand(_ => _host.RegisterAsync(this), _ => CanRegister);
         _updateCommand = new AsyncRelayCommand(_ => _host.UpdateAsync(this), _ => CanUpdate);
         _uninstallCommand = new AsyncRelayCommand(_ => _host.UninstallAsync(this), _ => CanUninstall);
         _openCommand = new RelayCommand(_ => _host.Open(this), _ => CanOpen);
@@ -41,6 +47,10 @@ public sealed class AppCardViewModel : ObservableObject
     public string Category => Entry.Category;
     public string Description => Entry.Description;
     public string Id => Entry.Id;
+    public bool IsPartner => Entry.IsPartner;
+    public string OriginLabel => IsPartner ? "Parceiro" : string.Empty;
+
+    public IReadOnlyList<ReleaseInfo> Releases { get; set; } = Array.Empty<ReleaseInfo>();
 
     private InstalledApp? _installed;
     public InstalledApp? Installed
@@ -55,6 +65,7 @@ public sealed class AppCardViewModel : ObservableObject
                 OnPropertyChanged(nameof(CanUpdate));
                 OnPropertyChanged(nameof(CanOpen));
                 OnPropertyChanged(nameof(CanUninstall));
+                OnPropertyChanged(nameof(CanRegister));
                 OnPropertyChanged(nameof(StatusLabel));
                 RefreshCommands();
             }
@@ -90,6 +101,7 @@ public sealed class AppCardViewModel : ObservableObject
                 OnPropertyChanged(nameof(CanUpdate));
                 OnPropertyChanged(nameof(CanOpen));
                 OnPropertyChanged(nameof(CanUninstall));
+                OnPropertyChanged(nameof(CanRegister));
                 OnPropertyChanged(nameof(StatusLabel));
                 RefreshCommands();
             }
@@ -108,6 +120,7 @@ public sealed class AppCardViewModel : ObservableObject
                 OnPropertyChanged(nameof(CanUpdate));
                 OnPropertyChanged(nameof(CanOpen));
                 OnPropertyChanged(nameof(CanUninstall));
+                OnPropertyChanged(nameof(CanRegister));
                 RefreshCommands();
             }
         }
@@ -168,11 +181,14 @@ public sealed class AppCardViewModel : ObservableObject
     public bool CanUpdate => !IsBusy && Installed is not null && Status == UpdateStatus.UpdateAvailable;
     public bool CanOpen => !IsBusy && Installed is not null;
     public bool CanUninstall => !IsBusy && Installed is not null;
+    public bool CanRegister => !IsBusy && Installed is { ManagedByLauncher: true, Mode: AppInstallMode.Portable };
 
     public string StatusLabel => Status switch
     {
         UpdateStatus.NotInstalled => "Não instalado",
-        UpdateStatus.UpToDate => $"Atualizado (v{InstalledVersion})",
+        UpdateStatus.UpToDate => Installed?.Mode == AppInstallMode.Registered
+            ? $"Instalado (v{InstalledVersion})"
+            : $"Portátil (v{InstalledVersion})",
         UpdateStatus.UpdateAvailable => $"Atualizar: v{InstalledVersion} → v{LatestVersion}",
         UpdateStatus.IncompatibleLauncher => "Requer Launcher mais novo",
         UpdateStatus.CorruptedInstallation => "Instalação inválida",
@@ -181,6 +197,8 @@ public sealed class AppCardViewModel : ObservableObject
     };
 
     public ICommand InstallCommand => _installCommand;
+    public ICommand InstallRegisteredCommand => _installRegisteredCommand;
+    public ICommand RegisterCommand => _registerCommand;
     public ICommand UpdateCommand => _updateCommand;
     public ICommand UninstallCommand => _uninstallCommand;
     public ICommand OpenCommand => _openCommand;
@@ -191,6 +209,8 @@ public sealed class AppCardViewModel : ObservableObject
         void Raise()
         {
             _installCommand.RaiseCanExecuteChanged();
+            _installRegisteredCommand.RaiseCanExecuteChanged();
+            _registerCommand.RaiseCanExecuteChanged();
             _updateCommand.RaiseCanExecuteChanged();
             _uninstallCommand.RaiseCanExecuteChanged();
             _openCommand.RaiseCanExecuteChanged();

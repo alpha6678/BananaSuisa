@@ -5,6 +5,7 @@ using Ribanense.Solucoes.Launcher.Configuration;
 using Ribanense.Solucoes.Launcher.Domain;
 using Ribanense.Solucoes.PluginSDK;
 using Ribanense.Solucoes.PluginSDK.Logging;
+using Ribanense.Solucoes.PluginSDK.Payload;
 
 namespace Ribanense.Solucoes.Launcher.Services;
 
@@ -20,12 +21,14 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
     private readonly IReleaseCheckService _releases;
     private readonly IGitHubClient _github;
     private readonly IAppJsonLog _log;
+    private readonly PayloadUpdateService _payload;
 
     public LauncherUpdateService(IReleaseCheckService releases, IGitHubClient github, IAppJsonLog log)
     {
         _releases = releases ?? throw new ArgumentNullException(nameof(releases));
         _github = github ?? throw new ArgumentNullException(nameof(github));
         _log = log ?? throw new ArgumentNullException(nameof(log));
+        _payload = new PayloadUpdateService(github, log);
     }
 
     public async Task<ReleaseInfo?> CheckForUpdateAsync(CancellationToken ct)
@@ -79,6 +82,9 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
                 "Mova o launcher para uma pasta gravavel (ex.: fora de Program Files) " +
                 "ou execute como administrador e tente novamente.");
         }
+
+        if (release.ZipAsset is not null)
+            return await ApplyFolderPayloadAsync(release, progress, ct).ConfigureAwait(false);
 
         var exeAsset = release.ExeAsset;
         if (exeAsset is null)
@@ -220,6 +226,222 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
         _log.Write(AppLogLevel.Information, "launcher.update.done",
             $"Launcher {release.Version} aplicado como {Path.GetFileName(targetPath)}; reiniciando.");
         return new LauncherUpdateResult(true, null);
+    }
+
+    private async Task<LauncherUpdateResult> ApplyFolderPayloadAsync(
+        ReleaseInfo release, IProgress<double>? progress, CancellationToken ct)
+    {
+        string? exePath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
+        {
+            return new LauncherUpdateResult(false,
+                "Nao foi possivel localizar o executavel atual do launcher.");
+        }
+
+        string? currentDir = Path.GetDirectoryName(exePath);
+        if (string.IsNullOrWhiteSpace(currentDir))
+        {
+            return new LauncherUpdateResult(false,
+                "Nao foi possivel determinar a pasta do launcher.");
+        }
+
+        bool managed = File.Exists(Path.Combine(currentDir, PayloadManifest.FileName));
+        string finalDir = managed ? currentDir : DeploymentLayout.DefaultInstallDirectory;
+        string? parent = Path.GetDirectoryName(finalDir);
+        if (string.IsNullOrWhiteSpace(parent))
+        {
+            return new LauncherUpdateResult(false,
+                "Nao foi possivel determinar a pasta de instalacao do launcher.");
+        }
+
+        try
+        {
+            Directory.CreateDirectory(parent);
+        }
+        catch (Exception ex)
+        {
+            return new LauncherUpdateResult(false, $"Nao foi possivel criar a pasta de instalacao: {ex.Message}");
+        }
+
+        if (!IsDirectoryWritable(parent))
+        {
+            return new LauncherUpdateResult(false,
+                $"A pasta do launcher nao permite gravacao:\n{parent}");
+        }
+
+        IReadOnlyList<ReleaseInfo> history;
+        try
+        {
+            history = await _releases.GetAllReleasesAsync(
+                LauncherConfig.LauncherGithubOwner,
+                LauncherConfig.LauncherGithubRepo,
+                LauncherConfig.LauncherTagPrefix,
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _log.Write(AppLogLevel.Warning, "launcher.update.history",
+                "Falha ao listar releases; o pacote completo sera usado.", ex);
+            history = Array.Empty<ReleaseInfo>();
+        }
+
+        string suffix = Guid.NewGuid().ToString("N")[..8];
+        string staging = Path.Combine(parent, Path.GetFileName(finalDir) + ".new-" + suffix);
+        string oldDir = Path.Combine(parent, Path.GetFileName(finalDir) + ".old-" + suffix);
+        string? installedVersion = managed ? ReadPayloadVersion(currentDir) : null;
+
+        PayloadStageResult staged = await _payload.StageAsync(
+            managed ? currentDir : null,
+            installedVersion,
+            release,
+            history,
+            staging,
+            progress,
+            ct).ConfigureAwait(false);
+
+        if (!staged.Success)
+        {
+            TryDeleteDirectory(staging);
+            return new LauncherUpdateResult(false, staged.Error ?? "Falha ao preparar a atualizacao.");
+        }
+
+        string entryName = ReadEntryExecutable(staging);
+        string stagedExe = Path.Combine(staging, entryName);
+        if (!File.Exists(stagedExe))
+        {
+            TryDeleteDirectory(staging);
+            return new LauncherUpdateResult(false,
+                $"O pacote nao contem {entryName}.");
+        }
+
+        bool hadFinal = Directory.Exists(finalDir);
+        bool swapped = false;
+        try
+        {
+            if (hadFinal)
+                Directory.Move(finalDir, oldDir);
+            Directory.Move(staging, finalDir);
+            swapped = true;
+
+            string launched = Path.Combine(finalDir, entryName);
+            var psi = new ProcessStartInfo(launched)
+            {
+                UseShellExecute = false,
+                WorkingDirectory = finalDir
+            };
+            psi.ArgumentList.Add(PostUpdateArg);
+            psi.ArgumentList.Add(Environment.ProcessId.ToString());
+            string? cleanup = null;
+            if (hadFinal && Directory.Exists(oldDir))
+                cleanup = oldDir;
+            else if (!managed && IsLegacySingleFile(exePath))
+                cleanup = exePath;
+            if (cleanup is not null)
+                psi.ArgumentList.Add(cleanup);
+
+            if (Process.Start(psi) is null)
+                throw new InvalidOperationException("Processo novo nao iniciou.");
+        }
+        catch (Exception ex)
+        {
+            RollbackFolderSwap(finalDir, staging, oldDir, hadFinal, swapped);
+            _log.Write(AppLogLevel.Error, "launcher.update.swap",
+                "Falha ao trocar a pasta do launcher.", ex);
+            return new LauncherUpdateResult(false, $"Falha ao aplicar a atualizacao: {ex.Message}");
+        }
+
+        _log.Write(AppLogLevel.Information, "launcher.update.done",
+            $"Launcher {release.Version} aplicado em {finalDir}; reiniciando.");
+        return new LauncherUpdateResult(true, null);
+    }
+
+    internal static string ResolveFolderTarget(string currentExecutablePath, bool payloadManifestPresent) =>
+        payloadManifestPresent
+            ? Path.GetDirectoryName(currentExecutablePath) ?? currentExecutablePath
+            : DeploymentLayout.DefaultInstallDirectory;
+
+    private static string? ReadPayloadVersion(string directory)
+    {
+        try
+        {
+            string path = Path.Combine(directory, PayloadManifest.FileName);
+            if (!File.Exists(path)) return null;
+            return PayloadManifest.Load(path).Version;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string ReadEntryExecutable(string directory)
+    {
+        try
+        {
+            string path = Path.Combine(directory, PayloadManifest.FileName);
+            if (File.Exists(path))
+            {
+                string entry = PayloadManifest.Load(path).EntryExecutable;
+                if (!string.IsNullOrWhiteSpace(entry))
+                    return entry.Replace('/', Path.DirectorySeparatorChar);
+            }
+        }
+        catch
+        {
+            // cai no nome estavel
+        }
+
+        return DeploymentLayout.LauncherExecutableName;
+    }
+
+    private static bool IsLegacySingleFile(string exePath)
+    {
+        string name = Path.GetFileName(exePath);
+        return name.StartsWith("launcher-", StringComparison.OrdinalIgnoreCase) &&
+            name.EndsWith("-win-x64.exe", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void RollbackFolderSwap(
+        string finalDir, string staging, string oldDir, bool hadFinal, bool swapped)
+    {
+        if (!swapped)
+        {
+            TryDeleteDirectory(staging);
+            return;
+        }
+
+        try
+        {
+            if (Directory.Exists(finalDir))
+                Directory.Move(finalDir, staging);
+        }
+        catch
+        {
+            // a pasta nova ficou no lugar; nao apaga
+        }
+
+        try
+        {
+            if (hadFinal && Directory.Exists(oldDir) && !Directory.Exists(finalDir))
+                Directory.Move(oldDir, finalDir);
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path))
+                Directory.Delete(path, recursive: true);
+        }
+        catch
+        {
+            // best effort
+        }
     }
 
     internal static string GetTargetExecutablePath(string currentExecutablePath, string assetName)

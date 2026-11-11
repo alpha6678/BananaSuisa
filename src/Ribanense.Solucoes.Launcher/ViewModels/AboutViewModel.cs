@@ -39,6 +39,10 @@ public sealed class AboutViewModel : PageViewModel
             }
         });
 
+        InstallHereCommand = new RelayCommand(_ => InstallHere(), _ => CanInstallHere && !IsUpdating);
+        MakePortableCommand = new RelayCommand(_ => MakePortable(), _ => CanMakePortable && !IsUpdating);
+        UninstallDeploymentCommand = new RelayCommand(_ => UninstallDeployment(), _ => CanUninstallDeployment && !IsUpdating);
+
         CheckUpdateCommand = new AsyncRelayCommand(
             _ => CheckForUpdateAsync(silent: false),
             _ => !IsChecking && !IsUpdating);
@@ -58,10 +62,20 @@ public sealed class AboutViewModel : PageViewModel
     public string CatalogUrl { get; }
     public string DataRoot { get; }
     public string AplicativosRoot { get; }
+    public string DeploymentModeText { get; } = "Modo: " + LauncherConfig.Deployment.ModeLabel;
+    public string InstallDirectory { get; } = LauncherConfig.Deployment.InstallDirectory;
+    public bool CanInstallHere { get; } = LauncherConfig.Deployment.Mode != DeploymentMode.Installed;
+    public bool CanMakePortable { get; } = LauncherConfig.Deployment.Mode != DeploymentMode.Portable;
+    public bool CanUninstallDeployment { get; } = LauncherConfig.Deployment.Mode != DeploymentMode.Loose;
 
     public ICommand OpenGitHubCommand { get; }
     public ICommand CheckUpdateCommand { get; }
     public ICommand UpdateLauncherCommand { get; }
+    public ICommand InstallHereCommand { get; }
+    public ICommand MakePortableCommand { get; }
+    public ICommand UninstallDeploymentCommand { get; }
+
+    private readonly LauncherSelfInstaller _deployment = new();
 
     private bool _isChecking;
     public bool IsChecking
@@ -213,6 +227,80 @@ public sealed class AboutViewModel : PageViewModel
         {
             IsUpdating = false;
         }
+    }
+
+    private void InstallHere()
+    {
+        var confirm = MessageBox.Show(
+            "O launcher será copiado para a pasta de programas do seu usuário, com atalho no Menu Iniciar e entrada em Aplicativos e recursos.\n\nContinuar?",
+            "Instalar Ribanense Soluções",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        LauncherDeploymentResult result = _deployment.InstallHere();
+        if (!result.Success)
+        {
+            UpdateError = result.Error;
+            return;
+        }
+
+        if (result.ShutdownRequested)
+            Application.Current?.Shutdown();
+        else
+            UpdateMessage = "Esta cópia já está instalada. O registro foi atualizado.";
+    }
+
+    private void MakePortable()
+    {
+        string? folder;
+        try
+        {
+            folder = FolderPicker.Pick("Escolha a pasta da cópia portátil");
+        }
+        catch (Exception ex)
+        {
+            UpdateError = ex.Message;
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(folder)) return;
+
+        var confirm = MessageBox.Show(
+            $"A cópia portátil ficará em:\n{folder}\n\nOs dados e os apps atuais são copiados se a pasta ainda estiver vazia. Continuar?",
+            "Tornar portátil",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        LauncherDeploymentResult result = _deployment.MakePortable(folder);
+        if (!result.Success)
+        {
+            UpdateError = result.Error;
+            return;
+        }
+
+        if (result.ShutdownRequested)
+            Application.Current?.Shutdown();
+    }
+
+    private void UninstallDeployment()
+    {
+        string message = LauncherConfig.Deployment.Mode == DeploymentMode.Installed
+            ? "A instalação será removida (atalho, registro e pasta do programa). Os dados em %LOCALAPPDATA% permanecem.\n\nContinuar?"
+            : "A marca de cópia portátil será removida. Os arquivos e os dados ficam na pasta.\n\nContinuar?";
+        var confirm = MessageBox.Show(message, "Desinstalar Ribanense Soluções",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        LauncherDeploymentResult result = _deployment.Uninstall();
+        if (!result.Success)
+        {
+            UpdateError = result.Error;
+            return;
+        }
+
+        if (result.ShutdownRequested)
+            Application.Current?.Shutdown();
     }
 
     private static string SafeGet(Func<string> read, string fallback)

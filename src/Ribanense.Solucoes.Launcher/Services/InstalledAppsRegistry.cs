@@ -43,7 +43,9 @@ public sealed class InstalledAppsRegistry : IInstalledAppsRegistry
             {
                 Manifest = manifest,
                 InstallPath = Path.GetFullPath(dir),
-                ExecutablePath = Path.GetFullPath(exePath)
+                ExecutablePath = Path.GetFullPath(exePath),
+                Mode = InstallRegistrationService.ReadMode(dir),
+                ManagedByLauncher = true
             });
         }
 

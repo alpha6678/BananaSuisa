@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using Ribanense.Solucoes.Infrastructure.Logging;
 using Ribanense.Solucoes.Infrastructure.Vault;
 using Ribanense.Solucoes.Launcher.Configuration;
+using Ribanense.Solucoes.Launcher.Domain;
 using Ribanense.Solucoes.Launcher.Services;
 using Ribanense.Solucoes.Launcher.ViewModels;
 using Ribanense.Solucoes.PluginSDK;
@@ -86,10 +87,18 @@ public partial class App : Application
 
         _github = new GitHubClient();
         string? bundledCatalog = LoadEmbeddedCatalog(_logger);
-        var catalog = new CatalogService(_github, _vault, _logger, LauncherConfig.CatalogUrl, bundledCatalog);
+        string? bundledPartners = LoadEmbeddedText(_logger, "Ribanense.Solucoes.Launcher.parceiros.json");
+        var catalog = new CatalogService(
+            _github,
+            _vault,
+            _logger,
+            LauncherConfig.CatalogUrl,
+            bundledCatalog,
+            LauncherConfig.DefaultPartnersUrl,
+            bundledPartners);
         var releases = new ReleaseCheckService(_github);
         var registry = new InstalledAppsRegistry();
-        var installer = new AppInstallService(_github, registry, _logger);
+        var installer = new AppInstallService(_github, registry, _logger, new WindowsInstallRegistration());
         var launcherUpdater = new LauncherUpdateService(releases, _github, _logger);
         var runtimeChecker = new DotNetDesktopRuntimeChecker();
         var runtimeInstaller = new DotNetDesktopRuntimeInstaller();
@@ -140,6 +149,40 @@ public partial class App : Application
                 return 0;
             }
 
+            if (a == "--install")
+            {
+                AttachConsole(ATTACH_PARENT_PROCESS);
+                LauncherDeploymentResult installed = new LauncherSelfInstaller().InstallHere();
+                if (!installed.Success)
+                {
+                    Console.Error.WriteLine(installed.Error);
+                    return 1;
+                }
+                Console.WriteLine(installed.ShutdownRequested
+                    ? "Launcher instalado. A nova cópia foi aberta."
+                    : "Launcher já estava instalado. Registro atualizado.");
+                return 0;
+            }
+
+            if (a == "--uninstall")
+            {
+                AttachConsole(ATTACH_PARENT_PROCESS);
+                LauncherDeploymentResult removed = new LauncherSelfInstaller().Uninstall();
+                if (!removed.Success)
+                {
+                    Console.Error.WriteLine(removed.Error);
+                    return 1;
+                }
+                Console.WriteLine("Desinstalação concluída.");
+                return 0;
+            }
+
+            if (a == "--uninstall-app" && i + 1 < args.Length)
+            {
+                AttachConsole(ATTACH_PARENT_PROCESS);
+                return UninstallAppFromCommandLine(args[i + 1]);
+            }
+
             if (a == "--selfcheck")
             {
                 AttachConsole(ATTACH_PARENT_PROCESS);
@@ -172,6 +215,38 @@ public partial class App : Application
         return -1;
     }
 
+    private static int UninstallAppFromCommandLine(string appId)
+    {
+        try
+        {
+            var registry = new InstalledAppsRegistry();
+            var registration = new InstallRegistrationService(new WindowsInstallRegistration());
+            InstalledApp? installed = registry.Find(LauncherConfig.AplicativosRoot, appId);
+            if (installed is null)
+            {
+                Console.Error.WriteLine($"App não instalado pelo launcher: {appId}");
+                return 1;
+            }
+
+            if (AppProcessDetector.IsRunning(appId) &&
+                !AppProcessDetector.TryCloseRunning(appId, installed.ExecutablePath, TimeSpan.FromSeconds(8)))
+            {
+                Console.Error.WriteLine("Não foi possível encerrar o app em execução.");
+                return 1;
+            }
+
+            registration.RemoveApp(appId, installed.DisplayName);
+            Directory.Delete(installed.InstallPath, recursive: true);
+            Console.WriteLine($"{installed.DisplayName} removido.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            return 1;
+        }
+    }
+
     /// <summary>
     /// Quando iniciado com <c>--post-update &lt;pidAntigo&gt; &lt;exeAntigo&gt;</c>, aguarda o processo
     /// antigo encerrar e o mutex de instancia unica liberar, para evitar conflito na inicializacao.
@@ -195,6 +270,9 @@ public partial class App : Application
                     // processo ja encerrou ou nao existe mais
                 }
             }
+
+            if (i + 2 < args.Length)
+                TryDeleteStalePath(args[i + 2]);
 
             var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
             while (AppProcessDetector.IsRunning(LauncherConfig.LauncherAppId) && DateTime.UtcNow < deadline)
@@ -306,6 +384,18 @@ public partial class App : Application
                     try { File.Delete(file); } catch { /* pode estar em uso; ignora */ }
                 }
             }
+
+            string? parent = Path.GetDirectoryName(dir);
+            if (string.IsNullOrWhiteSpace(parent) || !Directory.Exists(parent)) return;
+            foreach (string leftover in Directory.GetDirectories(parent))
+            {
+                string name = Path.GetFileName(leftover);
+                if (name.Contains(".old-", StringComparison.OrdinalIgnoreCase) ||
+                    name.Contains(".new-", StringComparison.OrdinalIgnoreCase))
+                {
+                    TryDeleteStalePath(leftover);
+                }
+            }
         }
         catch
         {
@@ -321,6 +411,26 @@ public partial class App : Application
             {
                 File.Move(source, destination);
             }
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
+    private static void TryDeleteStalePath(string path)
+    {
+        try
+        {
+            string? current = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(current) &&
+                string.Equals(Path.GetFullPath(path), Path.GetFullPath(current), StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+            else if (File.Exists(path)) File.Delete(path);
         }
         catch
         {
@@ -390,12 +500,14 @@ public partial class App : Application
         catch { }
     }
 
-    private static string? LoadEmbeddedCatalog(IAppJsonLog log)
+    private static string? LoadEmbeddedCatalog(IAppJsonLog log) =>
+        LoadEmbeddedText(log, "Ribanense.Solucoes.Launcher.catalog.json");
+
+    private static string? LoadEmbeddedText(IAppJsonLog log, string resourceName)
     {
         try
         {
             var assembly = typeof(App).Assembly;
-            const string resourceName = "Ribanense.Solucoes.Launcher.catalog.json";
             using var stream = assembly.GetManifestResourceStream(resourceName);
             if (stream is null) return null;
             using var reader = new StreamReader(stream);
@@ -404,7 +516,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             log.Write(AppLogLevel.Warning, "catalog.embedded",
-                "Falha ao ler catalogo embutido.", ex);
+                $"Falha ao ler recurso embutido {resourceName}.", ex);
             return null;
         }
     }
