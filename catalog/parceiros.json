@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "partners": [
+    {
+      "id": "com.ribanense.mago",
+      "name": "Mago da Performance",
+      "publicName": "Mago da Performance",
+      "description": "Diagnóstico e otimização de desempenho do Windows. O código e as releases ficam em Nickallafe/Mago; o launcher só acompanha a versão publicada lá.",
+      "category": "Desempenho",
+      "icon": "https://raw.githubusercontent.com/Nickallafe/Mago/main/icon.png",
+      "githubOwner": "Nickallafe",
+      "githubRepo": "Mago",
+      "githubTagPrefix": "v",
+      "minimumLauncherVersion": "0.1.0",
+      "distribution": "partner",
+      "installerAsset": "MagoSetup-{version}.exe",
+      "installerShaAsset": "MagoSetup-{version}.exe.sha256",
+      "portableAsset": "MagoDaPerformance.exe",
+      "portableShaAsset": "MagoDaPerformance.exe.sha256",
+      "entryExecutable": "MagoDaPerformance.exe",
+      "installDirectoryName": "Mago da Performance",
+      "installPathCandidates": [
+        "%LOCALAPPDATA%\\Programs\\Mago da Performance"
+      ],
+      "uninstallRegistryName": "Mago da Performance",
+      "localPath": "externos/mago"
+    }
+  ]
+}
