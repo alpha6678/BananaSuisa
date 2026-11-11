@@ -18,6 +18,9 @@ artifacts/
 # Pasta local de IA (insumo de desenvolvimento, nao versionada)
 IA/
 
+# Clones de projetos parceiros (catalog/parceiros.json). Nao entram no build.
+externos/
+
 # Utilitario local de referencia (reparo de audio), extrai do script e nao versiona
 Fix-WindowsAudio.ps1
 
