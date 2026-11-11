@@ -27,6 +27,7 @@ Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md),
 | `tests/` | Projetos de teste por camada e por app. |
 | `ferramentas/` | CLI do monorepo (`Ribanense.cli.ps1`, `publish-module.ps1`, `publish-os.ps1`, `release.ps1`). |
 | `catalog/catalog.json` | Catálogo público do Launcher Windows. |
+| `catalog/parceiros.json` | Projetos cujo código mora em outro repositório. O launcher lê a versão lá. |
 | `catalog/esp-catalog.json` | Catálogo dos apps da placa (o Launcher Windows não lista). |
 | `docs/` | Arquitetura, processo de release, contrato do SDK, etc. |
 | `hardware/` | Dossiês de equipamentos físicos (fotos, identificação, pinout). |

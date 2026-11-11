@@ -19,6 +19,8 @@ Ponto de entrada da documentação do **Ribanense Soluções**. Use como mapa an
 | [`PLUGIN_SDK.md`](PLUGIN_SDK.md) | Contrato `app.json`, CLI obrigatório dos apps, variáveis de ambiente. |
 | [`ESP_APP_SDK.md`](ESP_APP_SDK.md) | Contrato dos apps nativos da placa (SD, tag `esp-<slug>-v`). |
 | [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) | Tag, publish, SHA256, `gh release create`. |
+| [`ATUALIZACOES_INCREMENTAIS.md`](ATUALIZACOES_INCREMENTAIS.md) | Manifesto de payload, delta e fallback para o zip completo. |
+| [`PARCEIROS.md`](PARCEIROS.md) | Projetos cujo código fica em outro repositório (hoje, o Mago). |
 
 ## Operação
 
@@ -30,7 +32,7 @@ Ponto de entrada da documentação do **Ribanense Soluções**. Use como mapa an
 | [`APP_BALANCA.md`](APP_BALANCA.md) | App Testador de Balanças: serial COM/USB, protocolos, timing, varredura e troubleshooting. |
 | [`APP_FAROL.md`](APP_FAROL.md) | App Farol: coletores de evidência, regras, malha LAN (UDP/TCP), pareamento, bandeja e autostart. |
 | [`APP_RECUPERACAO.md`](APP_RECUPERACAO.md) | App Recuperação do Windows: fases de reparo de áudio, elevação, manifesto de backup e guia in-place. |
-| [`APP_MAGO.md`](APP_MAGO.md) | App Mago da Performance: host .NET + executável standalone, requisitos, dados, release e roadmap mobile. |
+| [`APP_MAGO.md`](APP_MAGO.md) | Mago da Performance como projeto parceiro (`Nickallafe/Mago`): o launcher só consome a release dele. |
 | [`FERRAMENTAS_IA.md`](FERRAMENTAS_IA.md) | MCP/IA aplicados ao desenvolvimento deste repositório. |
 | [`REFERENCIAS_EXTERNAS.md`](REFERENCIAS_EXTERNAS.md) | Links para specs, bibliotecas e documentação canônica. |
 

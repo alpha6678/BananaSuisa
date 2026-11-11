@@ -82,7 +82,15 @@ A constante canônica é `Ribanense.Solucoes.PluginSDK.SdkVersion.Current`.
 - Se `app.json` for inválido, o app não aparece em "Meus apps".
 - Se o `.exe` não corresponder a `entryExecutable`, Launcher marca como "Integridade comprometida" e pede reinstalação.
 
+## 6. Pacote no disco
+
+Além do `app.json`, a pasta publicada pode trazer `payload-manifest.json`: o inventário usado para atualizar só o que mudou. O app não lê esse arquivo. Formato, delta e fallback: [`ATUALIZACOES_INCREMENTAIS.md`](ATUALIZACOES_INCREMENTAIS.md).
+
+O launcher também distingue cópia portátil e instalação no Windows (atalho + Aplicativos e recursos). Isso é decisão do launcher, não um campo novo obrigatório do `app.json`.
+
 ## Ver também
 
 - [`ARQUITETURA.md`](ARQUITETURA.md)
 - [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md)
+- [`ATUALIZACOES_INCREMENTAIS.md`](ATUALIZACOES_INCREMENTAIS.md)
+- [`PARCEIROS.md`](PARCEIROS.md)

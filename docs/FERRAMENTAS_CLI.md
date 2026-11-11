@@ -10,8 +10,9 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | [`ferramentas/Ribanense.cmd`](../ferramentas/Ribanense.cmd) | Usa `pwsh` se existir no PATH; senão `powershell` 5.1. |
 | [`ferramentas/Ribanense.cli.ps1`](../ferramentas/Ribanense.cli.ps1) | Script PowerShell com os subcomandos; pode ser invocado diretamente. |
 | [`ferramentas/install-rb-command.ps1`](../ferramentas/install-rb-command.ps1) | Instala o comando global `rb` no PATH do usuário (uso sem `.\`). |
-| [`ferramentas/publish-module.ps1`](../ferramentas/publish-module.ps1) | Empacota um app em zip + SHA256 + `app.json`. |
-| [`ferramentas/publish-launcher.ps1`](../ferramentas/publish-launcher.ps1) | Empacota o Launcher em `.exe` único (self-contained + single-file) + SHA256 (versão de `Directory.Build.props` se omitir `-Version`). |
+| [`ferramentas/publish-module.ps1`](../ferramentas/publish-module.ps1) | Empacota um app em zip + SHA256 + `payload-manifest.json` + `app.json`. |
+| [`ferramentas/publish-launcher.ps1`](../ferramentas/publish-launcher.ps1) | Empacota o Launcher como pasta self-contained (zip + manifesto; versão de `Directory.Build.props` se omitir `-Version`). |
+| [`ferramentas/payload-delta.ps1`](../ferramentas/payload-delta.ps1) | Gera o manifesto e, com a pasta da versão anterior, o zip de delta. |
 | [`ferramentas/publish-os.ps1`](../ferramentas/publish-os.ps1) | Compila o OS RibanenseESP (espelho `C:\fw`) e gera `.bin` + SHA256. |
 | [`ferramentas/publish-esp-app.ps1`](../ferramentas/publish-esp-app.ps1) | Compila um app da placa e gera zip store + SHA256 + `app.json`. |
 | [`ferramentas/release.ps1`](../ferramentas/release.ps1) | Publica release no GitHub via `gh` (Windows, OS ou app da placa). |
@@ -23,7 +24,7 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `install [user\|session]` | `setup` | Instala o comando global `rb` no PATH. `user` (default) persiste; `session` vale só no terminal atual. |
 | `build` | `compilar` | `dotnet build Ribanense.Solucoes.slnx` (encerra processos Ribanense deste repo antes). |
 | `run` `[App]` | `rodar` | Compila **Debug** e abre o Launcher ou o app (`rb run Winget`). Fluxo rápido no dia a dia. |
-| `publish-run` `[App ou Launcher]` | `prun` | `dotnet publish` **Release** `win-x64` (mesmo perfil de `rb publish`), saída em `artifacts/publish-run/<nome>/out`, e abre o `.exe` para validar antes de `rb release`. |
+| `publish-run` `[App ou Launcher]` | `prun` | `dotnet publish` **Release** `win-x64` (mesmo perfil de `rb publish`), saída em `artifacts/publish-run/<nome>/out`, e abre o `.exe` para validar antes de `rb release`. O Launcher sai como pasta self-contained. |
 | `test` | `testar` | `dotnet test Ribanense.Solucoes.slnx`. |
 | `check` | `validar` | `build` + `test` em sequência. |
 | `clean` | `limpar` | Remove todos os `bin/`, `obj/` e `artifacts/` do repo. Encerra processos Ribanense primeiro. |
@@ -32,8 +33,8 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | `commit` `[--dry-run]` | `commitar` | Sincroniza com `origin`, separa as alterações por área (um commit cada), assina com a conta do `gh` que tem escrita e faz push. A mensagem é automática. `--dry-run` só mostra o plano. Se o remoto exigir merge, para e não commita. |
 | `devlink <App>` | `link` | Compila um app e copia para `%LOCALAPPDATA%\Ribanense Soluções\aplicativos\<App>\` para o Launcher reconhecê-lo como "instalado" sem precisar publicar release. |
 | `unlink <App>` | `devunlink` | Remove o devlink de um app. |
-| `publish <App, Launcher ou OS> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (Windows: zip; Launcher: `.exe`; OS: `.bin`; app da placa: zip store). |
-| `publish all [-Yes] [--dry-run]` | — | Detecta apps Windows, Launcher, **OS** (`ribanense-esp-v`) e **apps da placa** (`esp-<slug>-v`) com mudança **de código** desde a última tag, faz bump patch (a versão que ficou sem tag num publish interrompido sai sem novo bump), roda `rb check` só se houver item .NET, e publica no GitHub. O terminal pede uma vez, em qualquer máquina, qual conta do `gh` com escrita assina o commit, quando há mais de uma. O nome é o do perfil dessa conta. Não grava USB nem empurra OTA pela LAN: a placa baixa pelo `firmware.json` (raw no GitHub). O Launcher só reage a `catalog/catalog.json` e `catalog/icons/` — `catalog/esp-catalog.json` e o ponteiro `firmware.json`/`dist/` não disparam release. |
+| `publish <App, Launcher ou OS> [-Version <ver>]` | `empacotar` | Gera pacote em `artifacts/publish/...` (Windows e Launcher: zip + manifesto; OS: `.bin`; app da placa: zip store). |
+| `publish all [-Yes] [--dry-run]` | — | Detecta apps Windows, Launcher, **OS** (`ribanense-esp-v`) e **apps da placa** (`esp-<slug>-v`) com mudança **de código** desde a última tag, faz bump patch (a versão que ficou sem tag num publish interrompido sai sem novo bump), roda `rb check` só se houver item .NET, e publica no GitHub. Ids de [`catalog/parceiros.json`](../catalog/parceiros.json) ficam de fora. O terminal pede uma vez, em qualquer máquina, qual conta do `gh` com escrita assina o commit, quando há mais de uma. O nome é o do perfil dessa conta. Não grava USB nem empurra OTA pela LAN: a placa baixa pelo `firmware.json` (raw no GitHub). O Launcher reage a `catalog/catalog.json`, `catalog/parceiros.json` e `catalog/icons/` — `catalog/esp-catalog.json` e o ponteiro `firmware.json`/`dist/` não disparam release. |
 | `os flash [COMx]` | `gravar` | **Recuperação / primeiro gravar.** Espelha, recompila e grava bootloader + tabela + OS via USB-C/CH340. Não é o caminho normal: depois disso a placa atualiza sozinha pelo GitHub. |
 | `release <App, Launcher ou OS> <semver>` | — | Publica GitHub Release via `gh`, na conta selecionada com escrita. O nome é o do perfil. OS: `ribanense-esp-v`. App da placa: `esp-<slug>-v`. |
 | `logs [App] [N]` | `log` | Imprime as últimas N (default 100) entradas do vault estruturado. Sem args = Launcher. Usa cópia temporária do `.dat` para não conflitar com processo rodando. |
@@ -48,7 +49,8 @@ Além dos comandos legados (`rb run Winget`, `rb publish Winget ...`), o `rb` ac
 | Grupo | Uso base | Exemplos |
 |---|---|---|
 | `app` (`module`) | `rb app <acao> <App> [args]` | `rb app run winget`, `rb app publish-run chocolatey`, `rb app release winget 0.2.0`, `rb app publish all --dry-run` |
-| `launcher` | `rb launcher <acao> [args]` | `rb launcher run`, `rb launcher publish-run`, `rb launcher release 0.1.0` |
+| `launcher` | `rb launcher <acao> [args]` | `rb launcher run`, `rb launcher publish-run`, `rb launcher release 0.1.0`, `rb launcher install` |
+| `parceiros` | `rb parceiros <acao>` | `rb parceiros list`, `rb parceiros sync`, `rb parceiros status` |
 | `os` (`esp`) | `rb os <acao> [args]` | `rb os build`, `rb os publish`, `rb os release 0.0.3`, `rb os flash COM8`, `rb os app publish Sobre` |
 | `solution` (`sln`, `repo`) | `rb solution <acao> [args]` | `rb solution build`, `rb solution test`, `rb sln list`, `rb solution version` |
 
@@ -58,6 +60,7 @@ Ajuda por grupo:
 - `rb help launcher`
 - `rb help os`
 - `rb help solution`
+- `rb help parceiros`
 - `rb app help` (equivalente)
 
 ### Exemplos

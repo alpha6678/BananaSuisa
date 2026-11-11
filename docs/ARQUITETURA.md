@@ -10,8 +10,8 @@ flowchart LR
   Launcher -->|GET raw| CatalogJson["catalog.json no repo"]
   Launcher -->|GET /releases| GhApi[api.github.com]
   GhApi -->|tags por prefixo| Launcher
-  Launcher -->|baixar zip do app| Release[GitHub Release Asset]
-  Release -->|extrair em| AppFolder["aplicativos/<Nome>/"]
+  Launcher -->|baixar zip ou delta| Release[GitHub Release Asset]
+  Release -->|extrair ou aplicar delta| AppFolder["aplicativos/<Nome>/"]
   Launcher -->|Process.Start| AppExe["Ribanense.Solucoes.App.<Nome>.exe"]
   AppExe -.abre janela.-> UserWindow[Janela própria do app]
 ```
@@ -29,17 +29,24 @@ flowchart LR
 ## Estrutura em disco no usuário final
 
 ```
-C:/Program Files/Ribanense Soluções/
+%LOCALAPPDATA%/Programs/Ribanense Soluções/     (cópia instalada)
   Ribanense.Solucoes.Launcher.exe
-  runtime/ *.dll
-  Launcher.dat                                 (LiteDB do Launcher)
-  aplicativos/                                 (vazio até instalar)
+  *.dll
+  payload-manifest.json
+
+%LOCALAPPDATA%/Ribanense Soluções/              (dados; também no modo avulso)
+  Launcher.dat
+  aplicativos/
     Winget/
       app.json
+      payload-manifest.json
       Ribanense.Solucoes.App.Winget.exe
       *.dll
-    Uwp/
-      ...
+
+<pasta escolhida>/                              (cópia portátil, com portable.flag)
+  Ribanense.Solucoes.Launcher.exe
+  dados/
+  aplicativos/
 ```
 
 Dados mutáveis por app:
@@ -53,11 +60,14 @@ Dados mutáveis por app:
 
 ## Fluxo de atualização por app
 
-1. Launcher varre `aplicativos/` para montar a lista de instalados.
-2. Para cada instalado: consulta `GET /repos/{owner}/{repo}/releases`, filtra por `tag.startsWith(manifest.githubTagPrefix)`, obtém maior SemVer.
-3. Compara com versão local (lida de `app.json`). Se maior, badge "Atualizar".
-4. Download do zip, validação SHA256, extração em `<App>.tmp/`, swap atômico de pasta.
+1. Launcher varre `aplicativos/` para montar a lista de instalados. Projetos parceiros ([`PARCEIROS.md`](PARCEIROS.md)) também são procurados no registro e nas pastas declaradas.
+2. Para cada app: consulta `GET /repos/{owner}/{repo}/releases`, filtra por `tag.startsWith(githubTagPrefix)`, obtém o maior SemVer.
+3. Compara com a versão local (`app.json` ou, no parceiro, registro / `--version`). Se maior, badge "Atualizar".
+4. Apps deste repositório: se existir uma corrente de deltas desde a versão instalada, baixa só esses arquivos; senão baixa o zip completo. Valida SHA256, monta uma pasta temporária e faz swap atômico. Detalhe em [`ATUALIZACOES_INCREMENTAIS.md`](ATUALIZACOES_INCREMENTAIS.md).
 5. Se o app está em execução (mutex `Global\Ribanense.<id>`), a atualização é bloqueada com UI clara.
+6. **Instalar** deixa só os arquivos. **No Windows** também cria atalho no Menu Iniciar e entrada em Aplicativos e recursos (HKCU).
+
+O próprio launcher segue o mesmo delta. A cópia pode ser portátil (marcador `portable.flag` ao lado do `.exe`, dados em `dados/` e apps em `aplicativos/`) ou instalada em `%LOCALAPPDATA%\Programs\Ribanense Soluções`. Variáveis `RIBANENSE_*` vencem o marcador, que vence o padrão.
 
 ## Garantias de independência
 
@@ -77,4 +87,6 @@ Dados mutáveis por app:
 
 - [`PLUGIN_SDK.md`](PLUGIN_SDK.md)
 - [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md)
+- [`ATUALIZACOES_INCREMENTAIS.md`](ATUALIZACOES_INCREMENTAIS.md)
+- [`PARCEIROS.md`](PARCEIROS.md)
 - [`../AGENTS.md`](../AGENTS.md)

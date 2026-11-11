@@ -29,10 +29,12 @@ flowchart TB
 1. **Versão coerente**: atualizar `<Version>` no `csproj` (ou no `Directory.Build.props` do subprojeto) e o campo `version` no `app.json` do app.
 2. **Validação local**: `rb.cmd check`.
 3. **Publicação local**: `rb.cmd publish <Nome> -Version <x.y.z>`. Gera em `artifacts/publish/<Nome>/`:
-   - `<nome>-<x.y.z>-win-x64.zip`
+   - `<nome>-<x.y.z>-win-x64.zip` (apps e Launcher)
    - `<nome>-<x.y.z>-win-x64.zip.sha256`
-   - `app.json`
-4. **Release no GitHub**: `rb.cmd release <Nome> <x.y.z>`. O commit e o release saem na conta do `gh` com escrita; com mais de uma logada, o terminal pergunta uma vez. O nome é o do perfil dessa conta. Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md).
+   - `payload-manifest.json`
+   - `app.json` (não se aplica ao Launcher)
+   - `delta-from-<anterior>.*` só quando o `release` acha o zip da tag anterior
+4. **Release no GitHub**: `rb.cmd release <Nome> <x.y.z>`. O commit e o release saem na conta do `gh` com escrita; com mais de uma logada, o terminal pergunta uma vez. O nome é o do perfil dessa conta. Conferência: [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md). O `release` baixa o zip da tag anterior para montar o delta. A primeira versão no formato de pasta, e qualquer anterior que ainda era `.exe` único, sai sem delta.
 5. **Atualização do `catalog.json`** (apenas na primeira versão de um app novo): editar `catalog/catalog.json` declarando `id`, `githubTagPrefix`, ícone, etc., e commitar.
 
 ## Fluxo automático para múltiplos apps (`publish all`)
@@ -69,8 +71,8 @@ Observações:
 - Use `--dry-run` para inspecionar o plano sem alterar arquivos.
 - Por padrão há confirmação interativa; `-Yes` confirma automaticamente.
 - O Launcher só entra no plano se mudou código do Launcher/SDK Windows,
-  `catalog/catalog.json` ou `catalog/icons/`. Alterar `catalog/esp-catalog.json`
-  (loja da placa) não republica o Launcher.
+  `catalog/catalog.json`, `catalog/parceiros.json` ou `catalog/icons/`. Alterar `catalog/esp-catalog.json`
+  (loja da placa) não republica o Launcher. Ids listados em `catalog/parceiros.json` não entram no plano.
 - Ponteiro pós-release (`firmware.json`, `firmware/ribanense-esp/dist/`) e o
   header de versão do OS no SDK não republicam OS/apps da placa sozinhos.
 - Se o atualizador já gravado na placa não alcança o GitHub, a recuperação é
@@ -82,8 +84,12 @@ Observações:
 |-------|----------|
 | `<nome>-<ver>-win-x64.zip` | Apps do catálogo: `dotnet publish -c Release -r win-x64 --no-self-contained`. |
 | `<nome>-<ver>-win-x64.zip.sha256` | `SHA256  <nome-do-arquivo>` em ASCII. |
-| `launcher-<ver>-win-x64.exe` | Launcher: publish **self-contained + PublishSingleFile** (`win-x64`). Um único `.exe` para baixar e executar. |
-| `launcher-<ver>-win-x64.exe.sha256` | `SHA256  <nome-do-arquivo>` em ASCII. |
+| `launcher-<ver>-win-x64.zip` | Launcher: pasta self-contained `win-x64` (sem single-file). |
+| `launcher-<ver>-win-x64.zip.sha256` | SHA256 do zip do Launcher. |
+| `payload-manifest.json` | Inventário `path` + `size` + `sha256` do payload (Launcher e apps Windows). |
+| `delta-from-<anterior>.zip` | Arquivos adicionados ou alterados desde a release anterior, quando ela também era zip. |
+| `delta-from-<anterior>.json` | Lista do delta e dos arquivos removidos. |
+| `delta-from-<anterior>.zip.sha256` | SHA256 do delta. |
 | `app.json` | Cópia do manifesto do app (não se aplica ao Launcher nem ao OS). |
 | `ribanense-esp-<ver>.bin` | OS da placa (IDF). |
 | `ribanense-esp-<ver>.bin.sha256` | SHA256 do OS. |
@@ -110,3 +116,4 @@ Observações:
 - [`PLUGIN_SDK.md`](PLUGIN_SDK.md)
 - [`FERRAMENTAS_CLI.md`](FERRAMENTAS_CLI.md)
 - [`IDENTIDADE_GITHUB.md`](IDENTIDADE_GITHUB.md)
+- [`ATUALIZACOES_INCREMENTAIS.md`](ATUALIZACOES_INCREMENTAIS.md)
