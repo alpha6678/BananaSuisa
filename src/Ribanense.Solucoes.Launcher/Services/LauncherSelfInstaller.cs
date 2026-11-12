@@ -28,7 +28,40 @@ public sealed class LauncherSelfInstaller
         if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
             return new LauncherDeploymentResult(false, "Executável atual não encontrado.", false);
 
-        string sourceDir = Path.GetDirectoryName(exe)!;
+        string sourceDir = PayloadSource.ResolveDirectory(exe);
+        return InstallFrom(sourceDir, exe, Environment.ProcessId);
+    }
+
+    /// <summary>
+    /// Instala a pasta <paramref name="sourceDir"/> (já extraída, por exemplo pelo
+    /// exe único ou pelo setup). Aceita também um <c>.zip</c> do payload, que é
+    /// extraído antes da cópia.
+    /// </summary>
+    public LauncherDeploymentResult InstallFrom(string sourceDir, string currentExe, int currentPid)
+    {
+        if (string.IsNullOrWhiteSpace(sourceDir))
+            return new LauncherDeploymentResult(false, "Origem da instalação não informada.", false);
+
+        if (File.Exists(sourceDir) && sourceDir.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            string extracted = Path.Combine(Path.GetTempPath(), "Ribanense", "install-" + Guid.NewGuid().ToString("N")[..8]);
+            try
+            {
+                PayloadApplier.ExtractZip(File.ReadAllBytes(sourceDir), extracted);
+            }
+            catch (Exception ex)
+            {
+                return new LauncherDeploymentResult(false, $"Falha ao abrir o zip do launcher: {ex.Message}", false);
+            }
+
+            LauncherDeploymentResult result = InstallFrom(extracted, currentExe, currentPid);
+            try { Directory.Delete(extracted, recursive: true); } catch { }
+            return result;
+        }
+
+        if (!Directory.Exists(sourceDir))
+            return new LauncherDeploymentResult(false, $"Pasta do launcher não encontrada: {sourceDir}", false);
+
         string destination = DeploymentLayout.DefaultInstallDirectory;
         if (!PathsEqual(sourceDir, destination))
         {
@@ -44,9 +77,14 @@ public sealed class LauncherSelfInstaller
             }
         }
 
-        string entry = ResolveEntry(destination, exe);
+        string entry = ResolveEntry(destination, currentExe);
         if (!File.Exists(entry))
-            return new LauncherDeploymentResult(false, "A cópia instalada não tem executável.", false);
+        {
+            return new LauncherDeploymentResult(false,
+                "A cópia instalada não tem executável. Baixe a versão mais recente e tente de novo.", false);
+        }
+
+        EnsurePayloadManifest(destination);
 
         try
         {
@@ -60,7 +98,7 @@ public sealed class LauncherSelfInstaller
         if (PathsEqual(sourceDir, destination))
             return new LauncherDeploymentResult(true, null, false);
 
-        if (!StartPostUpdate(entry, Environment.ProcessId))
+        if (!StartPostUpdate(entry, currentPid))
             return new LauncherDeploymentResult(false, "A cópia foi instalada, mas não abriu.", false);
 
         return new LauncherDeploymentResult(true, null, true);
@@ -75,7 +113,7 @@ public sealed class LauncherSelfInstaller
         if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe))
             return new LauncherDeploymentResult(false, "Executável atual não encontrado.", false);
 
-        string sourceDir = Path.GetDirectoryName(exe)!;
+        string sourceDir = PayloadSource.ResolveDirectory(exe);
         if (PathsEqual(sourceDir, destination))
         {
             File.WriteAllText(Path.Combine(destination, PayloadManifest.PortableMarkerFileName), "1");
@@ -145,6 +183,23 @@ public sealed class LauncherSelfInstaller
             "Esta cópia não está instalada nem marcada como portátil.", false);
     }
 
+    private static void EnsurePayloadManifest(string directory)
+    {
+        string path = Path.Combine(directory, PayloadManifest.FileName);
+        if (File.Exists(path)) return;
+
+        try
+        {
+            string entry = Path.GetFileName(ResolveEntry(directory, Environment.ProcessPath ?? string.Empty));
+            PayloadManifest manifest = PayloadManifest.Compute(directory, AppVersion.ForEntry(), entry);
+            manifest.Save(path);
+        }
+        catch
+        {
+            // sem manifesto a cópia instalada volta a atualizar pelo arquivo inteiro
+        }
+    }
+
     private static string ResolveEntry(string directory, string currentExe)
     {
         string manifestPath = Path.Combine(directory, PayloadManifest.FileName);
@@ -177,7 +232,10 @@ public sealed class LauncherSelfInstaller
         {
             var psi = new ProcessStartInfo(exe)
             {
-                UseShellExecute = false,
+                // ShellExecute: o processo novo ganha handles próprios. Com herança,
+                // quem chamou o --install (setup, bootstrap, rb) ficaria com o stdout
+                // preso até o usuário fechar a janela do launcher.
+                UseShellExecute = true,
                 WorkingDirectory = Path.GetDirectoryName(exe) ?? Environment.CurrentDirectory
             };
             psi.ArgumentList.Add(LauncherUpdateService.PostUpdateArg);

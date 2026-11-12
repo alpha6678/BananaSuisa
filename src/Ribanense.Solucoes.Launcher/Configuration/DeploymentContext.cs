@@ -19,11 +19,19 @@ public static class DeploymentLayout
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             ProductFolderName);
 
-    public static string DefaultInstallDirectory =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Programs",
-            ProductFolderName);
+    public static string DefaultInstallDirectory
+    {
+        get
+        {
+            string? overrideDir = Environment.GetEnvironmentVariable("RIBANENSE_INSTALL_DIR");
+            if (!string.IsNullOrWhiteSpace(overrideDir)) return Path.GetFullPath(overrideDir);
+
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Programs",
+                ProductFolderName);
+        }
+    }
 
     public static string StartMenuDirectory =>
         Path.Combine(

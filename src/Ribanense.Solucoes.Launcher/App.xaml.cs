@@ -152,7 +152,10 @@ public partial class App : Application
             if (a == "--install")
             {
                 AttachConsole(ATTACH_PARENT_PROCESS);
-                LauncherDeploymentResult installed = new LauncherSelfInstaller().InstallHere();
+                string? sourceDir = FindArgumentValue(args, "--from");
+                LauncherDeploymentResult installed = sourceDir is null
+                    ? new LauncherSelfInstaller().InstallHere()
+                    : new LauncherSelfInstaller().InstallFrom(sourceDir, Environment.ProcessPath ?? string.Empty, Environment.ProcessId);
                 if (!installed.Success)
                 {
                     Console.Error.WriteLine(installed.Error);
@@ -215,8 +218,17 @@ public partial class App : Application
         return -1;
     }
 
-    private static int UninstallAppFromCommandLine(string appId)
+    private static string? FindArgumentValue(string[] args, string name)
     {
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], name, StringComparison.OrdinalIgnoreCase))
+                return args[i + 1];
+        }
+        return null;
+    }
+
+    private static int UninstallAppFromCommandLine(string appId)    {
         try
         {
             var registry = new InstalledAppsRegistry();

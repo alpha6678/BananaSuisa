@@ -83,7 +83,7 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
                 "ou execute como administrador e tente novamente.");
         }
 
-        if (release.ZipAsset is not null)
+        if (ShouldUseDelta(release))
             return await ApplyFolderPayloadAsync(release, progress, ct).ConfigureAwait(false);
 
         var exeAsset = release.ExeAsset;
@@ -201,7 +201,7 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
         {
             var psi = new ProcessStartInfo(targetPath)
             {
-                UseShellExecute = false,
+                UseShellExecute = true,
                 WorkingDirectory = dir
             };
             psi.ArgumentList.Add(PostUpdateArg);
@@ -228,6 +228,31 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
         return new LauncherUpdateResult(true, null);
     }
 
+    /// <summary>
+    /// Cópia instalada/pasta (com <c>payload-manifest.json</c>) atualiza por delta/zip.
+    /// Cópia avulsa — o <c>.exe</c> único — continua trocando o arquivo inteiro, como antes.
+    /// </summary>
+    internal static bool ShouldUseDelta(ReleaseInfo release, bool? installedCopy = null)
+    {
+        if (release is null) throw new ArgumentNullException(nameof(release));
+        if (release.ZipAsset is null) return false;
+
+        bool managed = installedCopy ?? HasPayloadManifest(CurrentDirectory());
+        return managed;
+    }
+
+    internal static string CurrentDirectory()
+    {
+        string? exe = Environment.ProcessPath;
+        return string.IsNullOrWhiteSpace(exe)
+            ? Path.GetFullPath(AppContext.BaseDirectory)
+            : Path.GetDirectoryName(exe) ?? Path.GetFullPath(AppContext.BaseDirectory);
+    }
+
+    internal static bool HasPayloadManifest(string? directory) =>
+        !string.IsNullOrWhiteSpace(directory) &&
+        File.Exists(Path.Combine(directory, PayloadManifest.FileName));
+
     private async Task<LauncherUpdateResult> ApplyFolderPayloadAsync(
         ReleaseInfo release, IProgress<double>? progress, CancellationToken ct)
     {
@@ -245,7 +270,7 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
                 "Nao foi possivel determinar a pasta do launcher.");
         }
 
-        bool managed = File.Exists(Path.Combine(currentDir, PayloadManifest.FileName));
+        bool managed = HasPayloadManifest(currentDir);
         string finalDir = managed ? currentDir : DeploymentLayout.DefaultInstallDirectory;
         string? parent = Path.GetDirectoryName(finalDir);
         if (string.IsNullOrWhiteSpace(parent))
@@ -326,7 +351,7 @@ public sealed class LauncherUpdateService : ILauncherUpdateService
             string launched = Path.Combine(finalDir, entryName);
             var psi = new ProcessStartInfo(launched)
             {
-                UseShellExecute = false,
+                UseShellExecute = true,
                 WorkingDirectory = finalDir
             };
             psi.ArgumentList.Add(PostUpdateArg);
