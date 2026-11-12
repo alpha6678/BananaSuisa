@@ -67,11 +67,20 @@ Dados mutáveis por app:
 5. Se o app está em execução (mutex `Global\Ribanense.<id>`), a atualização é bloqueada com UI clara.
 6. **Instalar** deixa só os arquivos. **No Windows** também cria atalho no Menu Iniciar e entrada em Aplicativos e recursos (HKCU).
 
-O próprio launcher segue o mesmo delta. A cópia pode ser portátil (marcador `portable.flag` ao lado do `.exe`, dados em `dados/` e apps em `aplicativos/`) ou instalada em `%LOCALAPPDATA%\Programs\Ribanense Soluções`. Variáveis `RIBANENSE_*` vencem o marcador, que vence o padrão.
+O próprio launcher segue o mesmo delta. A cópia pode ser portátil (marcador `portable.flag` ao lado do `.exe`, dados em `dados/` e apps em `aplicativos/`) ou instalada em `%LOCALAPPDATA%\Programs\Ribanense Soluções`. Variáveis `RIBANENSE_*` vencem o marcador, que vence o padrão. Atualizar, instalar e abrir as pastas ficam em **Configurações**; a remoção (com opção de apagar apps e dados) fica em **Sobre**.
+
+## Navegação do Launcher
+
+| Item | Conteúdo |
+|------|----------|
+| **Meus apps** (1º) | Só os apps instalados, com abrir, atualizar e desinstalar. |
+| **Catálogo** (2º) | Todos os apps publicados, com o bloco **Atualizações** no topo quando há versão nova instalada. |
+| **Configurações** (3º) | Configurações do próprio launcher: atualização, forma de instalação, pastas, limpeza de dados dos apps e URL do catálogo. |
+| **Sobre** (4º) | Identidade e versões, caminhos da instalação, links do projeto e desinstalação do launcher. |
 
 ## Garantias de independência
 
-- **Launcher sem apps**: funciona; aba Catálogo mostra todos publicados, Meus Apps vazio.
+- **Launcher sem apps**: funciona; aba Catálogo mostra todos publicados, Meus apps vazio.
 - **App sem Launcher**: executar o `.exe` diretamente funciona; sem `RIBANENSE_APP_DATA`, usa defaults locais em `%LOCALAPPDATA%`.
 - **Nada de dependência de compilação** entre Launcher e apps. Contrato via `app.json` + CLI (`--version`, `--selfcheck`).
 
