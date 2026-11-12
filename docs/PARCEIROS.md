@@ -35,6 +35,10 @@ rb parceiros status
 
 `sync` clona ou atualiza (`git pull --ff-only`) em `externos/<slug>`. Essa pasta está no `.gitignore`. `status` mostra a última release do GitHub e o commit local.
 
+## Diferença para os apps do monorepo
+
+Os apps deste repositório atualizam por delta (só o que mudou). Um projeto parceiro não tem manifesto nem delta nosso: o launcher baixa o asset que o parceiro publicou, confere o `.sha256` e executa. O formato do asset é escolha de quem mantém o projeto.
+
 ## Ver também
 
 - [`APP_MAGO.md`](APP_MAGO.md)

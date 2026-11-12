@@ -84,7 +84,11 @@ Observações:
 |-------|----------|
 | `<nome>-<ver>-win-x64.zip` | Apps do catálogo: `dotnet publish -c Release -r win-x64 --no-self-contained`. |
 | `<nome>-<ver>-win-x64.zip.sha256` | `SHA256  <nome-do-arquivo>` em ASCII. |
-| `launcher-<ver>-win-x64.zip` | Launcher: pasta self-contained `win-x64` (sem single-file). |
+| `launcher-<ver>-win-x64.exe` | Launcher: `.exe` único (bootstrap) com a pasta do launcher embutida. É o download de quem ainda não instalou. |
+| `launcher-<ver>-win-x64.exe.sha256` | SHA256 do `.exe` único. |
+| `RibanenseSolucoesSetup-<ver>.exe` | Setup: baixa a versão mais recente e instala. Nunca fica velho. |
+| `RibanenseSolucoesSetup-<ver>.exe.sha256` | SHA256 do setup. |
+| `launcher-<ver>-win-x64.zip` | Launcher em pasta self-contained (formato da cópia instalada). |
 | `launcher-<ver>-win-x64.zip.sha256` | SHA256 do zip do Launcher. |
 | `payload-manifest.json` | Inventário `path` + `size` + `sha256` do payload (Launcher e apps Windows). |
 | `delta-from-<anterior>.zip` | Arquivos adicionados ou alterados desde a release anterior, quando ela também era zip. |

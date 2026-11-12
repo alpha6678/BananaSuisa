@@ -20,6 +20,8 @@ Docs: [`docs/FIRMWARE_RIBANENSEESP.md`](docs/FIRMWARE_RIBANENSEESP.md),
 |---------|-------|
 | `Ribanense.Solucoes.slnx` | Solution .NET do monorepo. |
 | `src/Ribanense.Solucoes.Launcher/` | App WPF do launcher (catálogo, instalador, atualizador). |
+| `src/Ribanense.Solucoes.LauncherBootstrap/` | O `.exe` único: extrai a pasta embutida e abre o launcher; instala sem novo download. |
+| `src/Ribanense.Solucoes.LauncherSetup/` | Setup `.exe`: baixa a versão mais recente e instala. |
 | `src/Ribanense.Solucoes.PluginSDK/` | Contratos versionados (SemVer) entre Launcher e apps: `AppManifest`, `IVault`, `IAppJsonLog`, `SdkVersion`. |
 | `src/Ribanense.Solucoes.Infrastructure/` | Implementações de infraestrutura compartilhada (LiteDB, log JSON, IO). |
 | `src/Ribanense.Solucoes.UI/` | Estilos, breakpoints responsivos, base MVVM e controles comuns. |

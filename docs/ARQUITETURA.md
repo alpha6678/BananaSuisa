@@ -83,6 +83,16 @@ O próprio launcher segue o mesmo delta. A cópia pode ser portátil (marcador `
 | Namespaces, pastas, tags, IDs, CLI | **Ribanense.Solucoes** (ASCII) |
 | Paths runtime (Program Files, LOCALAPPDATA) | "Ribanense Soluções" (tolerado pelo Windows) |
 
+## Onde ficam os arquivos
+
+| Situação | Executável | Dados |
+|----------|-----------|-------|
+| `.exe` único, só rodando | `%LOCALAPPDATA%\Ribanense Soluções\runtime\<versão>\` (pasta extraída) | `%LOCALAPPDATA%\Ribanense Soluções\` |
+| Instalado | `%LOCALAPPDATA%\Programs\Ribanense Soluções\` | `%LOCALAPPDATA%\Ribanense Soluções\` |
+| Portátil | pasta escolhida, com `portable.flag` | `<pasta>\dados`, apps em `<pasta>\aplicativos` |
+
+O `.exe` único roda a partir da extração, mas os dados continuam em `%LOCALAPPDATA%`, então nada se perde entre reexecuções.
+
 ## Documentos relacionados
 
 - [`PLUGIN_SDK.md`](PLUGIN_SDK.md)

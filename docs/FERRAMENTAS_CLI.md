@@ -11,7 +11,8 @@ Guia das interfaces de terminal do repositório e das CLIs externas relevantes.
 | [`ferramentas/Ribanense.cli.ps1`](../ferramentas/Ribanense.cli.ps1) | Script PowerShell com os subcomandos; pode ser invocado diretamente. |
 | [`ferramentas/install-rb-command.ps1`](../ferramentas/install-rb-command.ps1) | Instala o comando global `rb` no PATH do usuário (uso sem `.\`). |
 | [`ferramentas/publish-module.ps1`](../ferramentas/publish-module.ps1) | Empacota um app em zip + SHA256 + `payload-manifest.json` + `app.json`. |
-| [`ferramentas/publish-launcher.ps1`](../ferramentas/publish-launcher.ps1) | Empacota o Launcher como pasta self-contained (zip + manifesto; versão de `Directory.Build.props` se omitir `-Version`). |
+| [`ferramentas/publish-launcher.ps1`](../ferramentas/publish-launcher.ps1) | Empacota o Launcher: pasta self-contained (zip + manifesto + delta) e o `.exe` único (bootstrap com a pasta embutida). |
+| [`ferramentas/publish-launcher-setup.ps1`](../ferramentas/publish-launcher-setup.ps1) | Gera o setup `.exe`, que baixa e instala a versão mais recente. |
 | [`ferramentas/payload-delta.ps1`](../ferramentas/payload-delta.ps1) | Gera o manifesto e, com a pasta da versão anterior, o zip de delta. |
 | [`ferramentas/publish-os.ps1`](../ferramentas/publish-os.ps1) | Compila o OS RibanenseESP (espelho `C:\fw`) e gera `.bin` + SHA256. |
 | [`ferramentas/publish-esp-app.ps1`](../ferramentas/publish-esp-app.ps1) | Compila um app da placa e gera zip store + SHA256 + `app.json`. |
