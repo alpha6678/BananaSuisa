@@ -185,7 +185,9 @@ static esp_err_t http_get_text(const char *url, char *out, int cap)
         .timeout_ms = 20000,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .user_agent = HTTP_UA,
-        .disable_auto_redirect = true,
+        // Deixa o cliente seguir 3xx sozinho: o GitHub redireciona os assets de
+        // release, e este caminho nao tem handler para capturar o Location.
+        .max_redirection_count = 8,
         .buffer_size = 2048,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
     };

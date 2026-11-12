@@ -294,6 +294,47 @@ static esp_err_t on_update(httpd_req_t *req)
 #define HTTP_URL_MAX 768
 #define HTTP_HOPS 8
 
+/// Destino do proximo salto de redirect, capturado pelo event handler.
+///
+/// `esp_http_client_get_header` le os cabecalhos da REQUISICAO, nunca os da
+/// resposta (ver esp_http_client.c: le `client->request->headers`). Qualquer
+/// destino que responda 302 — assets em github.com/releases/download, por
+/// exemplo — morria em "http redirect" porque o Location nunca era encontrado.
+/// O caminho confiavel para o Location da resposta e HTTP_EVENT_ON_HEADER.
+typedef struct {
+    char location[HTTP_URL_MAX];
+} http_hop_t;
+
+static int header_is_location(const char *key)
+{
+    static const char want[] = "location";
+    if (key == NULL) {
+        return 0;
+    }
+    for (int i = 0; want[i] != 0; i++) {
+        char c = key[i];
+        if (c >= 'A' && c <= 'Z') {
+            c = (char)(c + 32);
+        }
+        if (c != want[i]) {
+            return 0;
+        }
+    }
+    return key[sizeof(want) - 1] == 0;
+}
+
+static esp_err_t on_http_event(esp_http_client_event_t *e)
+{
+    if (e->event_id == HTTP_EVENT_ON_HEADER && header_is_location(e->header_key)) {
+        http_hop_t *hop = (http_hop_t *)e->user_data;
+        if (hop != NULL && e->header_value != NULL) {
+            strncpy(hop->location, e->header_value, sizeof(hop->location) - 1);
+            hop->location[sizeof(hop->location) - 1] = 0;
+        }
+    }
+    return ESP_OK;
+}
+
 static bool http_is_redirect(int status)
 {
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
@@ -319,18 +360,24 @@ static void http_cfg(esp_http_client_config_t *c, const char *url, int timeout_m
     c->crt_bundle_attach = esp_crt_bundle_attach;
     c->user_agent = HTTP_UA;
     c->disable_auto_redirect = true;
+    c->event_handler = on_http_event;
     c->buffer_size = 2048;
     if (strncmp(url, "https://", 8) == 0) {
         c->transport_type = HTTP_TRANSPORT_OVER_SSL;
     }
 }
 
-static esp_http_client_handle_t http_open_url(const char *url, int timeout_ms, esp_err_t *out_err)
+static esp_http_client_handle_t http_open_url(const char *url, int timeout_ms,
+                                              http_hop_t *hop, esp_err_t *out_err)
 {
     *out_err = ESP_FAIL;
+    if (hop != NULL) {
+        hop->location[0] = 0;
+    }
     for (int i = 0; i < 3; i++) {
         esp_http_client_config_t c;
         http_cfg(&c, url, timeout_ms);
+        c.user_data = hop;
         esp_http_client_handle_t cli = esp_http_client_init(&c);
         if (cli == NULL) {
             *out_err = ESP_ERR_NO_MEM;
@@ -354,16 +401,15 @@ static esp_http_client_handle_t http_open_url(const char *url, int timeout_ms, e
     return NULL;
 }
 
-static esp_err_t http_follow(esp_http_client_handle_t cli, char *url, size_t max)
+static esp_err_t http_follow(const http_hop_t *hop, char *url, size_t max)
 {
-    char *loc = NULL;
-    if (esp_http_client_get_header(cli, "Location", &loc) != ESP_OK || loc == NULL || loc[0] == 0) {
+    if (hop == NULL || hop->location[0] == 0) {
         return ESP_FAIL;
     }
-    if (strncmp(loc, "http://", 7) != 0 && strncmp(loc, "https://", 8) != 0) {
+    if (strncmp(hop->location, "http://", 7) != 0 && strncmp(hop->location, "https://", 8) != 0) {
         return ESP_FAIL;
     }
-    strncpy(url, loc, max - 1);
+    strncpy(url, hop->location, max - 1);
     url[max - 1] = 0;
     return ESP_OK;
 }
@@ -391,7 +437,8 @@ static esp_err_t http_get_text(const char *url, char *out, int cap, int *out_n)
 
     for (int hop = 0; hop < HTTP_HOPS; hop++) {
         esp_err_t err = ESP_OK;
-        esp_http_client_handle_t cli = http_open_url(current, 20000, &err);
+        http_hop_t hop_h = {{0}};
+        esp_http_client_handle_t cli = http_open_url(current, 20000, &hop_h, &err);
         if (cli == NULL) {
             return err;
         }
@@ -399,7 +446,7 @@ static esp_err_t http_get_text(const char *url, char *out, int cap, int *out_n)
         int status = esp_http_client_get_status_code(cli);
         s_http_status = status;
         if (http_is_redirect(status)) {
-            err = http_follow(cli, current, sizeof(current));
+            err = http_follow(&hop_h, current, sizeof(current));
             esp_http_client_close(cli);
             esp_http_client_cleanup(cli);
             if (err != ESP_OK) {
@@ -441,7 +488,8 @@ static esp_err_t http_stream_bin(const char *url, const char *want_sha)
     for (int hop = 0; hop < HTTP_HOPS; hop++) {
         esp_err_t err = ESP_OK;
         set_state(OTA_DOWNLOADING, "baixando...");
-        esp_http_client_handle_t cli = http_open_url(current, 60000, &err);
+        http_hop_t hop_h = {{0}};
+        esp_http_client_handle_t cli = http_open_url(current, 60000, &hop_h, &err);
         if (cli == NULL) {
             set_http_err(0, err == ESP_ERR_NO_MEM ? "sem RAM" : "falha no download");
             return err;
@@ -450,7 +498,7 @@ static esp_err_t http_stream_bin(const char *url, const char *want_sha)
         int status = esp_http_client_get_status_code(cli);
         s_http_status = status;
         if (http_is_redirect(status)) {
-            err = http_follow(cli, current, sizeof(current));
+            err = http_follow(&hop_h, current, sizeof(current));
             esp_http_client_close(cli);
             esp_http_client_cleanup(cli);
             if (err != ESP_OK) {
