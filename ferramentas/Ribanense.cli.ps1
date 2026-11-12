@@ -351,9 +351,12 @@ function Get-ChangedFilesSinceTag {
     finally {
         Pop-Location
     }
+    # `@(...)` garante array mesmo vazio: sem ele, "nenhum arquivo" vira $null e
+    # quebra quem consome o resultado como lista.
     return @(
         foreach ($f in $files) {
-            $t = $f.Trim()
+            if ($null -eq $f) { continue }
+            $t = ([string] $f).Trim()
             if (-not [string]::IsNullOrWhiteSpace($t)) {
                 $t.Replace('\', '/')
             }
@@ -415,12 +418,15 @@ function Test-PathMatchesAnyPrefix {
 
 function Select-FilesByPrefixes {
     param(
-        [Parameter(Mandatory)] [string[]] $Files,
+        # Nao usar -Mandatory: um `git diff` sem arquivos chega como nulo/vazio e o
+        # binding recusaria, derrubando o publish all logo depois de um release.
+        [AllowNull()] [AllowEmptyCollection()] [string[]] $Files = @(),
         [Parameter(Mandatory)] [string[]] $Prefixes,
         [string[]] $Excludes = @()
     )
     $matched = @()
     foreach ($file in $Files) {
+        if ([string]::IsNullOrWhiteSpace($file)) { continue }
         $normalized = $file.Replace('\', '/')
         if (($Excludes.Count -gt 0) -and (Test-PathMatchesAnyPrefix -Path $normalized -Prefixes $Excludes)) {
             continue
