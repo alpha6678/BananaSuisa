@@ -76,16 +76,6 @@
                              GroupName="Nav"
                              IsChecked="True"
                              Command="{Binding NavigateCommand}"
-                             CommandParameter="{Binding CatalogPage}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="🗂" FontSize="16" Width="24" />
-                        <TextBlock Text="Catálogo" VerticalAlignment="Center" />
-                    </StackPanel>
-                </RadioButton>
-
-                <RadioButton Style="{StaticResource Button.Sidebar}"
-                             GroupName="Nav"
-                             Command="{Binding NavigateCommand}"
                              CommandParameter="{Binding MyAppsPage}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="📦" FontSize="16" Width="24" />
@@ -96,15 +86,26 @@
                 <RadioButton Style="{StaticResource Button.Sidebar}"
                              GroupName="Nav"
                              Command="{Binding NavigateCommand}"
-                             CommandParameter="{Binding UpdatesPage}">
+                             CommandParameter="{Binding CatalogPage}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⬆" FontSize="16" Width="24" />
-                        <TextBlock Text="Atualizações" VerticalAlignment="Center" />
+                        <TextBlock Text="🗂" FontSize="16" Width="24" />
+                        <TextBlock Text="Catálogo" VerticalAlignment="Center" />
                     </StackPanel>
                 </RadioButton>
 
                 <RadioButton Style="{StaticResource Button.Sidebar}"
                              GroupName="Nav"
+                             Command="{Binding NavigateCommand}"
+                             CommandParameter="{Binding SettingsPage}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⚙" FontSize="16" Width="24" />
+                        <TextBlock Text="Configurações" VerticalAlignment="Center" />
+                    </StackPanel>
+                </RadioButton>
+
+                <RadioButton Style="{StaticResource Button.Sidebar}"
+                             GroupName="Nav"
+                             Margin="0,8,0,0"
                              Command="{Binding NavigateCommand}"
                              CommandParameter="{Binding AboutPage}">
                     <StackPanel Orientation="Horizontal">
@@ -130,17 +131,17 @@
                     BorderBrush="{StaticResource Brush.Accent}"
                     BorderThickness="1"
                     CornerRadius="6"
-                    Visibility="{Binding AboutPage.UpdateAvailable, Converter={StaticResource BoolToVisibility}}">
+                    Visibility="{Binding SettingsPage.UpdateAvailable, Converter={StaticResource BoolToVisibility}}">
                 <DockPanel LastChildFill="False">
                     <Button DockPanel.Dock="Right"
-                            Content="Atualizar launcher"
+                            Content="Ver em Configurações"
                             Style="{StaticResource Button.Accent}"
                             Command="{Binding NavigateCommand}"
-                            CommandParameter="{Binding AboutPage}" />
+                            CommandParameter="{Binding SettingsPage}" />
                     <TextBlock VerticalAlignment="Center"
                                Foreground="{StaticResource Brush.Text}"
                                TextWrapping="Wrap"
-                               Text="{Binding AboutPage.UpdateBannerText, Mode=OneWay}" />
+                               Text="{Binding SettingsPage.UpdateBannerText, Mode=OneWay}" />
                 </DockPanel>
             </Border>
 

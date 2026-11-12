@@ -12,103 +12,143 @@
                        FontSize="22" FontWeight="SemiBold"
                        Foreground="{StaticResource Brush.Text}" />
 
-            <Border Style="{StaticResource Card.Surface}" Margin="0,12,0,0">
+            <!-- Identidade -->
+            <Border Style="{StaticResource Card.Surface}" Margin="0,16,0,0">
                 <StackPanel>
-                    <TextBlock Text="Ribanense Soluções" Style="{StaticResource Text.Title}" />
-                    <TextBlock Style="{StaticResource Text.Muted}"
-                               Margin="0,4,0,0"
-                               Text="{Binding VersionsLine, Mode=OneWay}" />
-                    <TextBlock Style="{StaticResource Text.Body}"
-                               Margin="0,8,0,0"
-                               Text="{Binding DeploymentModeText, Mode=OneWay}" />
-                    <TextBlock Style="{StaticResource Text.Muted}"
-                               Margin="0,4,0,0"
+                    <TextBlock Text="{Binding ProductName}"
+                               FontSize="18" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Text}" />
+
+                    <TextBlock Text="{Binding DescriptionText}"
+                               Style="{StaticResource Text.Body}"
+                               Margin="0,6,0,0"
                                TextWrapping="Wrap"
-                               Text="{Binding InstallDirectory, Mode=OneWay}" />
-                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <Button Content="Instalar nesta máquina"
-                                Style="{StaticResource Button.Accent}"
-                                Command="{Binding InstallHereCommand}"
-                                Visibility="{Binding CanInstallHere, Converter={StaticResource BoolToVisibility}}"
-                                Margin="0,0,8,0" />
-                        <Button Content="Tornar portátil"
-                                Style="{StaticResource Button.Base}"
-                                Command="{Binding MakePortableCommand}"
-                                Visibility="{Binding CanMakePortable, Converter={StaticResource BoolToVisibility}}"
-                                Margin="0,0,8,0" />
-                        <Button Content="Desinstalar"
-                                Style="{StaticResource Button.Base}"
-                                Command="{Binding UninstallDeploymentCommand}"
-                                Visibility="{Binding CanUninstallDeployment, Converter={StaticResource BoolToVisibility}}" />
+                               MaxWidth="720"
+                               HorizontalAlignment="Left" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Border Background="{StaticResource Brush.SurfaceAlt}"
+                                BorderBrush="{StaticResource Brush.Border}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="10,6"
+                                Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Launcher" Style="{StaticResource Text.Badge}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding LauncherVersionText}"
+                                           Style="{StaticResource Text.Body}"
+                                           FontWeight="SemiBold"
+                                           Margin="8,0,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Brush.SurfaceAlt}"
+                                BorderBrush="{StaticResource Brush.Border}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="10,6"
+                                Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="SDK" Style="{StaticResource Text.Badge}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SdkVersionText}"
+                                           Style="{StaticResource Text.Body}"
+                                           FontWeight="SemiBold"
+                                           Margin="8,0,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Background="{StaticResource Brush.SurfaceAlt}"
+                                BorderBrush="{StaticResource Brush.Border}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="10,6">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Modo" Style="{StaticResource Text.Badge}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding DeploymentModeLabel}"
+                                           Style="{StaticResource Text.Body}"
+                                           FontWeight="SemiBold"
+                                           Margin="8,0,0,0" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
+            <!-- Onde está instalado -->
             <Border Style="{StaticResource Card.Surface}">
                 <StackPanel>
-                    <TextBlock Text="Atualização do launcher" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="INSTALAÇÃO" Style="{StaticResource Text.Section}" />
+
+                    <TextBlock Text="Pasta do programa" Style="{StaticResource Text.FieldLabel}" />
+                    <TextBlock Text="{Binding InstallDirectory}" Style="{StaticResource Text.Code}" />
+
+                    <TextBlock Text="Executável em uso" Style="{StaticResource Text.FieldLabel}" />
+                    <TextBlock Text="{Binding ExecutablePath}" Style="{StaticResource Text.Code}" />
+
+                    <TextBlock Text="Dados do launcher" Style="{StaticResource Text.FieldLabel}" />
+                    <TextBlock Text="{Binding DataRoot}" Style="{StaticResource Text.Code}" />
 
                     <TextBlock Style="{StaticResource Text.Muted}"
-                               Margin="0,8,0,0"
+                               Margin="0,10,0,0"
                                TextWrapping="Wrap"
-                               Text="{Binding UpdateBannerText, Mode=OneWay}"
-                               Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVisibility}}" />
+                               Text="Instalar nesta máquina, gerar cópia portátil e abrir as pastas ficam em Configurações." />
+                </StackPanel>
+            </Border>
 
-                    <TextBlock Style="{StaticResource Text.Body}"
+            <!-- Links -->
+            <Border Style="{StaticResource Card.Surface}">
+                <StackPanel>
+                    <TextBlock Text="PROJETO" Style="{StaticResource Text.Section}" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button Content="Repositório no GitHub"
+                                Style="{StaticResource Button.Base}"
+                                Command="{Binding OpenRepositoryCommand}"
+                                Margin="0,0,8,0" />
+                        <Button Content="Ver releases"
+                                Style="{StaticResource Button.Base}"
+                                Command="{Binding OpenReleasesCommand}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding RepositoryUrl}"
+                               Style="{StaticResource Text.Muted}"
+                               Margin="0,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- Desinstalação -->
+            <Border Style="{StaticResource Card.Surface}">
+                <StackPanel>
+                    <TextBlock Text="REMOVER O LAUNCHER" Style="{StaticResource Text.Section}" />
+
+                    <CheckBox Content="Apagar também os apps instalados e todos os dados"
+                              Margin="0,10,0,0"
+                              IsChecked="{Binding RemoveDataOnUninstall}" />
+
+                    <TextBlock Text="{Binding UninstallHintText}"
+                               Style="{StaticResource Text.Muted}"
                                Margin="0,8,0,0"
-                               TextWrapping="Wrap"
-                               Text="{Binding UpdateMessage, Mode=OneWay}"
-                               Visibility="{Binding UpdateMessage, Converter={StaticResource NullToVisibility}}" />
+                               TextWrapping="Wrap" />
 
                     <TextBlock Margin="0,8,0,0"
-                               TextWrapping="Wrap"
+                               Style="{StaticResource Text.Body}"
                                Foreground="{StaticResource Brush.Danger}"
-                               Text="{Binding UpdateError, Mode=OneWay}"
-                               Visibility="{Binding UpdateError, Converter={StaticResource NullToVisibility}}" />
+                               TextWrapping="Wrap"
+                               Text="{Binding ErrorMessage, Mode=OneWay}"
+                               Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
 
-                    <ProgressBar Height="8" Margin="0,10,0,0"
-                                 Minimum="0" Maximum="100"
-                                 Value="{Binding UpdateProgress, Mode=OneWay}"
-                                 Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Margin="0,8,0,0"
+                               Style="{StaticResource Text.Body}"
+                               Foreground="{StaticResource Brush.Success}"
+                               TextWrapping="Wrap"
+                               Text="{Binding StatusMessageText, Mode=OneWay}"
+                               Visibility="{Binding StatusMessageText, Converter={StaticResource NullToVisibility}}" />
 
-                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                        <Button Content="Verificar atualização"
-                                Style="{StaticResource Button.Base}"
-                                Command="{Binding CheckUpdateCommand}"
-                                Margin="0,0,8,0" />
-                        <Button Content="Atualizar e reiniciar"
-                                Style="{StaticResource Button.Accent}"
-                                Command="{Binding UpdateLauncherCommand}"
-                                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVisibility}}" />
-                    </StackPanel>
+                    <Button Content="Desinstalar o launcher"
+                            Style="{StaticResource Button.Danger}"
+                            HorizontalAlignment="Left"
+                            Margin="0,12,0,0"
+                            Command="{Binding UninstallCommand}" />
                 </StackPanel>
             </Border>
-
-            <Border Style="{StaticResource Card.Surface}">
-                <StackPanel>
-                    <TextBlock Text="Configuração" Style="{StaticResource Text.Title}" />
-
-                    <TextBlock Style="{StaticResource Text.Muted}" Margin="0,8,0,0" Text="Catálogo:" />
-                    <TextBlock Style="{StaticResource Text.Body}"
-                               Text="{Binding CatalogUrl, Mode=OneWay}"
-                               TextWrapping="Wrap" />
-
-                    <TextBlock Style="{StaticResource Text.Muted}" Margin="0,8,0,0" Text="Pasta de dados:" />
-                    <TextBlock Style="{StaticResource Text.Body}"
-                               Text="{Binding DataRoot, Mode=OneWay}"
-                               TextWrapping="Wrap" />
-
-                    <TextBlock Style="{StaticResource Text.Muted}" Margin="0,8,0,0" Text="Pasta de aplicativos:" />
-                    <TextBlock Style="{StaticResource Text.Body}"
-                               Text="{Binding AplicativosRoot, Mode=OneWay}"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-            </Border>
-
-            <TextBlock Style="{StaticResource Text.Muted}"
-                       Margin="0,12,0,0"
-                       TextWrapping="Wrap"
-                       Text="Configurável via variáveis de ambiente: RIBANENSE_CATALOG_URL, RIBANENSE_LAUNCHER_DATA, RIBANENSE_APLICATIVOS_ROOT." />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

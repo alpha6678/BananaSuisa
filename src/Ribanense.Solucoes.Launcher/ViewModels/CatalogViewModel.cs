@@ -36,6 +36,24 @@ public sealed class CatalogViewModel : PageViewModel
         _partners = partners ?? new PartnerInstallProbe(new WindowsInstallRegistration());
 
         RefreshCommand = new AsyncRelayCommand(() => LoadAsync(forceRefresh: true));
+        UpdateAllCommand = new AsyncRelayCommand(_ => UpdateAllAsync(), _ => PendingUpdates.Count > 0 && !IsBusy);
+
+        Cards.CollectionChanged += (_, args) =>
+        {
+            if (args.NewItems is not null)
+            {
+                foreach (AppCardViewModel card in args.NewItems)
+                    card.PropertyChanged += OnCardChanged;
+            }
+
+            if (args.OldItems is not null)
+            {
+                foreach (AppCardViewModel card in args.OldItems)
+                    card.PropertyChanged -= OnCardChanged;
+            }
+
+            RefreshPendingUpdates();
+        };
     }
 
     public override string Title => "Catálogo";
@@ -43,9 +61,64 @@ public sealed class CatalogViewModel : PageViewModel
 
     public ObservableCollection<AppCardViewModel> Cards { get; } = new();
 
+    /// <summary>Apps instalados que têm versão mais nova publicada.</summary>
+    public ObservableCollection<AppCardViewModel> PendingUpdates { get; } = new();
+
     public ICommand RefreshCommand { get; }
+    public ICommand UpdateAllCommand { get; }
+
+    public string UpdatesSummary => PendingUpdates.Count switch
+    {
+        0 => "Todos os apps instalados estão na versão mais recente.",
+        1 => "1 atualização disponível.",
+        _ => $"{PendingUpdates.Count} atualizações disponíveis."
+    };
+
+    public bool HasPendingUpdates => PendingUpdates.Count > 0;
 
     public override Task OnActivatedAsync() => LoadAsync(forceRefresh: false);
+
+    private void OnCardChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AppCardViewModel.Status)
+            or nameof(AppCardViewModel.Installed)
+            or nameof(AppCardViewModel.LatestRelease))
+        {
+            RefreshPendingUpdates();
+        }
+    }
+
+    private void RefreshPendingUpdates()
+    {
+        var desired = Cards.Where(c => c.Status == UpdateStatus.UpdateAvailable).ToList();
+
+        if (desired.Count != PendingUpdates.Count || !desired.SequenceEqual(PendingUpdates))
+        {
+            PendingUpdates.Clear();
+            foreach (var card in desired) PendingUpdates.Add(card);
+        }
+
+        OnPropertyChanged(nameof(UpdatesSummary));
+        OnPropertyChanged(nameof(HasPendingUpdates));
+        (UpdateAllCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private async Task UpdateAllAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            foreach (var card in PendingUpdates.ToList())
+            {
+                await _host.UpdateAsync(card);
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+            RefreshPendingUpdates();
+        }
+    }
 
     public async Task LoadAsync(bool forceRefresh)
     {

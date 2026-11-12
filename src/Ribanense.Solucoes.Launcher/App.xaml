@@ -124,8 +124,8 @@
             <DataTemplate DataType="{x:Type vm:MyAppsViewModel}">
                 <views:MyAppsView />
             </DataTemplate>
-            <DataTemplate DataType="{x:Type vm:UpdatesViewModel}">
-                <views:UpdatesView />
+            <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+                <views:SettingsView />
             </DataTemplate>
             <DataTemplate DataType="{x:Type vm:AboutViewModel}">
                 <views:AboutView />

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using Ribanense.Solucoes.Launcher.Configuration;
@@ -10,297 +11,229 @@ using Sdk = Ribanense.Solucoes.PluginSDK.SdkVersion;
 
 namespace Ribanense.Solucoes.Launcher.ViewModels;
 
+/// <summary>
+/// Identidade do produto e desinstalação do launcher. As operações do dia a dia
+/// (atualizar, tornar portátil, pastas) ficam em <see cref="SettingsViewModel"/>.
+/// </summary>
 public sealed class AboutViewModel : PageViewModel
 {
-    private readonly ILauncherUpdateService _launcherUpdater;
-    private ReleaseInfo? _latestRelease;
-
-    public AboutViewModel(ILauncherUpdateService launcherUpdater)
-    {
-        _launcherUpdater = launcherUpdater ?? throw new ArgumentNullException(nameof(launcherUpdater));
-
-        LauncherVersionText = SafeGet(() => AppVersion.ForEntry(), fallback: "0.0.0");
-        SdkVersionText = SafeGet(() => Sdk.Current, fallback: "0.0.0");
-        VersionsLine = $"Launcher {LauncherVersionText} — SDK {SdkVersionText}";
-
-        CatalogUrl = SafeGet(() => LauncherConfig.CatalogUrl, fallback: string.Empty);
-        DataRoot = SafeGet(() => LauncherConfig.LauncherDataRoot, fallback: string.Empty);
-        AplicativosRoot = SafeGet(() => LauncherConfig.AplicativosRoot, fallback: string.Empty);
-
-        OpenGitHubCommand = new RelayCommand(_ =>
-        {
-            try
-            {
-                Process.Start(new ProcessStartInfo("https://github.com/") { UseShellExecute = true });
-            }
-            catch
-            {
-                // ignore
-            }
-        });
-
-        InstallHereCommand = new RelayCommand(_ => InstallHere(), _ => CanInstallHere && !IsUpdating);
-        MakePortableCommand = new RelayCommand(_ => MakePortable(), _ => CanMakePortable && !IsUpdating);
-        UninstallDeploymentCommand = new RelayCommand(_ => UninstallDeployment(), _ => CanUninstallDeployment && !IsUpdating);
-
-        CheckUpdateCommand = new AsyncRelayCommand(
-            _ => CheckForUpdateAsync(silent: false),
-            _ => !IsChecking && !IsUpdating);
-
-        UpdateLauncherCommand = new AsyncRelayCommand(
-            _ => UpdateLauncherAsync(),
-            _ => UpdateAvailable && !IsUpdating && !IsChecking);
-    }
-
-    public override string Title => "Sobre";
-    public override string Icon => "i";
-
-    public string LauncherVersionText { get; }
-    public string SdkVersionText { get; }
-    public string VersionsLine { get; }
-
-    public string CatalogUrl { get; }
-    public string DataRoot { get; }
-    public string AplicativosRoot { get; }
-    public string DeploymentModeText { get; } = "Modo: " + LauncherConfig.Deployment.ModeLabel;
-    public string InstallDirectory { get; } = LauncherConfig.Deployment.InstallDirectory;
-    public bool CanInstallHere { get; } = LauncherConfig.Deployment.Mode != DeploymentMode.Installed;
-    public bool CanMakePortable { get; } = LauncherConfig.Deployment.Mode != DeploymentMode.Portable;
-    public bool CanUninstallDeployment { get; } = LauncherConfig.Deployment.Mode != DeploymentMode.Loose;
-
-    public ICommand OpenGitHubCommand { get; }
-    public ICommand CheckUpdateCommand { get; }
-    public ICommand UpdateLauncherCommand { get; }
-    public ICommand InstallHereCommand { get; }
-    public ICommand MakePortableCommand { get; }
-    public ICommand UninstallDeploymentCommand { get; }
-
     private readonly LauncherSelfInstaller _deployment = new();
 
-    private bool _isChecking;
-    public bool IsChecking
+    public AboutViewModel()
     {
-        get => _isChecking;
-        private set => SetProperty(ref _isChecking, value);
+        LauncherVersionText = SafeGet(() => AppVersion.ForEntry(), fallback: "0.0.0");
+        SdkVersionText = SafeGet(() => Sdk.Current, fallback: "0.0.0");
+
+        RepositoryUrl = SafeGet(() => LauncherConfig.RepositoryUrl, fallback: string.Empty);
+        ReleasesUrl = SafeGet(() => LauncherConfig.ReleasesUrl, fallback: string.Empty);
+        DataRoot = SafeGet(() => LauncherConfig.LauncherDataRoot, fallback: string.Empty);
+
+        DeploymentModeLabel = LauncherConfig.Deployment.ModeLabel;
+        InstallDirectory = LauncherConfig.Deployment.InstallDirectory;
+        ExecutablePath = LauncherConfig.Deployment.ExecutablePath;
+
+        OpenRepositoryCommand = new RelayCommand(_ => OpenUrl(RepositoryUrl));
+        OpenReleasesCommand = new RelayCommand(_ => OpenUrl(ReleasesUrl));
+        UninstallCommand = new RelayCommand(_ => Uninstall(), _ => !IsUninstalling && CanUninstall);
     }
 
-    private bool _isUpdating;
-    public bool IsUpdating
-    {
-        get => _isUpdating;
-        private set => SetProperty(ref _isUpdating, value);
-    }
+    /// <summary>Sem instalação e sem dados marcados não há o que remover.</summary>
+    public bool CanUninstall =>
+        RemoveDataOnUninstall || LauncherConfig.Deployment.Mode != DeploymentMode.Loose;
 
-    private bool _updateAvailable;
-    public bool UpdateAvailable
-    {
-        get => _updateAvailable;
-        private set
-        {
-            if (SetProperty(ref _updateAvailable, value))
-            {
-                OnPropertyChanged(nameof(UpdateBannerText));
-            }
-        }
-    }
+    public override string Title => "Sobre";
+    public override string Icon => "ℹ";
 
-    private string? _latestVersionText;
-    public string? LatestVersionText
-    {
-        get => _latestVersionText;
-        private set
-        {
-            if (SetProperty(ref _latestVersionText, value))
-            {
-                OnPropertyChanged(nameof(UpdateBannerText));
-            }
-        }
-    }
+    public string ProductName => "Ribanense Soluções";
+    public string LauncherVersionText { get; }
+    public string SdkVersionText { get; }
 
-    public string UpdateBannerText =>
-        UpdateAvailable
-            ? $"Atualização do launcher disponível: v{LauncherVersionText} → v{LatestVersionText}"
-            : string.Empty;
+    public string RepositoryUrl { get; }
+    public string ReleasesUrl { get; }
+    public string DataRoot { get; }
 
-    private double _updateProgress;
-    public double UpdateProgress
-    {
-        get => _updateProgress;
-        private set => SetProperty(ref _updateProgress, value);
-    }
+    public string DeploymentModeLabel { get; }
+    public string InstallDirectory { get; }
+    public string ExecutablePath { get; }
 
-    private string? _updateMessage;
-    public string? UpdateMessage
-    {
-        get => _updateMessage;
-        private set => SetProperty(ref _updateMessage, value);
-    }
+    /// <summary>Parágrafo curto sobre o modelo de distribuição, para orientar quem abre a tela.</summary>
+    public string DescriptionText =>
+        "Launcher de aplicativos modulares. Cada app é um executável independente, " +
+        "instalado sob demanda a partir das releases do projeto, com atualização separada por app.";
 
-    private string? _updateError;
-    public string? UpdateError
-    {
-        get => _updateError;
-        private set => SetProperty(ref _updateError, value);
-    }
+    public ICommand OpenRepositoryCommand { get; }
+    public ICommand OpenReleasesCommand { get; }
+    public ICommand UninstallCommand { get; }
 
+    private bool _removeDataOnUninstall;
     /// <summary>
-    /// Verifica se ha atualizacao do launcher. Quando <paramref name="silent"/> e' true,
-    /// nao exibe mensagens de "nenhuma atualizacao"/erro (usado na inicializacao).
+    /// Quando marcado, a desinstalação também apaga <c>Launcher.dat</c>, os apps
+    /// instalados e os dados que eles gravaram.
     /// </summary>
-    public async Task CheckForUpdateAsync(bool silent)
+    public bool RemoveDataOnUninstall
     {
-        if (IsChecking || IsUpdating) return;
-
-        IsChecking = true;
-        UpdateError = null;
-        if (!silent) UpdateMessage = "Verificando atualização…";
-
-        try
+        get => _removeDataOnUninstall;
+        set
         {
-            var release = await _launcherUpdater.CheckForUpdateAsync(CancellationToken.None).ConfigureAwait(true);
-            _latestRelease = release;
+            if (!SetProperty(ref _removeDataOnUninstall, value)) return;
 
-            if (release is null)
-            {
-                UpdateAvailable = false;
-                LatestVersionText = null;
-                if (!silent) UpdateMessage = "O launcher já está atualizado.";
-            }
-            else
-            {
-                UpdateAvailable = true;
-                LatestVersionText = release.Version;
-                UpdateMessage = null;
-            }
-        }
-        catch (Exception ex)
-        {
-            if (!silent) UpdateError = $"Falha ao verificar: {ex.Message}";
-        }
-        finally
-        {
-            IsChecking = false;
+            OnPropertyChanged(nameof(UninstallHintText));
+            OnPropertyChanged(nameof(CanUninstall));
+            (UninstallCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 
-    private async Task UpdateLauncherAsync()
+    public string UninstallHintText
     {
-        if (_latestRelease is null || IsUpdating) return;
+        get
+        {
+            if (LauncherConfig.Deployment.Mode == DeploymentMode.Loose)
+            {
+                return RemoveDataOnUninstall
+                    ? $"Esta cópia não está instalada nem marcada como portátil: só os dados de {DataRoot} serão apagados e o launcher fechará. Os arquivos do programa você apaga manualmente."
+                    : "Esta cópia não está instalada nem marcada como portátil e não há o que remover. Para levar o launcher a outro lugar, use Configurações → Instalar nesta máquina ou Tornar portátil.";
+            }
 
-        var confirm = MessageBox.Show(
-            $"O launcher será encerrado e reiniciado automaticamente na versão v{_latestRelease.Version}.\n\n" +
-            "Salve o que for necessário antes de continuar. Deseja atualizar agora?",
-            "Atualizar Ribanense Soluções",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            return RemoveDataOnUninstall
+                ? "Remove o launcher, seus atalhos, os apps instalados e todos os dados gravados por eles. Não dá para desfazer."
+                : "Remove o launcher e seus atalhos. Os dados e os apps instalados permanecem no disco e voltam a aparecer se você reinstalar.";
+        }
+    }
 
+    private bool _isUninstalling;
+    public bool IsUninstalling
+    {
+        get => _isUninstalling;
+        private set
+        {
+            if (SetProperty(ref _isUninstalling, value))
+                (UninstallCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
+    private string? _statusMessageText;
+    public string? StatusMessageText
+    {
+        get => _statusMessageText;
+        private set => SetProperty(ref _statusMessageText, value);
+    }
+
+    private string? _errorMessage;
+    public string? ErrorMessage
+    {
+        get => _errorMessage;
+        private set => SetProperty(ref _errorMessage, value);
+    }
+
+    private void Uninstall()
+    {
+        DeploymentContext deployment = LauncherConfig.Deployment;
+        const string title = "Desinstalar Ribanense Soluções";
+
+        string message = deployment.Mode switch
+        {
+            DeploymentMode.Installed => RemoveDataOnUninstall
+                ? "O launcher, seus atalhos, os apps instalados e TODOS os dados gravados serão apagados. O launcher fecha em seguida.\n\nContinuar?"
+                : "O launcher e seus atalhos serão removidos. Os dados em %LOCALAPPDATA% permanecem.\n\nContinuar?",
+            DeploymentMode.Portable => RemoveDataOnUninstall
+                ? "A marca de cópia portátil será removida. Os arquivos do programa ficam na pasta, mas os apps instalados e os dados gravados serão apagados.\n\nContinuar?"
+                : "A marca de cópia portátil será removida. Os arquivos e os dados ficam na pasta.\n\nContinuar?",
+            _ => $"Esta cópia não está instalada, então apenas os dados em:\n{DataRoot}\n\n" +
+                 "serão apagados e o launcher fecha. Os arquivos do programa você apaga manualmente.\n\nContinuar?"
+        };
+
+        var confirm = MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (confirm != MessageBoxResult.Yes) return;
 
-        IsUpdating = true;
-        UpdateError = null;
-        UpdateMessage = "Baixando atualização…";
-        UpdateProgress = 0;
-
+        IsUninstalling = true;
+        ErrorMessage = null;
+        StatusMessageText = null;
         try
         {
-            var progress = new Progress<double>(v => UpdateProgress = v * 100.0);
-            var result = await _launcherUpdater
-                .DownloadAndApplyAsync(_latestRelease, progress, CancellationToken.None)
-                .ConfigureAwait(true);
+            if (RemoveDataOnUninstall)
+                PurgeAppsAndData(deployment);
 
-            if (!result.Success)
+            // Cópia avulsa não tem o que desinstalar; só os dados saíram.
+            if (deployment.Mode == DeploymentMode.Loose)
             {
-                UpdateError = result.Error;
-                UpdateMessage = null;
+                if (!RemoveDataOnUninstall) return;
+                Application.Current?.Shutdown();
                 return;
             }
 
-            UpdateMessage = "Reiniciando…";
-            Application.Current?.Shutdown();
+            LauncherDeploymentResult result = _deployment.Uninstall();
+            if (!result.Success)
+            {
+                ErrorMessage = result.Error;
+                return;
+            }
+
+            if (result.ShutdownRequested)
+            {
+                Application.Current?.Shutdown();
+                return;
+            }
+
+            StatusMessageText = RemoveDataOnUninstall
+                ? "Launcher e dados removidos."
+                : "Launcher removido. Os dados foram mantidos.";
         }
         catch (Exception ex)
         {
-            UpdateError = $"Falha ao atualizar: {ex.Message}";
-            UpdateMessage = null;
+            ErrorMessage = $"Falha ao desinstalar: {ex.Message}";
         }
         finally
         {
-            IsUpdating = false;
+            IsUninstalling = false;
         }
     }
 
-    private void InstallHere()
+    /// <summary>
+    /// Encerra os apps instalados, apaga atalhos e entradas de desinstalação de cada
+    /// um e agenda a exclusão das pastas de apps e de dados. O agendamento é
+    /// necessário porque este processo mantém o <c>Launcher.dat</c> aberto.
+    /// </summary>
+    private static void PurgeAppsAndData(DeploymentContext deployment)
     {
-        var confirm = MessageBox.Show(
-            "O launcher será copiado para a pasta de programas do seu usuário, com atalho no Menu Iniciar e entrada em Aplicativos e recursos.\n\nContinuar?",
-            "Instalar Ribanense Soluções",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (confirm != MessageBoxResult.Yes) return;
+        var registry = new InstalledAppsRegistry();
+        var registration = new InstallRegistrationService(new WindowsInstallRegistration());
 
-        LauncherDeploymentResult result = _deployment.InstallHere();
-        if (!result.Success)
+        foreach (InstalledApp app in registry.Scan(deployment.AplicativosRoot))
         {
-            UpdateError = result.Error;
-            return;
+            if (AppProcessDetector.IsRunning(app.Id))
+                AppProcessDetector.TryCloseRunning(app.Id, app.ExecutablePath, TimeSpan.FromSeconds(5));
+
+            registration.RemoveApp(app.Id, app.DisplayName);
         }
 
-        if (result.ShutdownRequested)
-            Application.Current?.Shutdown();
+        LauncherMaintenance.ScheduleDelete(deployment.AplicativosRoot);
+
+        // Instalado: a pasta de dados fica separada da pasta do programa, então sai
+        // inteira. Nas demais cópias ela pode abrigar o próprio executável, e aí só
+        // o Launcher.dat é removido.
+        if (deployment.Mode == DeploymentMode.Installed)
+        {
+            LauncherMaintenance.ScheduleDelete(deployment.DataRoot);
+        }
         else
-            UpdateMessage = "Esta cópia já está instalada. O registro foi atualizado.";
+        {
+            LauncherMaintenance.ScheduleDelete(LauncherMaintenance.AppDataRootFor(deployment.DataRoot));
+            LauncherMaintenance.ScheduleDeleteFile(LauncherConfig.LauncherVaultPath);
+        }
     }
 
-    private void MakePortable()
+    private void OpenUrl(string url)
     {
-        string? folder;
+        if (string.IsNullOrWhiteSpace(url)) return;
+        ErrorMessage = null;
         try
         {
-            folder = FolderPicker.Pick("Escolha a pasta da cópia portátil");
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
-            UpdateError = ex.Message;
-            return;
+            ErrorMessage = $"Não foi possível abrir o link: {ex.Message}";
         }
-        if (string.IsNullOrWhiteSpace(folder)) return;
-
-        var confirm = MessageBox.Show(
-            $"A cópia portátil ficará em:\n{folder}\n\nOs dados e os apps atuais são copiados se a pasta ainda estiver vazia. Continuar?",
-            "Tornar portátil",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (confirm != MessageBoxResult.Yes) return;
-
-        LauncherDeploymentResult result = _deployment.MakePortable(folder);
-        if (!result.Success)
-        {
-            UpdateError = result.Error;
-            return;
-        }
-
-        if (result.ShutdownRequested)
-            Application.Current?.Shutdown();
-    }
-
-    private void UninstallDeployment()
-    {
-        string message = LauncherConfig.Deployment.Mode == DeploymentMode.Installed
-            ? "A instalação será removida (atalho, registro e pasta do programa). Os dados em %LOCALAPPDATA% permanecem.\n\nContinuar?"
-            : "A marca de cópia portátil será removida. Os arquivos e os dados ficam na pasta.\n\nContinuar?";
-        var confirm = MessageBox.Show(message, "Desinstalar Ribanense Soluções",
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (confirm != MessageBoxResult.Yes) return;
-
-        LauncherDeploymentResult result = _deployment.Uninstall();
-        if (!result.Success)
-        {
-            UpdateError = result.Error;
-            return;
-        }
-
-        if (result.ShutdownRequested)
-            Application.Current?.Shutdown();
     }
 
     private static string SafeGet(Func<string> read, string fallback)

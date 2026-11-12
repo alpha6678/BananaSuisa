@@ -13,6 +13,8 @@
     <SolidColorBrush x:Key="Brush.AccentHover"  Color="#275FC0" />
     <SolidColorBrush x:Key="Brush.AccentDisabled" Color="#B8C8E6" />
     <SolidColorBrush x:Key="Brush.Danger"       Color="#C23B22" />
+    <SolidColorBrush x:Key="Brush.DangerHover"  Color="#A6321D" />
+    <SolidColorBrush x:Key="Brush.DangerDisabled" Color="#E3BDB6" />
     <SolidColorBrush x:Key="Brush.Success"      Color="#27864E" />
     <SolidColorBrush x:Key="Brush.Warning"      Color="#B5791A" />
     <SolidColorBrush x:Key="Brush.SidebarBg"    Color="#ECECEC" />
@@ -93,6 +95,40 @@
         </Setter>
     </Style>
 
+    <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Base}">
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"
+                                          RecognizesAccessKey="True" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Danger}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.DangerHover}" />
+                            <Setter Property="Foreground" Value="White" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="Button.Sidebar" TargetType="RadioButton">
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Padding" Value="14,10" />
@@ -147,6 +183,36 @@
     <Style x:Key="Text.Badge" TargetType="TextBlock">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+    </Style>
+
+    <!-- Rótulo de seção: caixa alta, discreto, usado para separar blocos. -->
+    <Style x:Key="Text.Section" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+    </Style>
+
+    <!-- Rótulo de campo dentro de um bloco de detalhe. -->
+    <Style x:Key="Text.FieldLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+        <Setter Property="Margin" Value="0,10,0,2" />
+    </Style>
+
+    <!-- Valor monoespaçado (caminhos, versões, URLs). -->
+    <Style x:Key="Text.Code" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Consolas" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- Linha divisória entre blocos de uma mesma seção. -->
+    <Style x:Key="Rule.Separator" TargetType="Border">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Background" Value="{StaticResource Brush.Border}" />
+        <Setter Property="Margin" Value="0,14,0,0" />
     </Style>
 
 </ResourceDictionary>

@@ -20,6 +20,13 @@ public static class LauncherConfig
     public const string DefaultLauncherGithubOwner = "alpha6678";
     public const string DefaultLauncherGithubRepo = "BananaSuisa";
 
+    /// <summary>Página pública do repositório, exibida em Sobre.</summary>
+    public static string RepositoryUrl =>
+        $"https://github.com/{LauncherGithubOwner}/{LauncherGithubRepo}";
+
+    /// <summary>Página de releases, onde ficam launcher-v* e os apps.</summary>
+    public static string ReleasesUrl => RepositoryUrl + "/releases";
+
     /// <summary>Owner do repositorio GitHub que publica as releases do launcher (launcher-v*).</summary>
     public static string LauncherGithubOwner =>
         Environment.GetEnvironmentVariable("RIBANENSE_LAUNCHER_OWNER") ?? DefaultLauncherGithubOwner;

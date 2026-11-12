@@ -44,18 +44,18 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
 
         CatalogPage = new CatalogViewModel(catalog, releases, registry, this, log, aplicativosRoot, _partners);
         MyAppsPage = new MyAppsViewModel(CatalogPage);
-        UpdatesPage = new UpdatesViewModel(CatalogPage, this);
-        AboutPage = new AboutViewModel(launcherUpdater);
+        SettingsPage = new SettingsViewModel(launcherUpdater);
+        AboutPage = new AboutViewModel();
 
-        Pages = new[] { (PageViewModel)CatalogPage, MyAppsPage, UpdatesPage, AboutPage };
-        CurrentPage = CatalogPage;
+        Pages = new[] { (PageViewModel)MyAppsPage, CatalogPage, SettingsPage, AboutPage };
+        CurrentPage = MyAppsPage;
 
         NavigateCommand = new AsyncRelayCommand(p => ActivateAsync(p as PageViewModel));
     }
 
     public CatalogViewModel CatalogPage { get; }
     public MyAppsViewModel MyAppsPage { get; }
-    public UpdatesViewModel UpdatesPage { get; }
+    public SettingsViewModel SettingsPage { get; }
     public AboutViewModel AboutPage { get; }
 
     public IReadOnlyList<PageViewModel> Pages { get; }
@@ -81,8 +81,8 @@ public sealed class MainWindowViewModel : ObservableObject, IAppCardHost
     public async Task BootstrapAsync()
     {
         await CatalogPage.OnActivatedAsync().ConfigureAwait(true);
-        // Checagem silenciosa da atualizacao do proprio launcher; alimenta o banner e a aba Sobre.
-        await AboutPage.CheckForUpdateAsync(silent: true).ConfigureAwait(true);
+        // Checagem silenciosa da atualizacao do proprio launcher; alimenta o banner e a aba Configurações.
+        await SettingsPage.CheckForUpdateAsync(silent: true).ConfigureAwait(true);
     }
 
     // IAppCardHost ------------------------------------------------------
