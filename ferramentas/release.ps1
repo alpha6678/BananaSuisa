@@ -218,6 +218,7 @@ try {
                 switch ($kind) {
                     'launcher' {
                         & "$ScriptRoot\publish-launcher.ps1" -Version $Version -PreviousDir $previousDir -FromVersion $fromVersion
+                        & "$ScriptRoot\publish-launcher-setup.ps1" -Version $Version
                     }
                     'os' {
                         $osFiles = @(Set-OsEmbeddedVersion -Ver $Version)
@@ -249,7 +250,7 @@ try {
     $gh = Get-GithubOwnerRepo -ProjectRoot $ProjectRoot
 
     $assetBaseName = switch ($kind) {
-        'launcher' { "launcher-$Version-win-x64.zip" }
+        'launcher' { "launcher-$Version-win-x64.exe" }
         'os' { "ribanense-esp-$Version.bin" }
         'esp-app' {
             $m = Get-Content -LiteralPath (Join-Path $ProjectRoot "firmware\apps\$App\app.json") -Raw | ConvertFrom-Json
@@ -265,8 +266,7 @@ try {
     if (-not (Test-Path -LiteralPath $assetPath)) { throw "Asset nao encontrado: $assetPath" }
     if (-not (Test-Path -LiteralPath $shaPath)) { throw "SHA256 nao encontrado: $shaPath" }
 
-    Write-RbTick ("Criando tag {0} e enviando para origin..." -f $tag) 'Cyan'
-    & git tag $tag
+    Write-RbTick ("Criando tag {0} e enviando para origin..." -f $tag) 'Cyan'    & git tag $tag
     if ($LASTEXITCODE -ne 0) { throw "git tag falhou." }
     Invoke-GitAsActor -GitArgs @('push', 'origin', $tag) -FailureMessage "git push origin $tag falhou; release abortado."
 
@@ -279,7 +279,7 @@ try {
     $releaseNotes = switch ($kind) {
         'os' { "Release automatizado do OS RibanenseESP $Version." }
         'esp-app' { "Release automatizado do app da placa $App $Version." }
-        'launcher' { "Release automatizado do Launcher $Version (pasta self-contained win-x64, com delta quando a versao anterior e zip)." }
+        'launcher' { "Release automatizado do Launcher $Version (exe unico para instalar e pasta com delta para quem ja instalou)." }
         default { "Release automatizado de $App $Version." }
     }
 
@@ -289,6 +289,18 @@ try {
         $manifestPayload = Join-Path $outDir 'payload-manifest.json'
         if (Test-Path -LiteralPath $manifestPayload) { $extraAssets += $manifestPayload }
         $extraAssets += @(Get-ChildItem -LiteralPath $outDir -File -Filter 'delta-from-*' | ForEach-Object { $_.FullName })
+    }
+    if ($kind -eq 'launcher') {
+        $zipAsset = Join-Path $outDir "launcher-$Version-win-x64.zip"
+        if (Test-Path -LiteralPath $zipAsset) {
+            $extraAssets += $zipAsset
+            $extraAssets += "$zipAsset.sha256"
+        }
+        $setupAsset = Join-Path $outDir "RibanenseSolucoesSetup-$Version.exe"
+        if (Test-Path -LiteralPath $setupAsset) {
+            $extraAssets += $setupAsset
+            $extraAssets += "$setupAsset.sha256"
+        }
     }
     $ghArgs = @('release', 'create', $tag, $assetPath, $shaPath) + $extraAssets + @('--title', $releaseTitle, '--notes', $releaseNotes)
     if ($kind -in @('win-app', 'esp-app') -and (Test-Path -LiteralPath $manifestPath)) {

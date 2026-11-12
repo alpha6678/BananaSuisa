@@ -1,16 +1,23 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Empacota o Launcher em uma pasta self-contained (zip + manifesto + delta).
+  Empacota o Launcher em .exe unico, pasta com manifesto e delta.
 
 .DESCRIPTION
-  Publica dotnet publish do projeto Ribanense.Solucoes.Launcher em Release win-x64
-  self-contained, sem single-file. Gera payload-manifest.json, o zip completo e,
-  quando -PreviousDir aponta para a versao anterior, o delta-from-<versao>.zip.
-  A versao default vem de Directory.Build.props.
+  Gera tres saidas em artifacts\publish\Launcher:
+
+    1. launcher-<versao>-win-x64.exe  (+ .sha256)
+       Self-contained + PublishSingleFile. E o arquivo que quem nao instalou
+       baixa, como sempre foi. Tambem consegue se instalar sozinho, extraindo
+       o conteudo de dentro dele (--install).
+
+    2. launcher-<versao>-win-x64.zip  (+ .sha256) e payload-manifest.json
+       Publicacao em pasta. E o formato da copia instalada, que atualiza por
+       delta (delta-from-<anterior>.zip) quando a versao anterior tambem era
+       pasta.
 
 .PARAMETER Version
-  Versao SemVer no nome do zip. Se omitida, usa //PropertyGroup/Version em Directory.Build.props.
+  Versao SemVer. Se omitida, usa //PropertyGroup/Version em Directory.Build.props.
 
 .PARAMETER OutputDir
   Pasta de saida (default: artifacts\publish\Launcher).
@@ -62,25 +69,30 @@ if (Test-Path -LiteralPath $OutputDir) {
 }
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 
-$publishDir = Join-Path $OutputDir 'out'
-New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
+$folderDir = Join-Path $OutputDir 'out'
+$singleFileDir = Join-Path $OutputDir 'out-single'
+New-Item -ItemType Directory -Path $folderDir, $singleFileDir -Force | Out-Null
 
-Write-Host "Publicando Ribanense.Solucoes.Launcher $Version (pasta self-contained)..." -ForegroundColor Cyan
+# 1. Pasta self-contained: formato da copia instalada.
+Write-Host "Publicando Ribanense.Solucoes.Launcher $Version (pasta)..." -ForegroundColor Cyan
 & dotnet publish $launcherProjectPath `
     -c Release `
     -r win-x64 `
     --self-contained true `
     -p:PublishReadyToRun=true `
-    -o $publishDir
-if ($LASTEXITCODE -ne 0) { throw "dotnet publish do Launcher falhou." }
+    "-p:Version=$Version" `
+    "-p:AssemblyVersion=$(($Version -split '-')[0]).0" `
+    "-p:FileVersion=$(($Version -split '-')[0]).0" `
+    -o $folderDir
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish (pasta) do Launcher falhou." }
 
-$publishedExe = Join-Path $publishDir 'Ribanense.Solucoes.Launcher.exe'
+$publishedExe = Join-Path $folderDir 'Ribanense.Solucoes.Launcher.exe'
 if (-not (Test-Path -LiteralPath $publishedExe)) {
     throw "Executavel nao encontrado: $publishedExe"
 }
 
 & (Join-Path $ScriptRoot 'payload-delta.ps1') `
-    -TargetDir $publishDir `
+    -TargetDir $folderDir `
     -Version $Version `
     -EntryExecutable 'Ribanense.Solucoes.Launcher.exe' `
     -PreviousDir $PreviousDir `
@@ -93,13 +105,54 @@ $zipPath = Join-Path $OutputDir $zipName
 if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 
 Write-Host "Gerando zip: $zipName" -ForegroundColor Cyan
-Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath $zipPath -Force
+Compress-Archive -Path (Join-Path $folderDir '*') -DestinationPath $zipPath -Force
 
-$hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-$shaPath = "$zipPath.sha256"
-"$hash  $zipName" | Set-Content -LiteralPath $shaPath -Encoding ASCII
+$zipHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+"$zipHash  $zipName" | Set-Content -LiteralPath "$zipPath.sha256" -Encoding ASCII
+
+# 2. Arquivo unico: o download de quem nao instalou.
+#    E o bootstrap, com a pasta do launcher embutida como payload.zip. Rodar e
+#    instalar extraem dessa copia local, sem baixar nada de novo.
+$bootstrapProject = Join-Path $ProjectRoot 'src\Ribanense.Solucoes.LauncherBootstrap\Ribanense.Solucoes.LauncherBootstrap.csproj'
+if (-not (Test-Path -LiteralPath $bootstrapProject)) {
+    throw "Projeto do bootstrap nao encontrado: $bootstrapProject"
+}
+
+$bundleZip = Join-Path $OutputDir '_payload.zip'
+if (Test-Path -LiteralPath $bundleZip) { Remove-Item -LiteralPath $bundleZip -Force }
+Compress-Archive -Path (Join-Path $folderDir '*') -DestinationPath $bundleZip -Force
+
+Write-Host "Publicando o exe unico (bootstrap + payload)..." -ForegroundColor Cyan
+& dotnet publish $bootstrapProject `
+    -c Release `
+    -r win-x64 `
+    --self-contained true `
+    -p:PublishSingleFile=true `
+    -p:IncludeAllContentForSelfExtract=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:EnableCompressionInSingleFile=true `
+    "-p:PayloadZip=$bundleZip" `
+    "-p:Version=$Version" `
+    "-p:AssemblyVersion=$(($Version -split '-')[0]).0" `
+    -o $singleFileDir
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish do exe unico falhou." }
+Remove-Item -LiteralPath $bundleZip -Force -ErrorAction SilentlyContinue
+
+$singleExe = Join-Path $singleFileDir 'Ribanense.Solucoes.LauncherBootstrap.exe'
+if (-not (Test-Path -LiteralPath $singleExe)) {
+    throw "Executavel unico nao encontrado: $singleExe"
+}
+
+$exeName = "launcher-$Version-win-x64.exe"
+$exePath = Join-Path $OutputDir $exeName
+Copy-Item -LiteralPath $singleExe -Destination $exePath -Force
+
+$exeHash = (Get-FileHash -LiteralPath $exePath -Algorithm SHA256).Hash.ToLowerInvariant()
+"$exeHash  $exeName" | Set-Content -LiteralPath "$exePath.sha256" -Encoding ASCII
 
 Write-Host ""
 Write-Host "Pacote do Launcher criado em: $OutputDir" -ForegroundColor Green
+Write-Host "  Exe    : $exeName ($([math]::Round((Get-Item $exePath).Length / 1MB, 1)) MB)"
 Write-Host "  Zip    : $zipName"
-Write-Host "  SHA256 : $hash"
+Write-Host "  SHA256 : exe $exeHash"
+Write-Host "           zip $zipHash"
