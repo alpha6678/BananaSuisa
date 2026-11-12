@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Ribanense.Solucoes.Launcher/Ribanense.Solucoes.Launcher.csproj" />
+    <Project Path="src/Ribanense.Solucoes.LauncherBootstrap/Ribanense.Solucoes.LauncherBootstrap.csproj" />
+    <Project Path="src/Ribanense.Solucoes.LauncherSetup/Ribanense.Solucoes.LauncherSetup.csproj" />
     <Project Path="src/Ribanense.Solucoes.PluginSDK/Ribanense.Solucoes.PluginSDK.csproj" />
     <Project Path="src/Ribanense.Solucoes.Infrastructure/Ribanense.Solucoes.Infrastructure.csproj" />
     <Project Path="src/Ribanense.Solucoes.UI/Ribanense.Solucoes.UI.csproj" />

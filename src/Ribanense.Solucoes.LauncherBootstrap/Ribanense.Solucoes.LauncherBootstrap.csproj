@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>Ribanense.Solucoes.LauncherBootstrap</RootNamespace>
+    <AssemblyName>Ribanense.Solucoes.LauncherBootstrap</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <SatelliteResourceLanguages>pt-BR</SatelliteResourceLanguages>
+    <ApplicationIcon>..\Ribanense.Solucoes.Launcher\Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ribanense.Solucoes.PluginSDK\Ribanense.Solucoes.PluginSDK.csproj" />
+  </ItemGroup>
+  <!--
+    A pasta do launcher vai dentro do exe unico como conteudo. Com
+    IncludeAllContentForSelfExtract o zip aparece ao lado do exe extraido em
+    %TEMP%, e o bootstrap extrai a pasta a partir dele: nada e baixado de novo.
+  -->
+  <ItemGroup Condition="'$(PayloadZip)' != ''">
+    <Content Include="$(PayloadZip)" Link="payload.zip">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ribanense.Solucoes.Launcher.Tests" />
+  </ItemGroup>
+</Project>
